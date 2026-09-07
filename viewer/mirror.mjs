@@ -92,6 +92,9 @@ export function mountMirror(RFB, environment = {}) {
       current.clipViewport = false;
       current.focusOnClick = true;
       current.background = '#000';
+      // Preserve the qualified image settings when upstream defaults change.
+      current.qualityLevel = 6;
+      current.compressionLevel = 2;
 
       current.addEventListener('connect', () => {
         if (client !== current || stopped) return;
@@ -147,5 +150,5 @@ export function mountMirror(RFB, environment = {}) {
   button.addEventListener('click', reconnect);
   win.addEventListener('pagehide', stop);
   connect();
-  return { reconnect, stop };
+  return { reconnect, stop, currentClient: () => connected ? client : null };
 }

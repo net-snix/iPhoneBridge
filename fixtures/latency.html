@@ -1,0 +1,28 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>iPhoneBridge latency test</title>
+<style>
+html,body{margin:0;background:#172127;color:#edf0f1;font:17px -apple-system,sans-serif;overflow:hidden}
+#motion{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+main{position:relative;padding:24px 15px;z-index:1}#code{display:block;width:min(360px,100%);height:64px;image-rendering:pixelated}
+h1{font-size:22px;margin:24px 0 10px}p{line-height:1.5;max-width:360px}button{font:inherit;padding:16px;border:0;border-radius:8px;background:#d6eee8;color:#102b23}
+</style>
+<canvas id="motion"></canvas>
+<main><canvas id="code" width="360" height="64" tabindex="0"></canvas>
+<h1>Mirror latency test</h1><p id="mode"></p><p>Disposable controls. No data is submitted outside this USB connection.</p>
+<button id="focus">Ready for keyboard test</button><p id="counter">0</p></main>
+<script>
+const code=document.getElementById('code'), ctx=code.getContext('2d',{alpha:false});
+const motion=document.getElementById('motion'), bg=motion.getContext('2d',{alpha:false});
+const mode=new URLSearchParams(location.search).get('mode') || 'input';
+document.getElementById('mode').textContent=mode==='input'?'Input response test':`${mode} animation test`;
+let seq=0;
+const header=['#ff3030','#30ff30','#3030ff','#30ffff'];
+const footer=['#ffff30','#ff30ff','#30ffff','#ff9030'];
+function draw(){const encoded=mode==='input'?seq:(seq|0x80000000)>>>0;const colors=[...header,...Array.from({length:32},(_,i)=>((encoded>>>(31-i))&1)?'#f0f0f0':'#101010'),...footer];colors.forEach((color,i)=>{ctx.fillStyle=color;ctx.fillRect(i*9,0,9,64)});document.getElementById('counter').textContent=seq;}
+addEventListener('keydown',e=>{if(mode==='input'&&e.code==='Space'&&!e.repeat){e.preventDefault();seq=(seq+1)>>>0;draw()}});
+document.getElementById('focus').onclick=()=>{code.focus();document.getElementById('focus').textContent='Keyboard test ready'};
+function animate(){seq=(seq+1)>>>0;if(mode==='motion'){if(motion.width!==innerWidth||motion.height!==innerHeight){motion.width=innerWidth;motion.height=innerHeight}bg.fillStyle='#162028';bg.fillRect(0,0,motion.width,motion.height);for(let y=0;y<motion.height;y+=24){const x=((seq*11+y*2)%(motion.width+180))-180;bg.fillStyle=`hsl(${(y+seq)%360} 35% 36%)`;bg.fillRect(x,y,180,12)}}draw();requestAnimationFrame(animate)}
+if(mode==='input')draw();else requestAnimationFrame(animate);
+</script>

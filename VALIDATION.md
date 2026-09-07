@@ -9,7 +9,7 @@ Tested on the physical USB-connected iPhone `00008110-001914103EB8801E`, iPhone1
 - Fresh libimobiledevice screenshots independently matched the mirrored phone content. The portrait clock and page updates appeared in the Mac window.
 - Espen clicked `Right target` in the native Mac window and confirmed that the label changed to `Target: right`; the updated label was then independently observed in the native window. Synthetic CUA clicks had not produced this effect, so they were not counted as human-input proof.
 - The app's native Quit menu completed owned cleanup, removed `work/state.json`, and exited. Reopening connected successfully.
-- Capture is configured for 30 fps. This is a configured target, not a measured sustained video frame rate. No audio implementation.
+- Initial capture was configured for 30 fps. The subsequent latency pass qualified 60 fps capture with precise changed-region updates; measured delivery and latency are in [PERFORMANCE.md](PERFORMANCE.md). No audio implementation.
 - Human interaction was confirmed in portrait. MCP landscape input was confirmed after physical rotation during the earlier running session; human input after launching directly in landscape has not been separately qualified.
 
 ## Physical input through MCP

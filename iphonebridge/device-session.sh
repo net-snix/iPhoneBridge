@@ -77,9 +77,11 @@ run)
     }
     trap cleanup EXIT
     trap 'exit 0' HUP INT TERM
+    # Full resolution; precise dirty regions with no coalescing delay. Keep
+    # blocking swaps and the upstream two-encode limit to preserve final frames.
     DISABLE_TWEAKS=1 "$binary" -b 127.0.0.1 -p 15901 -n iPhoneBridge \
         -B off -H 0 -C off -T off -i off -I off \
-        -O on -U off -s 1 -F 30 &
+        -O on -U off -s 1 -F 60 -P 60 -d 0 &
     child=$!
     printf '%s\n' "$child" > "$active/pid"
     # Wait for exec before recording a PID identity; no input is sent here.

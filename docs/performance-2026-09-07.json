@@ -1,0 +1,129 @@
+{
+  "date": "2026-09-07",
+  "device": "iPhone14,2 / iOS 15.1.1",
+  "framebuffer": "1172x2536 portrait",
+  "native_viewer": "AppKit/WKWebView with noVNC 1.7.0",
+  "source_commit": "a3e40816ea5b93a7c80c09625175893d15bd1070",
+  "binary_sha256": "91ae6a54f99139fd5e6210e45494b0f332b16eb3983e632a2c8932971ff63196",
+  "baseline_flags": "-F30 -s1, P0 default",
+  "selected_flags": "-F60 -s1 -P60 -d0",
+  "scenarios": [
+    {
+      "label": "baseline-input-c2",
+      "mode": "input",
+      "compressionLevel": 2,
+      "qualityLevel": 6,
+      "completedTrials": 30,
+      "p50": 165.5,
+      "p95": 182,
+      "receivedFps": null,
+      "uniqueSequences": null,
+      "sourceFramesSkipped": null,
+      "failure": null
+    },
+    {
+      "label": "baseline-motion-c2",
+      "mode": "animation",
+      "compressionLevel": 2,
+      "qualityLevel": 6,
+      "completedTrials": null,
+      "p50": 33,
+      "p95": 35,
+      "receivedFps": 30.063467319897562,
+      "uniqueSequences": 271,
+      "sourceFramesSkipped": 270,
+      "failure": null
+    },
+    {
+      "label": "fps60-input-c2-repeat",
+      "mode": "input",
+      "compressionLevel": 2,
+      "qualityLevel": 6,
+      "completedTrials": 30,
+      "p50": 148,
+      "p95": 150,
+      "receivedFps": null,
+      "uniqueSequences": null,
+      "sourceFramesSkipped": null,
+      "failure": null
+    },
+    {
+      "label": "fps60-motion-c2",
+      "mode": "animation",
+      "compressionLevel": 2,
+      "qualityLevel": 6,
+      "completedTrials": null,
+      "p50": 33,
+      "p95": 35,
+      "receivedFps": 32.86902495240004,
+      "uniqueSequences": 329,
+      "sourceFramesSkipped": 272,
+      "failure": null
+    },
+    {
+      "label": "dirty60-input-c2",
+      "mode": "input",
+      "compressionLevel": 2,
+      "qualityLevel": 6,
+      "completedTrials": 30,
+      "p50": 98,
+      "p95": 103.29999999999998,
+      "receivedFps": null,
+      "uniqueSequences": null,
+      "sourceFramesSkipped": null,
+      "failure": null
+    },
+    {
+      "label": "dirty60-motion-c2",
+      "mode": "animation",
+      "compressionLevel": 2,
+      "qualityLevel": 6,
+      "completedTrials": null,
+      "p50": 17,
+      "p95": 33,
+      "receivedFps": 54.530874097834804,
+      "uniqueSequences": 545,
+      "sourceFramesSkipped": 54,
+      "failure": null
+    },
+    {
+      "label": "dirty60-sparse-c2",
+      "mode": "animation",
+      "compressionLevel": 2,
+      "qualityLevel": 6,
+      "completedTrials": null,
+      "p50": 17,
+      "p95": 18,
+      "receivedFps": 59.34837092731829,
+      "uniqueSequences": 593,
+      "sourceFramesSkipped": 7,
+      "failure": null
+    },
+    {
+      "label": "dirty60-input-confirmation",
+      "mode": "input",
+      "compressionLevel": 2,
+      "qualityLevel": 6,
+      "completedTrials": 30,
+      "p50": 83,
+      "p95": 99,
+      "receivedFps": null,
+      "failure": null
+    }
+  ],
+  "phone_cpu": {
+    "baseline": {
+      "median_percent_one_core": 70.5,
+      "samples": 10
+    },
+    "fps60": {
+      "median_percent_one_core": 77.4,
+      "samples": 10
+    },
+    "dirty60": {
+      "median_percent_one_core": 77.9,
+      "samples": 10
+    }
+  },
+  "method": "Public RFB.sendKey through actual WKWebView; detect sequence change in rendered framebuffer. Animation counts distinct rendered sequences. Local viewer clock only; requestAnimationFrame sampling approximately16.7ms."
+}

@@ -13,7 +13,9 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScri
     private var connected = false
     private var lastLandscape: Bool?
     private let root: URL
-    private let preview = URL(string: "http://127.0.0.1:15801/")!
+    private let preview = URL(string: CommandLine.arguments.contains("--benchmark")
+                              ? "http://127.0.0.1:15801/?benchmark=1"
+                              : "http://127.0.0.1:15801/")!
 
     override init() {
         // This local app is built for this checkout; moving the bundle is supported.

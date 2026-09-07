@@ -13,8 +13,7 @@ def start():
             raise RuntimeError("Stale test surface: stop and start the bridge to clean up")
         life.available(15802)
         try:
-            life.spawn([str(life.ROOT / ".venv/bin/python"), "-m", "http.server", "15802",
-                        "--bind", "127.0.0.1", "--directory", str(life.ROOT / "fixtures")],
+            life.spawn([str(life.ROOT / ".venv/bin/python"), "-m", "iphonebridge.fixture_server"],
                        "fixture", info, "fixture_server")
             life.spawn([*life.SSH, "-N", "-o", "ExitOnForwardFailure=yes", "-R",
                         "127.0.0.1:15802:127.0.0.1:15802", life.PEER], "fixture-usb", info, "fixture_ssh")

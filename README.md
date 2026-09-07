@@ -12,7 +12,7 @@ Double-click **iPhoneBridge.app** in this directory, or run:
 ./bridge
 ```
 
-The app starts the bridge automatically and fills the window with the live phone screen. Keep the iPhone awake and unlocked. Use **View → Reconnect** after a disconnected cable, and **View → Enter Full Screen** for a larger view. Quitting the app stops the bridge, including any CLI/MCP connection using it. The capture target is 30 fps; delivered frame rate depends on the screen content and device load.
+The app starts the bridge automatically and fills the window with the live phone screen. Keep the iPhone awake and unlocked. Use **View → Reconnect** after a disconnected cable, and **View → Enter Full Screen** for a larger view. Quitting the app stops the bridge, including any CLI/MCP connection using it. Capture targets 60 fps and sends precise changed regions without an added coalescing delay. The live test delivered about 55 fps during motion and 59 fps for sparse changes, with about 98 ms input-to-visible response; see [PERFORMANCE.md](PERFORMANCE.md) for the comparison and measurement limits.
 
 To build the local Mac app again:
 
@@ -96,6 +96,7 @@ New listeners are loopback only. The daemon's IPv6 RFB listener is disabled, Bon
 ```sh
 .venv/bin/python -m unittest discover -s tests -v
 node --test viewer/mirror.test.mjs
+node --test viewer/benchmark.test.mjs
 .venv/bin/python scripts/check-mcp   # Real MCP handshake and native PNG; no input
 ./bridge health
 ```
@@ -103,3 +104,5 @@ node --test viewer/mirror.test.mjs
 See [VALIDATION.md](VALIDATION.md) for actual phone evidence and its limits. Screenshots are private files in `outputs/screenshots/`. Local ownership, deployment and build records, plus service logs, are in ignored `work/`. `work/device.log` includes the remote daemon output; `work/viewer.log` contains viewer connection diagnostics.
 
 For a disposable test page, run `./bridge test-surface`, then open `http://127.0.0.1:15802/test.html` in Safari on the phone. It serves only the bundled fixture through a loopback USB reverse forward, with no external resources or saved form data. Opening a page is an explicit separate action. The test server and tunnel are removed by `stop`; the Safari tab itself remains.
+
+Latency diagnostics are opt-in (`open iPhoneBridge.app --args --benchmark`) and use the separate disposable `latency.html` page. The normal app neither loads the benchmark module nor sends test input. Reproduction commands and calibration safeguards are in [PERFORMANCE.md](PERFORMANCE.md).
