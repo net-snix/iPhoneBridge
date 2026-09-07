@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""Time the agent capture path against the live bridge without sending input.
+
+Run with .venv/bin/python scripts/measure-agent-path while the bridge is started.
+It opens the same serialized RFB session the CLI/MCP actions use, times the size
+probe and a full lossless capture, then times a complete no-input action with the
+current size check and with the previous full-frame check for comparison.
+Results are printed as JSON; nothing is written except one ignored screenshot pair.
+"""
+import io
+import json
+import statistics
+import sys
+import time
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from PIL import Image  # noqa: E402
+from iphonebridge import control  # noqa: E402
+
+
+def timed(function, repeat=1):
+    samples = []
+    result = None
+    for _ in range(repeat):
+        started = time.perf_counter()
+        result = function()
+        samples.append(round((time.perf_counter() - started) * 1000, 1))
+    return result, {"median_ms": statistics.median(samples), "min_ms": min(samples), "max_ms": max(samples)}
+
+
+def action(check):
+    with control._session() as session:
+        check(session)
+        time.sleep(0.25)
+        return control._save(session, "measure")
+
+
+report = {"unit": "milliseconds", "input_sent": False}
+with control._session() as session:
+    size, report["size_probe"] = timed(session.size, repeat=5)
+    (png, full_size), report["full_capture_png"] = timed(session.frame)
+    with Image.open(io.BytesIO(png)) as frame:
+        luminance = frame.convert("L").getextrema()
+report["framebuffer"] = {"probe": list(size), "capture": list(full_size), "png_bytes": len(png),
+                         "luminance_range": list(luminance)}
+if tuple(size) != tuple(full_size) or luminance[0] == luminance[1]:
+    raise SystemExit("Probe size and captured frame disagree, or the frame is flat; do not trust these numbers")
+_, report["action_with_size_probe"] = timed(lambda: action(lambda s: control._check_frame(s, *size)), repeat=3)
+_, report["action_with_full_frame_check"] = timed(lambda: action(lambda s: s.frame()), repeat=3)
+_, report["screenshot"] = timed(control.screenshot, repeat=3)
+print(json.dumps(report, indent=2))

@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""Build the iOS daemon and every non-platform static dependency from source.
+
+No device access. A release source package can be rebuilt offline with
+--source-package pointing to its extracted device directory.
+"""
+import argparse
+import hashlib
+import io
+import json
+import os
+import re
+from pathlib import Path
+import shutil
+import subprocess
+import tarfile
+import urllib.request
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def run(*args, cwd=None):
+    subprocess.run([str(x) for x in args], cwd=cwd, check=True)
+
+
+def output(*args, cwd=None):
+    return subprocess.check_output([str(x) for x in args], cwd=cwd).decode().strip()
+
+
+def extract(archive, destination):
+    with tarfile.open(archive) as source:
+        source.extractall(destination, filter="data")
+
+
+def apply_reviewed_patch(tree, patch):
+    """Avoid git apply's silent path filtering inside an enclosing checkout."""
+    command = ["patch", "--force", "--fuzz=0", "-p1", "-i", str(patch)]
+    check = subprocess.run([*command, "--forward", "--dry-run"], cwd=tree, capture_output=True)
+    if check.returncode == 0:
+        run(*command, "--forward", cwd=tree)
+    reverse = subprocess.run([*command, "--reverse", "--dry-run"], cwd=tree, capture_output=True)
+    if reverse.returncode != 0:
+        raise RuntimeError(f"Patch not applied exactly: {patch}\n{reverse.stderr.decode()}")
+
+
+def checkout_path(spec, variable):
+    path = Path(os.environ.get(variable, spec["path"])).expanduser()
+    return path if path.is_absolute() else ROOT / path
+
+
+def main():
+    recipe_sha = sha(Path(__file__))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--build-dir", type=Path, default=ROOT / "work/device-build")
+    parser.add_argument("--source-package", type=Path)
+    parser.add_argument("--theos", type=Path)
+    parser.add_argument("--jobs", type=int, default=4)
+    args = parser.parse_args()
+    base = args.source_package.resolve() if args.source_package else ROOT
+    lock = json.loads((base / "device-sources.lock.json").read_text())
+    project = json.loads((base / "dependency-lock.json").read_text())
+    work = args.build_dir.resolve()
+    theos = (args.theos or Path(os.environ.get("THEOS", project["theos"]["path"]))).expanduser().resolve()
+    sdk = theos / "sdks" / project["theos"]["sdk"]
+    if not sdk.is_dir():
+        raise RuntimeError(f"Install the pinned SDK first: {sdk}")
+    if output("git", "-C", theos, "rev-parse", "HEAD") != project["theos"]["commit"]:
+        raise RuntimeError("Theos differs from the pinned revision")
+    sources, downloads, prefix = (work / x for x in ("sources", "downloads", "prefix"))
+    for path in (sources, downloads, prefix):
+        path.mkdir(parents=True, exist_ok=True)
+    for spec in lock["sources"].values():
+        archive = downloads / spec["archive"]
+        if not archive.exists():
+            if args.source_package:
+                shutil.copy2(base / "archives" / spec["archive"], archive)
+            else:
+                urllib.request.urlretrieve(spec["url"], archive)
+        if sha(archive) != spec["sha256"]:
+            raise RuntimeError(f"Source archive hash mismatch: {archive}")
+        if not (sources / spec["directory"]).exists():
+            extract(archive, sources)
+        if spec.get("patch"):
+            patch = base / spec["patch"]
+            if sha(patch) != spec["patch_sha256"]:
+                raise RuntimeError(f"Dependency patch changed: {patch}")
+            apply_reviewed_patch(sources / spec["directory"], patch)
+
+    source_maps = f"-ffile-prefix-map={work}=/usr/src/iphonebridge -ffile-prefix-map={theos}=/opt/theos"
+    common = ["-DCMAKE_SYSTEM_NAME=iOS", "-DCMAKE_SYSTEM_PROCESSOR=arm64", f"-DCMAKE_OSX_SYSROOT={sdk}",
+              f"-DCMAKE_C_FLAGS={source_maps}", f"-DCMAKE_CXX_FLAGS={source_maps}",
+              "-DCMAKE_OSX_ARCHITECTURES=arm64", "-DCMAKE_OSX_DEPLOYMENT_TARGET=15.0",
+              "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+              "-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY", "-DBUILD_SHARED_LIBS=OFF",
+              f"-DCMAKE_INSTALL_PREFIX={prefix}", f"-DCMAKE_PREFIX_PATH={prefix}",
+              f"-DCMAKE_FIND_ROOT_PATH={prefix};{sdk}",
+              "-DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY", "-DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY",
+              "-DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=ONLY", "-DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER"]
+    commands = []
+
+    def build(name, options, targets=None, install=True):
+        tree = sources / lock["sources"][name]["directory"]
+        directory = work / ("build-" + name)
+        configure = ["cmake", "--fresh", "-S", str(tree), "-B", str(directory), *common, *options]
+        commands.append(configure)
+        run(*configure)
+        command = ["cmake", "--build", str(directory), "--parallel", str(args.jobs)]
+        if targets:
+            command += ["--target", *targets]
+        commands.append(command)
+        run(*command)
+        if install:
+            run("cmake", "--install", directory)
+
+    build("libjpeg-turbo", ["-DENABLE_SHARED=OFF", "-DENABLE_STATIC=ON", "-DWITH_TURBOJPEG=ON",
+                            "-DWITH_TOOLS=OFF", "-DWITH_TESTS=OFF"])
+    zlib = [f"-DZLIB_LIBRARY={sdk}/usr/lib/libz.tbd", f"-DZLIB_INCLUDE_DIR={sdk}/usr/include"]
+    build("libpng", ["-DPNG_SHARED=OFF", "-DPNG_STATIC=ON", "-DPNG_TESTS=OFF", "-DPNG_TOOLS=OFF", *zlib])
+    build("lzo", ["-DENABLE_SHARED=OFF", "-DENABLE_STATIC=ON"], ["lzo_static_lib"], install=False)
+    shutil.copy2(work / "build-lzo/liblzo2.a", prefix / "lib/liblzo2.a")
+    shutil.copytree(sources / lock["sources"]["lzo"]["directory"] / "include/lzo", prefix / "include/lzo", dirs_exist_ok=True)
+    disabled = ["OPENSSL", "GNUTLS", "GCRYPT", "SASL", "SDL", "GTK", "QT", "LIBSSHTUNNEL", "SYSTEMD", "FFMPEG", "XCB", "EXAMPLES", "TESTS"]
+    build("libvncserver", [*[f"-DWITH_{x}=OFF" for x in disabled],
+        "-DWITH_JPEG=ON", "-DWITH_PNG=ON", "-DWITH_LZO=ON", "-DWITH_ZLIB=ON", "-DWITH_THREADS=ON",
+        f"-DJPEG_LIBRARY={prefix}/lib/libjpeg.a", f"-DJPEG_INCLUDE_DIR={prefix}/include",
+        f"-DPNG_LIBRARY={prefix}/lib/libpng16.a", f"-DPNG_PNG_INCLUDE_DIR={prefix}/include",
+        f"-DLZO_LIBRARIES={prefix}/lib/liblzo2.a", f"-DLZO_INCLUDE_DIR={prefix}/include", *zlib])
+    config = (prefix / "include/rfb/rfbconfig.h").read_text()
+    for feature in ("LIBJPEG", "LIBPNG", "LZO", "LIBZ"):
+        if not re.search(rf"#define\s+LIBVNCSERVER_HAVE_{feature}\s+1\b", config):
+            raise RuntimeError(f"Required codec missing: {feature}")
+    for feature in ("LIBSSL", "SASL"):
+        if re.search(rf"#define\s+LIBVNCSERVER_HAVE_{feature}\s+1\b", config):
+            raise RuntimeError(f"Unexpected transport dependency: {feature}")
+    # Darwin's endian.h exists but does not define GNU __BYTE_ORDER macros.
+    # Catch preprocessor overrides of CMake's correct little-endian result.
+    endian_check = work / "verify-rfb-endian.c"
+    endian_check.write_text("#include <rfb/rfb.h>\n"
+                            "#ifdef LIBVNCSERVER_WORDS_BIGENDIAN\n"
+                            "#error Incorrect RFB byte order for arm64 iOS\n#endif\n"
+                            "_Static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, \"iOS byte order\");\n")
+    run("xcrun", "clang", "-arch", "arm64", "-isysroot", sdk, "-miphoneos-version-min=15.0",
+        "-I", prefix / "include", "-fsyntax-only", endian_check)
+
+    daemon = work / "TrollVNC"
+    patch = base / project["trollvnc"]["patch"]
+    if sha(patch) != project["trollvnc"]["patch_sha256"]:
+        raise RuntimeError("TrollVNC patch differs from its reviewed pin")
+    if not daemon.exists():
+        daemon.mkdir()
+        if args.source_package:
+            extract(base / "archives/TrollVNC.tar.gz", daemon)
+        else:
+            source = checkout_path(project["trollvnc"], "IPHONEBRIDGE_TROLLVNC_SOURCE")
+            data = subprocess.check_output(["git", "-C", str(source), "archive", project["trollvnc"]["commit"]])
+            with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+                archive.extractall(daemon, filter="data")
+        # The isolated build must never use upstream binary libraries or stale ABI headers.
+        for generated in (daemon / "lib", daemon / "include"):
+            if generated.exists():
+                shutil.rmtree(generated)
+    apply_reviewed_patch(daemon, patch)
+    apply_reviewed_patch(daemon, base / "patches/trollvnc-source-deps.patch")
+    for name, expected in project["trollvnc"]["patched_files_sha256"].items():
+        if sha(daemon / name) != expected:
+            raise RuntimeError(f"Patched daemon source differs from reviewed bytes: {name}")
+    shutil.copytree(prefix / "include", daemon / "include", dirs_exist_ok=True)
+    (daemon / "lib").mkdir(exist_ok=True)
+    for name in ("libvncserver.a", "libjpeg.a", "libturbojpeg.a", "libpng16.a", "liblzo2.a"):
+        shutil.copy2(prefix / "lib" / name, daemon / "lib" / name)
+    make = ["make", "-B", f"-j{args.jobs}", "all", f"THEOS={theos}", f"ADDITIONAL_CFLAGS={source_maps}", "THEOS_PACKAGE_SCHEME=rootless", "FINALPACKAGE=1", "SUBPROJECTS="]
+    run(*make, cwd=daemon)
+    binary = daemon / ".theos/obj/trollvncserver"
+    undefined = output("nm", "-u", binary)
+    if any(x in undefined for x in ("_SSL_", "_OPENSSL_", "_sasl_")):
+        raise RuntimeError("Unexpected SSL/SASL symbols in device daemon")
+    manifest = {
+        "schema_version": 1,
+        "binary": {"path": str(binary), "sha256": sha(binary)},
+        "source": {"path": str(daemon), "commit": project["trollvnc"]["commit"], "tree": project["trollvnc"]["tree"],
+                   "patch": str(patch), "patch_sha256": sha(patch), "dependency_patch_sha256": sha(base / "patches/trollvnc-source-deps.patch")},
+        "static_libraries": {p.name: sha(p) for p in sorted((daemon / "lib").glob("*.a"))},
+        "device_sources": lock,
+        "build_recipe_sha256": recipe_sha,
+        "supply_chain": "All non-platform device libraries compiled from the exact source archives in device-sources.lock.json; no upstream static archives used.",
+        "toolchain": {"theos_path": str(theos), "theos_commit": project["theos"]["commit"], "sdk_path": str(sdk),
+                      "xcode": output("xcodebuild", "-version"), "cmake": output("cmake", "--version").splitlines()[0]},
+        "build_command": make, "dependency_build_commands": commands,
+        "viewer": {"path": str(checkout_path(project["novnc"], "IPHONEBRIDGE_NOVNC_SOURCE")), "commit": project["novnc"]["commit"], "tree": project["novnc"]["tree"]},
+    }
+    if sha(Path(__file__)) != recipe_sha:
+        raise RuntimeError("Build recipe changed during compilation; rebuild before staging")
+    (work / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    if not args.source_package:
+        (ROOT / "work/build-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    print(f"Source-built daemon: {binary}\nSHA-256: {sha(binary)}")
+
+
+if __name__ == "__main__":
+    main()

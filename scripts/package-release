@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""Package a verified app and complete corresponding source from a public commit."""
+import argparse
+import hashlib
+import io
+import json
+from pathlib import Path
+import plistlib
+import shutil
+import subprocess
+import tarfile
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source-ref', required=True, help='Reviewed public Git commit or tag')
+    args = parser.parse_args()
+    commit = subprocess.check_output(['git', 'rev-parse', args.source_ref + '^{commit}'], cwd=ROOT, text=True).strip()
+    version = subprocess.check_output(['git', 'show', commit + ':VERSION'], cwd=ROOT, text=True).strip()
+    app = ROOT / 'iPhoneBridge.app'
+    with (app / 'Contents/Info.plist').open('rb') as file:
+        info = plistlib.load(file)
+    if info['CFBundleShortVersionString'] != version:
+        raise RuntimeError('App version differs from the reviewed source commit')
+    subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
+    source_root = ROOT / 'work/release-sources'
+    for component in ('device', 'macos'):
+        folder = source_root / component
+        inventory = json.loads((folder / 'SHA256SUMS.json').read_text())
+        for name, expected in inventory.items():
+            if sha(folder / name) != expected:
+                raise RuntimeError(f'Changed corresponding source: {component}/{name}')
+    output = ROOT / 'work/releases' / ('v' + version)
+    output.mkdir(parents=True, exist_ok=True)
+    source = output / ('iPhoneBridge-' + version + '-source')
+    if source.exists():
+        raise RuntimeError('Source staging directory already exists; use a fresh release directory')
+    source.mkdir()
+    project = source / 'project'
+    project.mkdir()
+    archive = subprocess.check_output(['git', 'archive', '--format=tar', commit], cwd=ROOT)
+    with tarfile.open(fileobj=io.BytesIO(archive)) as files:
+        files.extractall(project, filter='data')
+    for component in ('device', 'macos'):
+        shutil.copytree(source_root / component, source / component)
+    (source / 'README.md').write_text(
+        f'# iPhoneBridge {version} corresponding source\n\n'
+        f'Public project commit: `{commit}`.\n\n'
+        '`project/` contains the complete app source and notices. '
+        '`device/` contains the daemon, linked libraries, patches, and offline rebuild recipe. '
+        '`macos/` contains Python, all locked Python packages, native libraries, USB tools, '
+        'noVNC, exact recipes and replacement instructions. Read each directory README. '
+        'Apple SDKs and platform build prerequisites are not redistributed.\n')
+    app_zip = output / f'iPhoneBridge-{version}-macOS-arm64.zip'
+    subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(app), str(app_zip)], check=True)
+    source_tar = output / f'iPhoneBridge-{version}-corresponding-source.tar.gz'
+    with tarfile.open(source_tar, 'w:gz') as archive:
+        archive.add(source, arcname=source.name)
+    (output / 'SHA256SUMS').write_text(''.join(f'{sha(path)}  {path.name}\n' for path in (app_zip, source_tar)))
+    print(json.dumps({'version': version, 'source_commit': commit, 'output': str(output),
+                      'assets': [{'name': path.name, 'bytes': path.stat().st_size, 'sha256': sha(path)}
+                                 for path in (app_zip, source_tar)]}, indent=2))
+
+
+if __name__ == '__main__':
+    main()

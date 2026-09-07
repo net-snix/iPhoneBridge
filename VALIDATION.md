@@ -1,55 +1,84 @@
-# Live validation — 2026-09-07
+# Validation — 2026-09-07
 
-Tested on the physical USB-connected iPhone `00008110-001914103EB8801E`, iPhone14,2, iOS 15.1.1. Pairing, mobile SSH and RFB 3.8 passed. The Mac app was built with Xcode 26.3 / Swift 6.2 language mode and launched as `iPhoneBridge.app`.
+Test hardware: USB-connected iPhone 13 Pro (`iPhone14,2`), jailbroken iOS 15.1.1,
+and an Apple silicon Mac. Device identifiers and private screenshots are omitted.
+Build toolchain: Xcode 26.3 and Swift 6.2 language mode.
 
-## Native mirror
+## Development-session evidence
 
-- Launch opens a standalone AppKit/WebKit window and starts the bridge automatically.
-- The window showed the actual landscape phone screen at 2532×1170 and the portrait screen at 1172×2536, scaling into an 850 pixel wide landscape window and 380 pixel wide portrait window.
-- Fresh libimobiledevice screenshots independently matched the mirrored phone content. The portrait clock and page updates appeared in the Mac window.
-- Espen clicked `Right target` in the native Mac window and confirmed that the label changed to `Target: right`; the updated label was then independently observed in the native window. Synthetic CUA clicks had not produced this effect, so they were not counted as human-input proof.
-- The app's native Quit menu completed owned cleanup, removed `work/state.json`, and exited. Reopening connected successfully.
-- Initial capture was configured for 30 fps. The subsequent latency pass qualified 60 fps capture with precise changed-region updates; measured delivery and latency are in [PERFORMANCE.md](PERFORMANCE.md). No audio implementation.
-- Human interaction was confirmed in portrait. MCP landscape input was confirmed after physical rotation during the earlier running session; human input after launching directly in landscape has not been separately qualified.
+The following checks preceded the standalone release's dependency rebuild:
 
-## Home and App Switcher controls
+- The native window displayed the actual phone in portrait and landscape, changed
+  aspect ratio after rotation, resized, and entered full screen. An independent
+  USB screenshot matched the mirror.
+- A human click on the fixture's **Right target** changed its label in the native
+  mirror. Some synthetic computer-use clicks/drags did not affect WebKit, so those
+  attempts were not counted as proof of human input.
+- Real MCP calls changed a counter with a tap, moved a slider from 0 to 98, and
+  typed exact mixed-case ASCII and punctuation. After rotation, old dimensions
+  were rejected and a fresh landscape tap changed the expected label.
+- Portrait framebuffer dimensions were 1172×2536; one landscape capture was
+  2532×1170. The server can align buffers: nominal hardware dimensions must never
+  replace the dimensions returned by a fresh screenshot.
+- Toolbar Home/App Switcher actions worked on the phone. App-local ⌘1/⌘2 handling
+  before WebKit dispatch was verified by visible Home/Switcher transitions.
+- A CLI upward drag closed a disposable Calculator card while other app cards
+  remained. No unrelated app was terminated for cleanup or deployment.
+- Stop/restart removed owned phone and Mac processes and released bridge ports.
+  Pre-existing USB forwards kept their original process identities.
 
-- The native toolbar's Home Screen button returned Safari to the Home Screen. App Switcher opened the actual phone's app cards. The View menu action also reached the same native navigation command.
-- The first implementation launched the CLI for each button press; Espen reported it was slow. Native buttons now use the existing viewer connection and public `RFB.sendKey` API, with standard XF86HomePage/TaskPane keysyms. The pinned daemon patch maps key-down to upstream self-releasing Home/Home-double-press helpers. No CLI process, screenshot capture or completion wait is involved in native navigation.
-- Navigation-enabled daemon SHA-256 `a631bf9c1492114f819d15e6d4e897c1976c233257350ef39bb3e839ad0ceb43` was deployed and verified running at full scale with the qualified `-F 60 -P 60 -d 0` settings. A native Home toolbar press on this build visibly changed the phone's Home page.
-- An upward CLI drag on the visible Calculator card removed it from the switcher; the resulting native window retained Safari and Pokémon GO cards. Local evidence: `20260907T191918.062868Z-4ed82b22-drag.png`. CUA's synthetic drag inside WebKit did not act on the phone and is not counted as proof of human dragging; human clicking was verified separately above.
-- Home follows the phone's native behavior: pressing it in App Switcher returned to Safari, and a second press returned to Home. This is documented in everyday use.
-- Native menu shortcuts are configured as ⌘1 and ⌘2. Espen reported that the first menu-only implementation did not work. The corrected build uses an app-local key-down monitor before WebKit, scoped to the focused mirror window. After raising that window, CUA ⌘2 visibly opened App Switcher and ⌘1 visibly returned to the Home Screen. The native keyboard path is now verified on the phone; a human repeat of this final check remains optional.
+The native navigation path uses the current RFB connection. CLI navigation waits
+for a screenshot; the toolbar does not launch Python or capture a new image for
+each press. Historical navigation daemon SHA-256:
+`a631bf9c1492114f819d15e6d4e897c1976c233257350ef39bb3e839ad0ceb43`.
+Performance measurements and their exact scope are in [PERFORMANCE.md](PERFORMANCE.md).
 
-## Physical input through MCP
+## Standalone release evidence
 
-These were actual stdio MCP calls made using the official MCP client, with native PNG responses inspected after input. They are separate from the unit tests and from the human viewer.
+The app was copied into `/Applications`, launched from there, and ran entirely
+from its bundled runtime with an Apple-only PATH. The final source-built daemon
+SHA-256 is `7d8fac46d4844bbfe5e25105bce786e2cb7b023d001b15babafd69d414240fb2`.
 
-| Action | Observed result | Local evidence |
-| --- | --- | --- |
-| Portrait tap `(270,920)` at 1172×2536 | Counter changed from 0 to 1 | `20260907T181422.995976Z-c50a998a-tap.png` |
-| Portrait drag `(150,1365)` → `(1010,1365)` | Slider changed from 0 to 98 | `20260907T181450.759442Z-b203e052-drag.png` |
-| Typing with explicit Shift | Exact ` AZaz09!@#_+?:` appeared in the field | `20260907T182019.768140Z-5520bf14-type.png` |
-| User physically rotated phone | Capture changed to 2532×1170; old portrait dimensions rejected | `20260907T181930.348492Z-4777252c-screenshot.png` |
-| Landscape tap `(1850,550)` | Label changed to `Target: right` | `20260907T182220.741703Z-1c1e271a-tap.png` |
-| Landscape upward swipe | Scrolled toward the bottom marker, subsequently visible in native mirror | `20260907T182600.979015Z-cb1b6731-drag.png` |
-| Portrait tap after restart `(339,1441)` | Label changed to `Target: left` | `20260907T184117.095968Z-5f2b5186-tap.png` |
+- The installed app displayed the actual animated phone screen. Toolbar Home
+  and App Switcher, plus ⌘1/⌘2, produced visible phone transitions and returned
+  to the active app without terminating it.
+- Native Settings discovered the USB phone, saved its selection, and reconnected
+  successfully. The saved SSH-key field remained empty and default keys worked.
+- A real MCP client launched the installed helper, listed all six tools, and
+  decoded its screenshot PNG at the reported 1172×2536 dimensions.
+- Installed CLI navigation passed size probe, actual input, and post-action
+  capture in sequence, visibly opening App Switcher and returning to the app.
+- The viewer served real HTTP responses and WebSocket traffic. Health checks
+  now test an actual viewer page rather than just a listening port.
+- A temporary SSH probe to the phone's IPv6 RFB endpoint returned **Connection
+  refused**. The device source explicitly disables that listener for loopback
+  mode; native navigation mappings are verified in the compiled source.
+- Native Quit completed cleanup; all three owned services stopped. Existing
+  shared USB forwards retained their exact process/start identities.
 
-Images remain local and ignored under `outputs/screenshots/`; they are not repository fixtures. Exact sizes are authoritative: the server aligns portrait buffers, so callers must not substitute the nominal 1170×2532 hardware dimensions. Input is single-finger and ASCII with a US hardware keyboard mapping. An arbitrary app, every special key, Unicode, and multitouch have not been qualified.
+Live testing found and fixed the bundled Python multiprocessing entrypoint,
+a skipped source patch, and Darwin endian detection. Regression checks cover
+the failure modes rather than relying on a successful build alone.
 
-## Lifecycle and boundaries
+## Automated and distribution checks
 
-The hardened device session helper was deployed, started, stopped, and restarted. The cleanup probe verified that device daemon PID 11151 exited, remote `active/` disappeared, recorded local processes ended, and ports 15901/15801/15802 were released. Shared iproxy PIDs 86023 (USB SSH) and 95937 (Waypoint) retained their exact start/command identities. Local evidence: `work/cleanup-validation.json`.
+- 48 Python tests cover coordinate bounds, stale orientation, serialization,
+  release on failure, typing, useful MCP errors, process ownership, cleanup,
+  native navigation, CLI validation, device selection, runtime portability,
+  spawned HTTP/WebSocket requests, source patching, and byte-order checks.
+- 17 viewer/benchmark tests cover live-session navigation, connection handling,
+  orientation reporting, and measurement validation.
+- Swift release compilation passes with concurrency checking.
+- An independent fresh offline rebuild verifies the device source package.
+- Locked source and notice inventories are verified before packaging: 128
+  retained notice entries and all 55 locked Python source distributions.
+- A relocated runtime passes imports, device-payload hash verification, USB
+  utility execution, and an MCP initialize/list-tools handshake with six tools.
 
-New Mac listeners bind to 127.0.0.1. The patched daemon binds device IPv4 loopback and disables its IPv6 RFB listener; a connection to device `[::1]:15901` was refused. No LAN relay, package installation, launchd change, root password, jailbreak change, pairing reset, iOS update, respring or reboot was performed. The later app-navigation test closed Calculator through its switcher card; it did not terminate Pokémon GO.
+## Limits
 
-## Build and checks
-
-- 33 Python tests passed: coordinate bounds, stale orientation, serialized input, release on failure, shifted typing, useful MCP errors, PID ownership, cleanup, native Home event sequences and navigation CLI validation.
-- 4 viewer tests passed: configuration/orientation messages, reconnect cleanup, authentication failure handling, and navigation over the current connection without sending into disconnected or retired sessions.
-- Native release build passed without warnings after matching current WebKit delegate concurrency annotations.
-- `scripts/setup --check` passed pinned source, archive, patch, viewer and binary checks.
-- `scripts/check-mcp` verified six tools and decoded the returned native PNG against its reported dimensions.
-- Codex `iphonebridge` MCP registration is enabled. Existing sessions may need reopening to refresh the callable tool catalog; live protocol testing here used a real stdio client.
-
-See `dependency-lock.json`, `uv.lock`, `work/build-manifest.json`, and `THIRD_PARTY.md` for exact source/build/license identity. No public binary release or push was performed.
+Single-finger input and ASCII/US hardware-keyboard mapping are qualified.
+Arbitrary Unicode, multitouch, all special keys, other iOS versions, and every
+phone model are not. Human input when launching directly into landscape has not
+been separately qualified. There is no audio forwarding. Tests are not a claim
+of notarization or independent security review.

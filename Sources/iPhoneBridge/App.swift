@@ -8,6 +8,8 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
     private var overlay: NSStackView!
     private let message = NSTextField(wrappingLabelWithString: "Connecting to your iPhone…")
     private var retry: NSButton!
+    private var settingsButton: NSButton!
+    private var connectionSettings: ConnectionSettings?
     private var command: Process?
     private var quitting = false
     private var connected = false
@@ -17,17 +19,12 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
     private var shortcutMonitor: Any?
     private static let homeItem = NSToolbarItem.Identifier("phone.home")
     private static let appsItem = NSToolbarItem.Identifier("phone.apps")
-    private let root: URL
+    private let helper = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/bridge")
+    private let data = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Application Support/iPhoneBridge", isDirectory: true)
     private let preview = URL(string: CommandLine.arguments.contains("--benchmark")
                               ? "http://127.0.0.1:15801/?benchmark=1"
                               : "http://127.0.0.1:15801/")!
-
-    override init() {
-        // This local app is built for this checkout; moving the bundle is supported.
-        let path = Bundle.main.object(forInfoDictionaryKey: "BridgeRoot") as? String ?? ""
-        root = URL(fileURLWithPath: path, isDirectory: true)
-        super.init()
-    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         makeMenu()
@@ -72,7 +69,10 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         retry = NSButton(title: "Reconnect", target: self, action: #selector(reconnect))
         retry.bezelStyle = .rounded
         retry.isHidden = true
-        overlay = NSStackView(views: [message, retry])
+        settingsButton = NSButton(title: "Connection Settings…", target: self, action: #selector(showSettings))
+        settingsButton.bezelStyle = .rounded
+        settingsButton.isHidden = true
+        overlay = NSStackView(views: [message, retry, settingsButton])
         overlay.orientation = .vertical
         overlay.spacing = 18
         overlay.translatesAutoresizingMaskIntoConstraints = false
@@ -93,6 +93,8 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About iPhoneBridge", action: #selector(showAbout), keyEquivalent: "")
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit iPhoneBridge", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
@@ -164,6 +166,7 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         if menuItem.action == #selector(goHome) || menuItem.action == #selector(showApps) { return canNavigate }
         if menuItem.action == #selector(reconnect) { return command == nil && !quitting }
+        if menuItem.action == #selector(showSettings) { return command == nil && !quitting }
         return true
     }
 
@@ -191,18 +194,57 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
 
     @objc private func showAbout() {
         NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "iPhoneBridge",
-            .applicationVersion: "0.1.0", .credits: NSAttributedString(string: "Live iPhone mirroring over USB.\nMIT bridge; TrollVNC and noVNC retain their own licenses.")])
+            .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+            .credits: NSAttributedString(string: "Live iPhone mirroring over USB.\nOriginal bridge code: MIT.\nTrollVNC, noVNC and bundled libraries retain their own licenses.\ngithub.com/net-snix/iPhoneBridge")])
+    }
+
+    @objc private func showSettings() {
+        guard command == nil, !quitting else { return }
+        if let connectionSettings { connectionSettings.show(); return }
+        runBridge(["devices"]) { [weak self] success, detail in
+            guard let self, !self.quitting else { return }
+            guard success, let json = detail.data(using: .utf8),
+                  let inventory = try? JSONSerialization.jsonObject(with: json) as? [String: Any] else {
+                let alert = NSAlert()
+                alert.messageText = "Couldn’t read connection settings"
+                alert.informativeText = detail
+                alert.beginSheetModal(for: self.window)
+                return
+            }
+            let settings = ConnectionSettings(inventory: inventory) { [weak self] arguments in
+                guard let self else { return }
+                self.connectionSettings = nil
+                if let arguments { self.applySettings(arguments) }
+            }
+            self.connectionSettings = settings
+            settings.show()
+        }
+    }
+
+    private func applySettings(_ arguments: [String]) {
+        guard command == nil, !quitting else { return }
+        showMessage("Updating connection…", canRetry: false)
+        web.loadHTMLString("<body style='background:black'></body>", baseURL: nil)
+        runBridge(["stop"]) { [weak self] success, detail in
+            guard let self, !self.quitting else { return }
+            guard success else { self.showMessage(detail, canRetry: true); return }
+            self.runBridge(["configure"] + arguments) { [weak self] saved, error in
+                guard let self, !self.quitting else { return }
+                if saved { self.connect() }
+                else { self.showMessage(error, canRetry: true) }
+            }
+        }
     }
 
     private func connect() {
         guard command == nil, !quitting else { return }
         showMessage("Connecting to your iPhone…", canRetry: false)
-        runBridge(["start"]) { [weak self] success, detail in
+        runBridge(["connect"]) { [weak self] success, detail in
             guard let self, !self.quitting else { return }
             if success {
                 self.web.load(URLRequest(url: self.preview))
             } else {
-                self.showMessage("Couldn’t connect. Check the USB cable and that the iPhone is awake.\n\n" + detail, canRetry: true)
+                self.showMessage("Couldn’t connect.\n\n" + detail, canRetry: true)
             }
         }
     }
@@ -225,6 +267,7 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         updateNavigationControls()
         message.stringValue = text
         retry.isHidden = !canRetry
+        settingsButton.isHidden = !canRetry
         overlay.isHidden = false
         web.isHidden = true
         window.subtitle = canRetry ? "Disconnected" : "Connecting…"
@@ -232,13 +275,14 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
 
     private func runBridge(_ arguments: [String], completion: @escaping @MainActor (Bool, String) -> Void) {
         let process = Process()
-        process.executableURL = root.appendingPathComponent("bridge")
+        process.executableURL = helper
         process.arguments = arguments
-        process.currentDirectoryURL = root
+        process.currentDirectoryURL = data
         var environment = ProcessInfo.processInfo.environment
-        environment["PATH"] = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        environment["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
+        environment["IPHONEBRIDGE_DATA_DIR"] = data.path
         process.environment = environment
-        let logURL = root.appendingPathComponent("work/app-command.log")
+        let logURL = data.appendingPathComponent("logs/app-command.log")
         do {
             try FileManager.default.createDirectory(at: logURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             FileManager.default.createFile(atPath: logURL.path, contents: nil, attributes: [.posixPermissions: 0o600])
@@ -248,7 +292,7 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
             process.standardInput = FileHandle.nullDevice
             process.terminationHandler = { [weak self] finished in
                 try? log.close()
-                let output = (try? String(contentsOf: logURL, encoding: .utf8)) ?? "See work/app-command.log."
+                let output = (try? String(contentsOf: logURL, encoding: .utf8)) ?? "See \(logURL.path)."
                 Task { @MainActor [weak self] in
                     self?.command = nil
                     self?.updateNavigationControls()

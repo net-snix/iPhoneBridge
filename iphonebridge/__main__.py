@@ -10,8 +10,16 @@ from . import lifecycle
 def main():
     parser = argparse.ArgumentParser(prog="iphonebridge", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("setup", "deploy", "start", "stop", "health", "screenshot", "mcp", "mirror", "viewer", "test-surface"):
+    for name in ("setup", "deploy", "connect", "start", "stop", "status", "devices", "health",
+                 "screenshot", "mcp", "mirror", "viewer", "test-surface", "self-test"):
         commands.add_parser(name)
+    configure = commands.add_parser("configure", help="Select a USB device and optional existing SSH key")
+    device_options = configure.add_mutually_exclusive_group()
+    device_options.add_argument("--udid")
+    device_options.add_argument("--clear-udid", action="store_true")
+    key_options = configure.add_mutually_exclusive_group()
+    key_options.add_argument("--identity", help="Absolute path to an existing SSH key; key contents are never copied")
+    key_options.add_argument("--clear-identity", action="store_true")
     tap = commands.add_parser("tap")
     tap.add_argument("x", type=int)
     tap.add_argument("y", type=int)
@@ -29,17 +37,23 @@ def main():
                                metavar=("WIDTH", "HEIGHT"), help="Exact latest screenshot size")
     args = parser.parse_args()
     if args.command == "mirror":
-        app = lifecycle.ROOT / "iPhoneBridge.app"
+        app = lifecycle.PATHS.contents.parent if lifecycle.PATHS.contents else lifecycle.ROOT / "iPhoneBridge.app"
         if not app.is_dir():
             raise RuntimeError("Build the Mac app first with ./scripts/build-app")
         subprocess.run(["/usr/bin/open", str(app)], check=True)
         return
     if args.command == "setup":
+        if lifecycle.PATHS.contents:
+            raise RuntimeError("The standalone app already contains its dependencies; use connect")
         subprocess.run([str(lifecycle.ROOT / "scripts/setup")], check=True)
         return
     if args.command == "mcp":
         from .mcp_server import main as serve
         serve()
+        return
+    if args.command == "self-test":
+        from . import diagnostics
+        print(json.dumps(diagnostics.self_test(), indent=2))
         return
     if args.command == "viewer":
         print(lifecycle.viewer_url())
@@ -48,7 +62,10 @@ def main():
         from . import fixture
         print(json.dumps(fixture.start(), indent=2))
         return
-    if args.command in ("deploy", "start", "stop", "health"):
+    if args.command == "configure":
+        result = lifecycle.configure(udid=args.udid, identity=args.identity,
+                                     clear_udid=args.clear_udid, clear_identity=args.clear_identity)
+    elif args.command in ("deploy", "connect", "start", "stop", "status", "devices", "health"):
         result = getattr(lifecycle, args.command)()
     else:
         from . import control

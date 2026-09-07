@@ -61,3 +61,26 @@ For video cadence, open the same phone page with `mode=motion` or `mode=sparse`,
 The fixture and metrics server bind to Mac loopback; the phone reaches the fixture through the existing bridge-owned USB reverse forward. Requests and reports stay in `work/`. The input runner requires a recognized barcode, rejects the animation flag, waits up to two seconds for a stable input fixture, releases each key after 20 ms, and aborts on an unexpected/missing response. It never retries an uncertain input. Animation measurement sends no input.
 
 Quit the benchmark app when finished, then open iPhoneBridge normally. Normal mode does not import the benchmark module, poll the test server, read canvas pixels, or send test keys. The benchmark is retained as a reproducible performance diagnostic, not a production telemetry loop.
+
+# Performance review — 2026-09-07, evening
+
+Full findings, measurements and rejected options: [docs/performance-review-2026-09-07.md](docs/performance-review-2026-09-07.md). Nothing in that pass lowers image quality.
+
+- **Applied:** agent input actions (tap, drag, type, key, navigate) no longer transfer a full 11.9 MB RAW frame just to compare dimensions. `iphonebridge/control.py` checks the size with a 1×1 non-incremental request, saving about 420 ms per action while keeping the stale-dimension rejection and the lossless post-action screenshot. Verify with `.venv/bin/python scripts/measure-agent-path` against a running bridge.
+- **Recommended next:** set `gScreen->deferUpdateTime = 1` in the TrollVNC patch to remove LibVNCServer's default 5 ms sleep before every update (about 4 ms per frame), poll with `sleep 0.2` in `device-session.sh` (about 0.8 s per quit/reconnect), and benchmark `-F 120` capture on this ProMotion phone.
+- **Not bottlenecks:** websockify (sub-millisecond), the SSH cipher (`aes128-gcm` already), Python startup, and the Mac app itself. The USB tunnel measured about 40 MB/s, so bytes per frame remain the main structural limit.
+
+## Standalone release follow-up
+
+The source-built release daemon `7d8fac46…240fb2` and the installed app were
+checked on the same phone. A corrected 1×1 probe preserves vncdotool's protocol
+callback chain across subsequent input and capture calls. The live, no-input
+comparison measured **793.9 ms** for probe plus post-action capture versus
+**1198.4 ms** with the former full-frame precheck, a **404.5 ms** reduction in
+that test. The warm probe median was 7.2 ms; a full PNG capture took 426.5 ms.
+Both returned matching 1172×2536 dimensions. This measures the agent capture
+path, not native input-to-visible latency or video frame rate.
+
+[Raw release measurements](docs/release-agent-path-2026-09-07.json). Native video
+performance figures earlier in this document retain their original artifact
+scope; they were not relabeled as a fresh release-daemon benchmark.

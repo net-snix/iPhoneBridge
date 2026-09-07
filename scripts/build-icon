@@ -1,0 +1,19 @@
+#!/bin/bash
+# Compile original generated artwork with Apple's macOS icon mask and sizes.
+set -euo pipefail
+root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$root"
+xcode=$(xcode-select -p)
+icon_tool="${xcode%/Contents/Developer}/Contents/Applications/Icon Composer.app/Contents/Executables/ictool"
+icon_dir="$root/work/icon/AppIcon.iconset"
+mkdir -p "$icon_dir"
+"$icon_tool" assets/AppIcon.icon --export-image --output-file work/icon/rendered.png \
+  --platform macOS --rendition Default --width 824 --height 824 --scale 1
+sips --padToHeightWidth 1024 1024 work/icon/rendered.png --out assets/icon.png >/dev/null
+for size in 16 32 128 256 512; do
+  sips -z "$size" "$size" assets/icon.png --out "$icon_dir/icon_${size}x${size}.png" >/dev/null
+  doubled=$((size * 2))
+  sips -z "$doubled" "$doubled" assets/icon.png --out "$icon_dir/icon_${size}x${size}@2x.png" >/dev/null
+done
+iconutil -c icns "$icon_dir" -o assets/AppIcon.icns
+printf 'Built assets/AppIcon.icns and assets/icon.png\n'

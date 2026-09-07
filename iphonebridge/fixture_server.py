@@ -3,9 +3,10 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
 import time
+from .runtime import PATHS
 
-ROOT = Path(__file__).resolve().parents[1]
-WORK = ROOT / 'work'
+ROOT = PATHS.root
+WORK = PATHS.data
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -57,4 +58,5 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 if __name__ == '__main__':
+    PATHS.ensure_data()
     ThreadingHTTPServer(('127.0.0.1', 15802), Handler).serve_forever()

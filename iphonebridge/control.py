@@ -15,12 +15,14 @@ from uuid import uuid4
 
 from PIL import Image
 from twisted.internet import error as twisted_error
+from twisted.internet.defer import Deferred
 from vncdotool import api
-from vncdotool.client import VNCDoException
+from vncdotool.client import VNCDoException, VNCDoToolClient, VNCDoToolFactory
+from .runtime import PATHS
 
-ROOT = Path(__file__).resolve().parent.parent
-WORK = ROOT / "work"
-SCREENSHOTS = ROOT / "outputs" / "screenshots"
+ROOT = PATHS.root
+WORK = PATHS.data
+SCREENSHOTS = PATHS.screenshots
 ADDRESS = "127.0.0.1::15901"  # vncdotool's double colon means an absolute port.
 CALL_TIMEOUT = 5.0
 ACTION_TIMEOUT = 20.0
@@ -55,6 +57,29 @@ class BridgeTimeoutError(BridgeError, TimeoutError):
 CONNECTION_ERRORS = (twisted_error.ConnectError, twisted_error.ConnectionClosed,
                      twisted_error.ConnectingCancelledError, VNCDoException)
 EXPECTED_ACTION_ERRORS = (BridgeError, OSError, *CONNECTION_ERRORS)
+
+
+class _Client(VNCDoToolClient):
+    def probeSize(self):
+        """Resolve the current framebuffer size without a full RAW frame transfer.
+
+        A non-incremental 1x1 request completes with the server's current size,
+        including a pending DesktopSize change, instead of moving the whole
+        uncompressed frame (about 12 MB, roughly 300 ms) over the USB tunnel.
+        """
+        d = self.deferred = Deferred()
+        self.framebufferUpdateRequest(0, 0, 1, 1, incremental=False)
+
+        def size(_):
+            self.screen = None  # The later full capture starts from a clean image.
+            # vncdotool feeds each result into the next proxy call as its protocol.
+            return self
+
+        return d.addCallback(size)
+
+
+class _Factory(VNCDoToolFactory):
+    protocol = _Client
 
 
 @contextmanager
@@ -97,6 +122,10 @@ class _Session:
             size = image.size
         return data.getvalue(), size
 
+    def size(self):
+        protocol = self.call("probeSize")
+        return protocol.width, protocol.height
+
     def release(self, method, *args):
         # Still attempt release after timeout; the connection then closes as well.
         self.client.timeout = 2.0
@@ -106,7 +135,7 @@ class _Session:
 @contextmanager
 def _session():
     with _locked():
-        client = api.connect(ADDRESS, timeout=CALL_TIMEOUT)
+        client = api.connect(ADDRESS, factory_class=_Factory, timeout=CALL_TIMEOUT)
         try:
             yield _Session(client)
         finally:
@@ -125,7 +154,7 @@ def _point(x, y, width, height):
 
 
 def _check_frame(session, width, height):
-    _, actual = session.frame()
+    actual = session.size()
     if actual != (width, height):
         raise BridgeInputError(f"Framebuffer changed: expected {width}x{height}, actual {actual[0]}x{actual[1]}; take a new screenshot")
 

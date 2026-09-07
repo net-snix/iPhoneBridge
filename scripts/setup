@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -32,7 +33,10 @@ def require(condition, message):
 
 
 def checkout(spec, check_only):
-    path = Path(spec["path"])
+    override = "IPHONEBRIDGE_NOVNC_SOURCE" if spec is LOCK["novnc"] else "IPHONEBRIDGE_TROLLVNC_SOURCE"
+    path = Path(os.environ.get(override, spec["path"])).expanduser()
+    if not path.is_absolute():
+        path = ROOT / path
     if not path.exists():
         require(not check_only, f"Missing source checkout: {path}; run scripts/setup")
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -61,56 +65,32 @@ def prepare(check_only=False):
     require(digest(patch) == spec["patch_sha256"], "Patch changed; update reviewed dependency pin first")
     source = checkout(spec, check_only)
     diff = run("git", "diff", "--binary", "HEAD", cwd=source)
-    if not diff:
-        require(not check_only, "Reviewed TrollVNC patch is not applied; run scripts/setup")
-        run("git", "apply", "--check", str(patch), cwd=source)
-        run("git", "apply", str(patch), cwd=source)
-        diff = run("git", "diff", "--binary", "HEAD", cwd=source)
-    require(diff == patch.read_bytes(), "TrollVNC contains changes beyond the reviewed project patch")
-    for relative, expected in spec["bundled_archives_sha256"].items():
-        require(digest(source / relative) == expected, f"Bundled archive changed: {relative}")
+    require(not diff or diff == patch.read_bytes(), "TrollVNC contains unrelated source changes")
     viewer = checkout(LOCK["novnc"], check_only)
     require(not git(viewer, "status", "--porcelain"), "noVNC checkout is dirty")
-    theos = Path(LOCK["theos"]["path"])
-    require(theos.is_dir(), f"Missing Theos at {theos}; install Theos and its {LOCK['theos']['sdk']} SDK")
-    require(git(theos, "rev-parse", "HEAD") == LOCK["theos"]["commit"], "Theos HEAD differs from build pin")
-    require(not git(theos, "diff", "HEAD", "--name-only"), "Theos tracked files have changed")
-    sdk = theos / "sdks" / LOCK["theos"]["sdk"]
-    require(sdk.is_dir(), f"Missing SDK: {sdk}; use Theos bin/install-sdk")
-    source_sha = source_digest(source)
-    binary = source / ".theos/obj/trollvncserver"
+    sources = json.loads((ROOT / "device-sources.lock.json").read_text())
+    recipe = ROOT / "scripts/build-device-deps"
+    dependency_patch = ROOT / "patches/trollvnc-source-deps.patch"
     prior = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
-    known_build = binary.is_file() and (
-        (digest(binary) == spec["existing_build_sha256"]
-         and source_sha == spec["existing_build_source_sha256"]) or (
-            prior.get("source", {}).get("files_sha256") == source_sha
-            and prior.get("binary", {}).get("sha256") == digest(binary)
-            and prior.get("build_command") == LOCK["build_command"]
-            and prior.get("toolchain", {}).get("theos_commit") == LOCK["theos"]["commit"]
-        )
+    binary = Path(prior.get("binary", {}).get("path", "/nonexistent"))
+    compiled_source = Path(prior.get("source", {}).get("path", "/nonexistent"))
+    known_build = (
+        binary.is_file()
+        and prior.get("binary", {}).get("sha256") == digest(binary)
+        and prior.get("source", {}).get("commit") == spec["commit"]
+        and prior.get("source", {}).get("patch_sha256") == digest(patch)
+        and prior.get("source", {}).get("dependency_patch_sha256") == digest(dependency_patch)
+        and prior.get("device_sources") == sources
+        and prior.get("build_recipe_sha256") == digest(recipe)
+        and all((compiled_source / name).is_file() and digest(compiled_source / name) == expected
+                for name, expected in spec["patched_files_sha256"].items())
     )
     if not known_build:
-        require(not check_only, "No verified build artifact; run scripts/setup")
-        # Invalidate only this build's CLI object output; no package/install/postinst targets.
-        run(*LOCK["build_command"], "-B", cwd=source, capture=False)
-    require(binary.is_file(), "Build did not produce the CLI artifact")
-    manifest = {
-        "schema_version": 1,
-        "binary": {"path": str(binary), "sha256": digest(binary)},
-        "source": {"path": str(source), "commit": spec["commit"], "tree": spec["tree"],
-                   "files_sha256": source_sha, "patch": str(patch), "patch_sha256": digest(patch)},
-        "bundled_archives_sha256": spec["bundled_archives_sha256"],
-        "supply_chain": "Daemon compiled locally; bundled static archives supplied by pinned TrollVNC upstream, not source-rebuilt here.",
-        "viewer": {"path": str(viewer), "commit": LOCK["novnc"]["commit"], "tree": LOCK["novnc"]["tree"]},
-        "toolchain": {"theos_path": str(theos), "theos_commit": LOCK["theos"]["commit"],
-                      "sdk_path": str(sdk), "xcode": run("xcodebuild", "-version").decode().strip()},
-        "build_command": LOCK["build_command"],
-    }
-    if not check_only:
-        MANIFEST.parent.mkdir(parents=True, exist_ok=True)
-        temporary = MANIFEST.with_suffix(".tmp")
-        temporary.write_text(json.dumps(manifest, indent=2) + "\n")
-        temporary.replace(MANIFEST)
+        require(not check_only, "No verified source-built daemon; run scripts/setup")
+        run(sys.executable, str(recipe), capture=False)
+    manifest = json.loads(MANIFEST.read_text())
+    require(Path(manifest["binary"]["path"]).is_file(), "Missing daemon artifact")
+    require(digest(Path(manifest["binary"]["path"])) == manifest["binary"]["sha256"], "Daemon artifact changed")
     print(json.dumps(manifest, indent=2))
 
 

@@ -1,0 +1,12 @@
+--- a/include/rfb/rfbproto.h
++++ b/include/rfb/rfbproto.h
+@@ -79,7 +79,8 @@
+ 
+ #if LIBVNCSERVER_HAVE_ENDIAN_H
+ # include <endian.h>
+-# if __BYTE_ORDER == __BIG_ENDIAN
++/* iPhoneBridge, 2026-09-07: Darwin endian.h lacks these GNU macros. */
++# if defined(__BYTE_ORDER) && defined(__BIG_ENDIAN) && __BYTE_ORDER == __BIG_ENDIAN
+ #  define LIBVNCSERVER_WORDS_BIGENDIAN 1
+ # endif
+ #endif

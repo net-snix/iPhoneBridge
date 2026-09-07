@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from iphonebridge import control, lifecycle
+from iphonebridge.runtime import Paths
 
 
 class LifecycleTests(unittest.TestCase):
@@ -15,6 +16,9 @@ class LifecycleTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.work = Path(self.temp.name)
+        p = patch.object(lifecycle, "PATHS", Paths(lifecycle.ROOT, None, self.work))
+        p.start()
+        self.addCleanup(p.stop)
         for target in ("iphonebridge.lifecycle.WORK", "iphonebridge.control.WORK"):
             p = patch(target, self.work)
             p.start()
@@ -24,7 +28,8 @@ class LifecycleTests(unittest.TestCase):
         self.addCleanup(p.stop)
 
     def save(self, **entries):
-        lifecycle.save_state({"token": "a" * 32, **entries})
+        lifecycle.save_state({"schema_version": 2, "token": "a" * 32,
+                              "remote_started": False, "connection": {"udid": "a" * 24}, **entries})
 
     def test_reused_pid_is_not_owned(self):
         with patch.object(lifecycle, "process_identity", return_value="new process"):
@@ -47,9 +52,10 @@ class LifecycleTests(unittest.TestCase):
 
     def test_disconnected_usb_preserves_remote_ownership(self):
         entry = {"pid": 123, "identity": "bridge ssh"}
-        self.save(ssh=entry)
-        with patch.object(lifecycle, "remote", side_effect=subprocess.TimeoutExpired("ssh", 15)), \
-             patch.object(lifecycle, "owned_process", side_effect=[False, False, False, True, False]), \
+        self.save(ssh=entry, remote_started=True)
+        with patch.object(lifecycle, "ensure_usb"), \
+             patch.object(lifecycle, "remote", side_effect=subprocess.TimeoutExpired("ssh", 15)), \
+             patch.object(lifecycle, "owned_process", side_effect=[False, False, False, True, False, False]), \
              patch.object(lifecycle.os, "kill") as kill:
             with self.assertRaisesRegex(RuntimeError, "reconnect USB"):
                 lifecycle.stop()
@@ -71,6 +77,21 @@ class LifecycleTests(unittest.TestCase):
             result = lifecycle.stop()
             kill.assert_not_called()
         self.assertTrue(result["stopped"])
+
+    def test_connected_is_false_when_owned_viewer_resets_http_requests(self):
+        self.save()
+        with patch.object(lifecycle, "owned_process", return_value=True), \
+             patch.object(lifecycle, "usb_owned", return_value=True), \
+             patch.object(lifecycle, "handshake", return_value="RFB 003.008"), \
+             patch.object(lifecycle.http.client, "HTTPConnection") as connection:
+            connection.return_value.getresponse.side_effect = ConnectionResetError("reset")
+            result = lifecycle.status()
+            self.assertTrue(result["running"])
+            self.assertFalse(result["viewer_ready"])
+            self.assertFalse(result["connected"])
+            connection.return_value.request.assert_called_once_with(
+                "GET", "/", headers={"Connection": "close"})
+            connection.return_value.close.assert_called_once()
 
 
 if __name__ == "__main__":

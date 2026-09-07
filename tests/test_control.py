@@ -2,11 +2,12 @@
 import asyncio
 import io
 from pathlib import Path
+from struct import pack
 import tempfile
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from PIL import Image
 
@@ -20,10 +21,16 @@ class FakeClient:
         self.events = []
         self.fail = None
         self.capture_count = 0
+        self.probe_count = 0
+
+    def probeSize(self):
+        self.probe_count += 1
+        self.width, self.height = self.size
+        return self
 
     def captureScreen(self, destination, **kwargs):
         self.capture_count += 1
-        if self.fail == "after-capture" and self.capture_count == 2:
+        if self.fail == "after-capture":
             raise TimeoutError("fake framebuffer timeout")
         Image.new("RGB", self.size, "white").save(destination, format="PNG")
 
@@ -65,6 +72,8 @@ class ControlTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Framebuffer changed"):
             control.tap(100, 100, 2532, 1170)
         self.assertEqual(self.client.events, [("disconnect",)])
+        self.assertEqual((self.client.probe_count, self.client.capture_count), (1, 0),
+                         "size check must not transfer a full frame")
 
     def test_invalid_coordinates_reject_before_connection(self):
         for coordinates in [(-1, 4), (1170, 4), (True, 4), (4.5, 4)]:
@@ -83,7 +92,7 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(result["action"], "drag")
         self.assertEqual(self.client.events[-3:], [("mouseMove", 100, 200),
                                                   ("mouseUp", 1), ("disconnect",)])
-        self.assertEqual(self.client.capture_count, 2)
+        self.assertEqual((self.client.probe_count, self.client.capture_count), (1, 1))
 
     def test_duration_bounded(self):
         for duration in [float("nan"), float("inf"), True, 0.01, 5.01]:
@@ -150,6 +159,48 @@ class ControlTests(unittest.TestCase):
             control.tap(10, 20, 1170, 2532)
         self.assertIn(("mouseUp", 1), self.client.events)
 
+    def test_size_probe_requests_one_pixel_and_resets_screen(self):
+        client = control._Client()
+        client.transport = Mock()
+        client.width, client.height = 2532, 1170
+        client.screen = Image.new("RGB", (1, 1))
+        results = []
+        client.probeSize().addCallback(results.append)
+        client.transport.write.assert_called_once_with(pack("!BBHHHH", 3, 0, 0, 0, 1, 1))
+        self.assertEqual(results, [], "size resolves only after the server answers")
+        client.commitUpdate([(0, 0, 1, 1)])
+        self.assertEqual(results, [client])
+        self.assertIsNone(client.screen, "the following full capture must not grow a 1x1 image")
+        self.assertIs(control._Factory.protocol, control._Client)
+
+    def test_threaded_proxy_preserves_protocol_after_size_probe(self):
+        factory = control._Factory()
+        client = control._Client()
+        client.factory = factory
+        client.transport = Mock()
+        client.width, client.height = 8, 6
+        factory.deferred.callback(client)
+        proxy = control.api.ThreadedVNCClientProxy(factory, timeout=0.1)
+        proxy.protocol = client
+
+        def answer_update(x=0, y=0, width=None, height=None, **kwargs):
+            dimensions = (width or client.width, height or client.height)
+            client.screen = Image.new("RGB", dimensions, "white")
+            client.commitUpdate([(x, y, *dimensions)])
+
+        with patch.object(control.api.reactor, "callFromThread", side_effect=lambda f, *a, **kw: f(*a, **kw)), \
+             patch.object(client, "framebufferUpdateRequest", side_effect=answer_update):
+            session = control._Session(proxy)
+            self.assertEqual(session.size(), (8, 6))
+            png, size = session.frame()
+            self.assertEqual(size, (8, 6))
+            with Image.open(io.BytesIO(png)) as image:
+                self.assertEqual(image.getpixel((7, 5)), (255, 255, 255))
+            self.assertEqual(session.size(), (8, 6))
+            self.assertIs(session.call("mouseMove", 3, 4), client)
+            self.assertEqual((client.x, client.y), (3, 4))
+            self.assertIs(factory.deferred.result, client)
+
     def test_session_deadline_prevents_more_input(self):
         session = control._Session(self.client)
         session.deadline = 0
@@ -163,7 +214,7 @@ class ControlTests(unittest.TestCase):
         self.assertEqual(self.client.events, [("mouseDown", 3), ("mouseUp", 3), ("disconnect",)])
         self.assertEqual([call.args[0] for call in sleep.call_args_list], [0.05, 0.5, 0.25])
         self.assertEqual(result["action"], "home")
-        self.assertEqual(self.client.capture_count, 2)
+        self.assertEqual((self.client.probe_count, self.client.capture_count), (1, 1))
         self.assertTrue(Path(result["path"]).is_file())
 
     def test_native_switcher_uses_two_released_home_presses(self):
