@@ -6,23 +6,39 @@
 html,body{margin:0;background:#172127;color:#edf0f1;font:17px -apple-system,sans-serif;overflow:hidden}
 #motion{position:fixed;inset:0;width:100%;height:100%;z-index:0}
 main{position:relative;padding:24px 15px;z-index:1}#code{display:block;width:min(360px,100%);height:64px;image-rendering:pixelated}
-h1{font-size:22px;margin:24px 0 10px}p{line-height:1.5;max-width:360px}button{font:inherit;padding:16px;border:0;border-radius:8px;background:#d6eee8;color:#102b23}
+h1{font-size:22px;margin:24px 0 10px}p{line-height:1.5;max-width:360px;background:rgba(23,33,39,.85);padding:4px 6px;border-radius:6px}
+button{display:block;width:100%;max-width:360px;margin:12px 0;font:inherit;padding:18px;border:0;border-radius:8px;background:#d6eee8;color:#102b23}
 </style>
 <canvas id="motion"></canvas>
 <main><canvas id="code" width="360" height="64" tabindex="0"></canvas>
 <h1>Mirror latency test</h1><p id="mode"></p><p>Disposable controls. No data is submitted outside this USB connection.</p>
-<button id="focus">Ready for keyboard test</button><p id="counter">0</p></main>
+<button id="focus">Ready for keyboard test</button>
+<button id="toggleMode">Switch to motion mode</button>
+<button id="toggleLoad">Background: none</button>
+<p id="counter">0</p></main>
 <script>
 const code=document.getElementById('code'), ctx=code.getContext('2d',{alpha:false});
 const motion=document.getElementById('motion'), bg=motion.getContext('2d',{alpha:false});
-const mode=new URLSearchParams(location.search).get('mode') || 'input';
-document.getElementById('mode').textContent=mode==='input'?'Input response test':`${mode} animation test`;
-let seq=0;
+const params=new URLSearchParams(location.search);
+let mode=params.get('mode') || 'input';
+// load=heavy repaints a photo-like background at full device resolution every
+// frame, so every tile changes and the daemon JPEG-encodes the whole screen
+// with game-like frame sizes.
+let heavy=params.get('load')==='heavy';
+let seq=0, frame=0, texture=null;
 const header=['#ff3030','#30ff30','#3030ff','#30ffff'];
 const footer=['#ffff30','#ff30ff','#30ffff','#ff9030'];
+function describe(){document.getElementById('mode').textContent=(mode==='input'?'Input response test':`${mode} animation test`)+(heavy?', heavy background':'');document.getElementById('toggleMode').textContent=mode==='input'?'Switch to motion mode':'Switch to input mode';document.getElementById('toggleLoad').textContent=`Background: ${heavy?'heavy':'none'}`;}
 function draw(){const encoded=mode==='input'?seq:(seq|0x80000000)>>>0;const colors=[...header,...Array.from({length:32},(_,i)=>((encoded>>>(31-i))&1)?'#f0f0f0':'#101010'),...footer];colors.forEach((color,i)=>{ctx.fillStyle=color;ctx.fillRect(i*9,0,9,64)});document.getElementById('counter').textContent=seq;}
+function fitCanvas(scale){const w=Math.round(innerWidth*scale),h=Math.round(innerHeight*scale);if(motion.width!==w||motion.height!==h){motion.width=w;motion.height=h}}
+function makeTexture(){const t=document.createElement('canvas');t.width=512;t.height=512;const c=t.getContext('2d');const img=c.createImageData(512,512);let s=12345;for(let i=0;i<img.data.length;i+=4){s=(s*1103515245+12345)&0x7fffffff;const x=(i/4)%512,y=(i/4)/512|0;img.data[i]=(s>>>8&31)+((x*y)>>10&191);img.data[i+1]=(s>>>14&31)+(x*3&191);img.data[i+2]=(s>>>20&31)+(y*3&191);img.data[i+3]=255}c.putImageData(img,0,0);return t}
+function paintHeavy(t){fitCanvas(devicePixelRatio||1);texture=texture||makeTexture();const w=motion.width,h=motion.height;for(let y=-512+(t*7%512);y<h;y+=512){for(let x=-512+(t*5%512);x<w;x+=512){bg.drawImage(texture,x,y)}}bg.fillStyle=`hsl(${t%360} 60% 50% / 0.35)`;bg.fillRect(0,0,w,h)}
+function paintMotion(){fitCanvas(1);bg.fillStyle='#162028';bg.fillRect(0,0,motion.width,motion.height);for(let y=0;y<motion.height;y+=24){const x=((seq*11+y*2)%(motion.width+180))-180;bg.fillStyle=`hsl(${(y+seq)%360} 35% 36%)`;bg.fillRect(x,y,180,12)}}
+function clearBackground(){fitCanvas(1);bg.fillStyle='#172127';bg.fillRect(0,0,motion.width,motion.height)}
+function animate(){frame++;if(mode!=='input'){seq=(seq+1)>>>0}if(heavy){paintHeavy(frame)}else if(mode==='motion'){paintMotion()}if(mode!=='input'){draw()}requestAnimationFrame(animate)}
 addEventListener('keydown',e=>{if(mode==='input'&&e.code==='Space'&&!e.repeat){e.preventDefault();seq=(seq+1)>>>0;draw()}});
 document.getElementById('focus').onclick=()=>{code.focus();document.getElementById('focus').textContent='Keyboard test ready'};
-function animate(){seq=(seq+1)>>>0;if(mode==='motion'){if(motion.width!==innerWidth||motion.height!==innerHeight){motion.width=innerWidth;motion.height=innerHeight}bg.fillStyle='#162028';bg.fillRect(0,0,motion.width,motion.height);for(let y=0;y<motion.height;y+=24){const x=((seq*11+y*2)%(motion.width+180))-180;bg.fillStyle=`hsl(${(y+seq)%360} 35% 36%)`;bg.fillRect(x,y,180,12)}}draw();requestAnimationFrame(animate)}
-if(mode==='input')draw();else requestAnimationFrame(animate);
+document.getElementById('toggleMode').onclick=()=>{mode=mode==='input'?'motion':'input';seq=0;if(!heavy)clearBackground();describe();draw()};
+document.getElementById('toggleLoad').onclick=()=>{heavy=!heavy;if(!heavy)clearBackground();describe();draw()};
+describe();draw();requestAnimationFrame(animate);
 </script>

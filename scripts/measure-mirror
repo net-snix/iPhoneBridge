@@ -3,11 +3,17 @@
 import argparse
 import json
 from pathlib import Path
+import sys
 import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-WORK = ROOT / 'work'
+sys.path.insert(0, str(ROOT))
+from iphonebridge.runtime import PATHS  # noqa: E402
+
+# Source checkouts exchange requests and reports in work/. To drive the packaged
+# app's benchmark instead, point IPHONEBRIDGE_DATA_DIR at its data folder.
+WORK = PATHS.data
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('label')
 parser.add_argument('--mode', choices=['input', 'animation'], default='input')

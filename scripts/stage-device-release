@@ -23,6 +23,7 @@ def verify_daemon_source(tree):
         'gScreen->listen6Interface = strdup("::1");',
         "case 0x1008ff18UL: // XF86HomePage\n        if (down)\n            [gen menuPress];",
         "case 0x1008ff7fUL: // XF86TaskPane\n        if (down)\n            [gen menuDoublePress];",
+        "gScreen->deferUpdateTime = 1;",
     )
     for fragment in required:
         if fragment not in source:

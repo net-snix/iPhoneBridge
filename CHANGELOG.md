@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Daemon: remove LibVNCServer's default 5 ms delay before every update and drop frames behind an in-flight encode (`-Q 1`) for lower mirror latency under heavy motion.
+- Faster stop and reconnect: the device session script polls every 0.2 s.
+- Agent actions check the framebuffer size with a 1×1 probe instead of a full RAW frame.
+- Benchmark fixture gains a heavy full-resolution background and runtime toggles; `measure-mirror` and the new `measure-agent-path` follow the runtime data directory.
+
 ## 0.2.0 — 2026-09-07
 
 First public release.

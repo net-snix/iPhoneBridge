@@ -84,3 +84,18 @@ path, not native input-to-visible latency or video frame rate.
 [Raw release measurements](docs/release-agent-path-2026-09-07.json). Native video
 performance figures earlier in this document retain their original artifact
 scope; they were not relabeled as a fresh release-daemon benchmark.
+
+# Applied — 2026-09-07, late evening
+
+Daemon build `a82e40b4…` (patched `deferUpdateTime = 1`, launched with `-Q 1`) and the session script with 0.2 s polling replaced the release daemon `7d8fac46…`. Full details, including the game-load measurements that motivated the encoder-queue change, are in [docs/performance-review-2026-09-07.md](docs/performance-review-2026-09-07.md).
+
+| Measurement | Before | After |
+| --- | --- | --- |
+| Daemon request round trip (1×1 update, warm connection) | 7.6 ms | 2.8 ms |
+| Bridge `stop` / `connect` from the source checkout | ≥2 s / ≈5 s | 1 s / 4 s |
+| Heavy full-screen load, input-to-visible p50 (Mac Safari viewer, 2 runs each) | 111.5 and 114 ms (`-Q 2`) | 101 and 98.5 ms (`-Q 1`) |
+| Heavy full-screen load, delivered motion | 47.2 and 48.1 fps (`-Q 2`) | 44.4 and 44.9 fps (`-Q 1`) |
+
+`-Q 1` drops a captured frame while an encode is still in flight instead of queueing it behind that encode, so each delivered frame is fresher; the cost is a few fps when the encoder is saturated. Under a 3D game the phone spends 40–55 ms encoding each full frame on one core, so that trade favours latency. The heavy-load numbers above come from the new `load=heavy` option of `fixtures/latency.html` viewed through Safari on the Mac rather than the app window, so they are comparable with each other but not with the earlier 83–98 ms app measurements.
+
+Not changed: full resolution, Tight quality 6 with compression 2, and the lossless screenshot path. Lower JPEG quality was measured and rejected because it barely reduces encode time (49–58 ms per game frame across every quality level).
