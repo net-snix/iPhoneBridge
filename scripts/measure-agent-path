@@ -5,7 +5,7 @@ Run with .venv/bin/python scripts/measure-agent-path while the bridge is started
 It opens the same serialized RFB session the CLI/MCP actions use, times the size
 probe and a full lossless capture, then times a complete no-input action with the
 current size check and with the previous full-frame check for comparison.
-Results are printed as JSON; nothing is written except one ignored screenshot pair.
+Results are printed as JSON; the screenshots it captures are deleted afterwards.
 """
 import io
 import json
@@ -29,11 +29,16 @@ def timed(function, repeat=1):
     return result, {"median_ms": statistics.median(samples), "min_ms": min(samples), "max_ms": max(samples)}
 
 
+captured = []
+
+
 def action(check):
     with control._session() as session:
         check(session)
         time.sleep(0.25)
-        return control._save(session, "measure")
+        result = control._save(session, "measure")
+    captured.append(result["path"])
+    return result
 
 
 report = {"unit": "milliseconds", "input_sent": False}
@@ -48,5 +53,7 @@ if tuple(size) != tuple(full_size) or luminance[0] == luminance[1]:
     raise SystemExit("Probe size and captured frame disagree, or the frame is flat; do not trust these numbers")
 _, report["action_with_size_probe"] = timed(lambda: action(lambda s: control._check_frame(s, *size)), repeat=3)
 _, report["action_with_full_frame_check"] = timed(lambda: action(lambda s: s.frame()), repeat=3)
-_, report["screenshot"] = timed(control.screenshot, repeat=3)
+_, report["screenshot"] = timed(lambda: captured.append(control.screenshot()["path"]), repeat=3)
+for path in captured:
+    Path(path).unlink(missing_ok=True)
 print(json.dumps(report, indent=2))

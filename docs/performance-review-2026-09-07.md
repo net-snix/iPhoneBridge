@@ -97,7 +97,18 @@ vncdotool negotiates only RAW (`VNCDoToolClient.encoding`), and its ZRLE and Hex
 
 - Tests (`tests/test_control.py`): probe request bytes and reset, stale size rejected with zero frames transferred, one probe plus one capture per action, MCP error paths unchanged. Full suite: 40 tests pass; viewer tests: 17 pass.
 - Expected effect: about 420 ms removed from every tap, drag, type, key and navigate action (roughly a third of a typical action). `screenshot` is unchanged.
-- Verification: `.venv/bin/python scripts/measure-agent-path` times the probe, a full capture and a complete no-input action with both size checks. The live confirmation was blocked because the daemon was stopped by the concurrent session; run it once `./bridge start` succeeds again and append the numbers here.
+- Live confirmation (22:53, daemon build `09135c90…` redeployed by the concurrent session, no input sent, `.venv/bin/python scripts/measure-agent-path`):
+
+  | Step | Median |
+  | --- | --- |
+  | Size probe round trip, warm connection | 7.6 ms |
+  | Full RAW capture plus PNG | 417 ms |
+  | No-input action, previous full-frame size check | 1209 ms |
+  | No-input action, size probe | 801 ms |
+  | `screenshot` | 528 ms |
+
+  The probe and the capture reported the same 1172×2536 size and the captured frame had full luminance range. `scripts/check-mcp` then completed a real stdio MCP screenshot through the changed connection code with a verified native PNG. Saving per input action: about 408 ms, 34 % of the previous total.
+- The 7.6 ms probe round trip is the current floor for one request/response cycle over USB, and it contains the 5 ms LibVNCServer sleep described above; it is the number to compare after recommendation 1 is applied.
 
 ## Recommendations
 
@@ -130,5 +141,5 @@ vncdotool negotiates only RAW (`VNCDoToolClient.encoding`), and its ZRLE and Hex
 
 ## Open items
 
-- Live before/after timing of the applied change (blocked on the daemon; see Applied in this pass).
+- Recommendation 1 (daemon `deferUpdateTime`) and 2 (session script polling) still need the rebuilt deploy pipeline; verify with `scripts/measure-agent-path` (probe round trip) and `scripts/measure-mirror`.
 - Human drag in the native window has not been separately verified in VALIDATION.md; the source analysis above shows pointer moves are not deferred by LibVNCServer, so no latency reason is expected.

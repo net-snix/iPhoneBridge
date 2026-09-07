@@ -66,7 +66,7 @@ Quit the benchmark app when finished, then open iPhoneBridge normally. Normal mo
 
 Full findings, measurements and rejected options: [docs/performance-review-2026-09-07.md](docs/performance-review-2026-09-07.md). Nothing in that pass lowers image quality.
 
-- **Applied:** agent input actions (tap, drag, type, key, navigate) no longer transfer a full 11.9 MB RAW frame just to compare dimensions. `iphonebridge/control.py` checks the size with a 1×1 non-incremental request, saving about 420 ms per action while keeping the stale-dimension rejection and the lossless post-action screenshot. Verify with `.venv/bin/python scripts/measure-agent-path` against a running bridge.
+- **Applied:** agent input actions (tap, drag, type, key, navigate) no longer transfer a full 11.9 MB RAW frame just to compare dimensions. `iphonebridge/control.py` checks the size with a 1×1 non-incremental request, keeping the stale-dimension rejection and the lossless post-action screenshot. Measured live: a no-input action dropped from 1209 ms to 801 ms (probe round trip 7.6 ms, full capture plus PNG 417 ms); reproduce with `.venv/bin/python scripts/measure-agent-path` against a running bridge.
 - **Recommended next:** set `gScreen->deferUpdateTime = 1` in the TrollVNC patch to remove LibVNCServer's default 5 ms sleep before every update (about 4 ms per frame), poll with `sleep 0.2` in `device-session.sh` (about 0.8 s per quit/reconnect), and benchmark `-F 120` capture on this ProMotion phone.
 - **Not bottlenecks:** websockify (sub-millisecond), the SSH cipher (`aes128-gcm` already), Python startup, and the Mac app itself. The USB tunnel measured about 40 MB/s, so bytes per frame remain the main structural limit.
 
