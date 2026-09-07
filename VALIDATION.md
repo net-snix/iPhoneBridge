@@ -82,3 +82,8 @@ Arbitrary Unicode, multitouch, all special keys, other iOS versions, and every
 phone model are not. Human input when launching directly into landscape has not
 been separately qualified. There is no audio forwarding. Tests are not a claim
 of notarization or independent security review.
+
+## Daemon `a82e40b4…` with `-Q 1` (2026-09-07, late evening)
+
+- Rebuilt through `scripts/setup`, `scripts/stage-device-release` and `scripts/build-app`, installed to `/Applications`, and connected from the installed app: `status` reported USB, SSH and viewer services, the device log showed `Max in-flight updates set to 1`, and a CLI screenshot returned the live 1172×2536 frame.
+- Measured on the phone with the source checkout's bridge before the app rebuild: request round trip 7.6 → 2.8 ms, `stop` 1 s, `connect` 4 s, and the heavy-load latency and fps comparison in [PERFORMANCE.md](PERFORMANCE.md). Human viewing, navigation buttons and MCP input were not re-run on this build.
