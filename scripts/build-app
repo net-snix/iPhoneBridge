@@ -1,0 +1,30 @@
+#!/bin/bash
+# Local-only packaging adapted from the macos-spm-app-packaging template.
+# No signing, notarization, bundle-ID changes or running-app termination.
+set -euo pipefail
+root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$root"
+swift build -c release
+app="$root/iPhoneBridge.app"
+mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+cp .build/release/iPhoneBridge "$app/Contents/MacOS/iPhoneBridge"
+chmod +x "$app/Contents/MacOS/iPhoneBridge"
+/usr/bin/python3 - "$app/Contents/Info.plist" "$root" <<'PY'
+import plistlib
+import sys
+with open(sys.argv[1], 'wb') as output:
+    plistlib.dump({
+        'CFBundleName': 'iPhoneBridge',
+        'CFBundleDisplayName': 'iPhoneBridge',
+        'CFBundleIdentifier': 'net.snix.iPhoneBridge',
+        'CFBundleExecutable': 'iPhoneBridge',
+        'CFBundlePackageType': 'APPL',
+        'CFBundleShortVersionString': '0.1.0',
+        'CFBundleVersion': '1',
+        'LSMinimumSystemVersion': '14.0',
+        'NSHighResolutionCapable': True,
+        'NSAppTransportSecurity': {'NSAllowsLocalNetworking': True},
+        'BridgeRoot': sys.argv[2],
+    }, output)
+PY
+printf 'Built %s\n' "$app"

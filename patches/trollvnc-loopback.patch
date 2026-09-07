@@ -1,0 +1,17 @@
+diff --git a/src/trollvncserver.mm b/src/trollvncserver.mm
+index be6cce3..dd10a7b 100644
+--- a/src/trollvncserver.mm
++++ b/src/trollvncserver.mm
+@@ -4576,6 +4576,12 @@ static void setupRfbScreen(int argc, const char *argv[]) {
+     TVBindHostKind hostKind = tvClassifyBindHost(gBindHost, &v4Addr, &v6Addr);
+     if (hostKind == kTVBindHostKindIPv4) {
+         gScreen->listenInterface = v4Addr;
++        // iPhoneBridge, 2026-09-07: keep an IPv4 loopback bind private in both families.
++        // LibVNCServer opens RFB IPv6 only for positive ports; HTTP shares listen6Interface.
++        if ((ntohl(v4Addr) & 0xff000000U) == 0x7f000000U) {
++            gScreen->ipv6port = 0;
++            gScreen->listen6Interface = strdup("::1");
++        }
+     } else if (hostKind == kTVBindHostKindIPv6) {
+         char ifaceBuf[INET6_ADDRSTRLEN];
+         const char *iface = inet_ntop(AF_INET6, &v6Addr, ifaceBuf, sizeof(ifaceBuf));

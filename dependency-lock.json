@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "trollvnc": {
+    "url": "https://github.com/owngoal-dev/TrollVNC.git",
+    "path": "/Users/espenmac/Code/oss/TrollVNC",
+    "commit": "a3e40816ea5b93a7c80c09625175893d15bd1070",
+    "tree": "bf3930b0190726397625c4df05d4fc3b71993a41",
+    "patch": "patches/trollvnc-loopback.patch",
+    "patch_sha256": "449aab86e7e48a6bf2bc755ba244386d3190311c2f5a1d505458d04a723ea590",
+    "existing_build_sha256": "91ae6a54f99139fd5e6210e45494b0f332b16eb3983e632a2c8932971ff63196",
+    "bundled_archives_sha256": {
+      "lib/libcrypto.a": "58e1647247c1d519fa7d43a023a65111dd9a852344ef913b80d65e6103a96b0b",
+      "lib/libjpeg.a": "a854edee9516882927dd4eabaffb730bfa759e1becee81b5feba0d55e5515c03",
+      "lib/liblzo2.a": "25f297c0d23406adb210807a4d94651e303643e8cc5c844795ada6f1ad8cb6fb",
+      "lib/libpng.a": "fb7d841d3fdc24eb8b8cb052c634d41e0094656db59e108d6b1cee5733d4bfc8",
+      "lib/libpng18.a": "fb7d841d3fdc24eb8b8cb052c634d41e0094656db59e108d6b1cee5733d4bfc8",
+      "lib/libsasl2.a": "e4ff8646040a3eede63d20c907de8d99eac3a6a5ae11e222bfa7c3be65de14df",
+      "lib/libssl.a": "5133a880b0fd6620de1ca1296f100d6f7c26052994645e7cd71f726777ae3ff2",
+      "lib/libturbojpeg.a": "8c6c97341a72897410db3cc1fc63679a7bf77a4e7ec9381691fc9f45767263cc",
+      "lib/libvncclient.a": "1f171e88bd0ad8475a065961b4fcb840285dbd31bd603d9c1e67c7e224e06fa0",
+      "lib/libvncserver.a": "235736cd93dc8e7695c4da557ade91c85182b559bf0615923d02ead27f132647"
+    }
+  },
+  "novnc": {
+    "url": "https://github.com/novnc/noVNC.git",
+    "path": "/Users/espenmac/Code/oss/noVNC-iPhoneBridge",
+    "tag": "v1.7.0",
+    "commit": "63107bd06d9e1f6136ff21aeda8cd62cbf0d433e",
+    "tree": "cae4519a8bf3930266db05dc1808b93a11c24236"
+  },
+  "theos": {
+    "path": "/Users/espenmac/Code/oss/theos",
+    "commit": "16362d3aa83a0acd56df4493d575d34306d42478",
+    "sdk": "iPhoneOS16.5.sdk"
+  },
+  "build_command": [
+    "make",
+    "-j4",
+    "all",
+    "THEOS=/Users/espenmac/Code/oss/theos",
+    "THEOS_PACKAGE_SCHEME=rootless",
+    "FINALPACKAGE=1",
+    "SUBPROJECTS="
+  ]
+}
