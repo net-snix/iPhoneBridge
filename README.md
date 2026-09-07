@@ -6,7 +6,7 @@
 <p align="center">A native Mac window for live iPhone mirroring, keyboard input, and agent control.</p>
 <p align="center">
   <a href="https://github.com/net-snix/iPhoneBridge/actions/workflows/ci.yml"><img src="https://github.com/net-snix/iPhoneBridge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/net-snix/iPhoneBridge/releases/latest"><img src="https://img.shields.io/github/v/release/net-snix/iPhoneBridge?color=007aff" alt="Latest release"></a>
+  <a href="https://github.com/net-snix/iPhoneBridge/releases/latest"><img src="https://img.shields.io/github/v/release/net-snix/iPhoneBridge?color=007aff&amp;cacheSeconds=300" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-26%2B-24292f?logo=apple&logoColor=white" alt="macOS 26 or newer">
   <img src="https://img.shields.io/badge/chip-Apple%20silicon-24292f" alt="Apple silicon">
   <a href="THIRD_PARTY.md"><img src="https://img.shields.io/badge/license-MIT%20%2B%20third--party-36a269" alt="MIT original code with separately licensed components"></a>
