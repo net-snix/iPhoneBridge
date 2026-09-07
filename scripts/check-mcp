@@ -1,0 +1,41 @@
+#!/usr/bin/env python3
+"""Read-only stdio MCP check; run with .venv/bin/python scripts/check-mcp."""
+import asyncio
+import argparse
+import base64
+import io
+import json
+from pathlib import Path
+
+from mcp.client.session import ClientSession
+from mcp.client.stdio import StdioServerParameters, stdio_client
+from PIL import Image
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+async def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--command', default=str(ROOT / 'bridge'), help='Source or installed bridge launcher')
+    args = parser.parse_args()
+    parameters = StdioServerParameters(command=args.command, args=['mcp'])
+    async with stdio_client(parameters) as (reader, writer):
+        async with ClientSession(reader, writer) as client:
+            await client.initialize()
+            tools = await client.list_tools()
+            names = sorted(tool.name for tool in tools.tools)
+            assert names == ['drag', 'health', 'key', 'screenshot', 'tap', 'type_text'], names
+            result = await client.call_tool('screenshot', {})
+            if result.is_error:
+                raise RuntimeError('; '.join(c.text for c in result.content if c.type == 'text'))
+            metadata = result.structured_content
+            images = [c for c in result.content if c.type == 'image']
+            assert len(images) == 1 and images[0].mime_type == 'image/png'
+            with Image.open(io.BytesIO(base64.b64decode(images[0].data))) as frame:
+                assert frame.size == (metadata['width'], metadata['height'])
+                frame.verify()
+            print(json.dumps({'tools': names, 'native_png_verified': True, **metadata}, indent=2))
+
+
+if __name__ == '__main__':
+    asyncio.run(main())

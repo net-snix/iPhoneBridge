@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>iPhoneBridge test</title>
+<style>
+  * {box-sizing:border-box} body {margin:0;padding:22px;font:17px -apple-system,sans-serif;color:#172027;background:#f5f6f7}
+  h1 {font-size:26px;margin:0 0 8px} p {line-height:1.4} .status {font:14px ui-monospace,monospace;white-space:pre-line}
+  section {margin:22px 0;padding:18px;background:white;border:1px solid #cbd2d7;border-radius:12px}
+  button {font:inherit;border:0;border-radius:9px;padding:16px;background:#116b58;color:white;min-height:54px}
+  label {display:block;font-weight:600;margin:12px 0} input[type=text] {font:20px -apple-system,sans-serif;width:100%;padding:14px;border:2px solid #7b868c;border-radius:6px}
+  input[type=range] {width:100%;height:55px;margin:10px 0;accent-color:#116b58} output {display:block;font-size:22px;margin:10px 0}
+  .grid {display:grid;grid-template-columns:1fr 1fr;gap:10px} .grid button {background:#263f65}
+  .spacer {height:330px;border-left:2px dashed #a3afb7;margin-left:15px;padding:18px;color:#56616a}
+</style>
+<h1>iPhoneBridge test</h1>
+<p>Disposable controls. USB only. Nothing is submitted or saved.</p>
+<div id="geometry" class="status"></div>
+<div id="point" class="status">Last touch: none</div>
+<section>
+  <button id="tap">Tap test</button>
+  <output id="count">Taps: 0</output>
+  <label for="slider">Drag the slider</label>
+  <input id="slider" type="range" min="0" max="100" value="0">
+  <output id="rangeValue">Slider: 0</output>
+</section>
+<section>
+  <label for="text">Type a test phrase</label>
+  <input id="text" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Test text only">
+  <output id="echo">Text: empty</output>
+</section>
+<section class="grid">
+  <button id="left">Left target</button><button id="right">Right target</button>
+  <output id="target">Target: none</output>
+</section>
+<div class="spacer">Swipe up to find the bottom marker.</div>
+<section><h2>Bottom marker</h2><p>A scroll gesture reached this section.</p><button onclick="scrollTo(0,0)">Back to top</button></section>
+<script>
+const $ = id => document.getElementById(id);
+let taps = 0;
+$('tap').onclick = () => $('count').textContent = `Taps: ${++taps}`;
+$('slider').oninput = () => $('rangeValue').textContent = `Slider: ${$('slider').value}`;
+$('text').oninput = () => $('echo').textContent = `Text: ${$('text').value || 'empty'}`;
+for (const id of ['left', 'right']) $(id).onclick = () => $('target').textContent = `Target: ${id}`;
+function geometry() {
+  $('geometry').textContent = `${innerWidth} × ${innerHeight} CSS px; DPR ${devicePixelRatio}\n${innerWidth > innerHeight ? 'Landscape' : 'Portrait'}; scroll ${Math.round(scrollY)}`;
+}
+addEventListener('resize', geometry);
+addEventListener('scroll', geometry);
+addEventListener('pointerup', e => { $('point').textContent = `Last touch: ${Math.round(e.clientX)}, ${Math.round(e.clientY)} CSS px`; });
+geometry();
+</script>
+</html>

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "trollvnc": {
+    "url": "https://github.com/owngoal-dev/TrollVNC.git",
+    "path": "work/vendor/TrollVNC",
+    "commit": "a3e40816ea5b93a7c80c09625175893d15bd1070",
+    "tree": "bf3930b0190726397625c4df05d4fc3b71993a41",
+    "patch": "patches/trollvnc-loopback.patch",
+    "patch_sha256": "523dadae954437db03443a9f86d550d9a98be1b7447ab2509807844468c933f7",
+    "patched_files_sha256": {
+      "src/trollvncserver.mm": "44e626023bde4c6b7e861d7b4aa4d2152385d54331995e0a20f3de5e38ade7fa",
+      "Makefile": "22e15a75ef1799c86243ad0406193f74633483cce110519dc4a70906290349b4"
+    }
+  },
+  "novnc": {
+    "url": "https://github.com/novnc/noVNC.git",
+    "path": "work/vendor/noVNC",
+    "tag": "v1.7.0",
+    "commit": "63107bd06d9e1f6136ff21aeda8cd62cbf0d433e",
+    "tree": "cae4519a8bf3930266db05dc1808b93a11c24236"
+  },
+  "theos": {
+    "path": "~/Code/oss/theos",
+    "commit": "16362d3aa83a0acd56df4493d575d34306d42478",
+    "sdk": "iPhoneOS16.5.sdk"
+  }
+}

@@ -1,0 +1,49 @@
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #000;
+  color: #d8d8dc;
+  font: 13px -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+#screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: none;
+}
+
+#screen canvas { outline: none; }
+
+#connection {
+  position: absolute;
+  bottom: 22px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  pointer-events: none;
+  text-shadow: 0 1px 4px #000;
+}
+
+#connection[hidden], #reconnect[hidden],
+html[data-native="true"] #reconnect { display: none; }
+
+#reconnect {
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 10px;
+  background: #28282b;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+#reconnect:hover { background: #39393d; }
+#reconnect:focus-visible { outline: 2px solid #8eb8ff; outline-offset: 3px; }

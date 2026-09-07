@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""Prepare pinned local dependencies. Never installs or launches on the phone."""
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+LOCK = json.loads((ROOT / "dependency-lock.json").read_text())
+MANIFEST = ROOT / "work/build-manifest.json"
+
+
+def run(*args, cwd=ROOT, capture=True):
+    result = subprocess.run(args, cwd=cwd, check=True, capture_output=capture)
+    return result.stdout if capture else b""
+
+
+def git(path, *args):
+    return run("git", "-C", str(path), *args).decode().strip()
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def checkout(spec, check_only):
+    override = "IPHONEBRIDGE_NOVNC_SOURCE" if spec is LOCK["novnc"] else "IPHONEBRIDGE_TROLLVNC_SOURCE"
+    path = Path(os.environ.get(override, spec["path"])).expanduser()
+    if not path.is_absolute():
+        path = ROOT / path
+    if not path.exists():
+        require(not check_only, f"Missing source checkout: {path}; run scripts/setup")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # New directories only. Never reset, clean, switch or pull an existing checkout.
+        run("git", "clone", "--no-checkout", spec["url"], str(path), capture=False)
+        run("git", "checkout", "--detach", spec["commit"], cwd=path, capture=False)
+    require(git(path, "rev-parse", "HEAD") == spec["commit"], f"Unexpected HEAD: {path}")
+    require(git(path, "rev-parse", "HEAD^{tree}") == spec["tree"], f"Unexpected source tree: {path}")
+    require(not git(path, "ls-files", "--others", "--exclude-standard"), f"Untracked source files: {path}")
+    return path
+
+
+def source_digest(path):
+    """Hash every tracked file plus its path; includes the local patch contents."""
+    total = hashlib.sha256()
+    for name in run("git", "ls-files", "-z", cwd=path).split(b"\0"):
+        if name:
+            total.update(name + b"\0")
+            total.update(bytes.fromhex(digest(path / name.decode())))
+    return total.hexdigest()
+
+
+def prepare(check_only=False):
+    spec = LOCK["trollvnc"]
+    patch = ROOT / spec["patch"]
+    require(digest(patch) == spec["patch_sha256"], "Patch changed; update reviewed dependency pin first")
+    source = checkout(spec, check_only)
+    diff = run("git", "diff", "--binary", "HEAD", cwd=source)
+    require(not diff or diff == patch.read_bytes(), "TrollVNC contains unrelated source changes")
+    viewer = checkout(LOCK["novnc"], check_only)
+    require(not git(viewer, "status", "--porcelain"), "noVNC checkout is dirty")
+    sources = json.loads((ROOT / "device-sources.lock.json").read_text())
+    recipe = ROOT / "scripts/build-device-deps"
+    dependency_patch = ROOT / "patches/trollvnc-source-deps.patch"
+    prior = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
+    binary = Path(prior.get("binary", {}).get("path", "/nonexistent"))
+    compiled_source = Path(prior.get("source", {}).get("path", "/nonexistent"))
+    known_build = (
+        binary.is_file()
+        and prior.get("binary", {}).get("sha256") == digest(binary)
+        and prior.get("source", {}).get("commit") == spec["commit"]
+        and prior.get("source", {}).get("patch_sha256") == digest(patch)
+        and prior.get("source", {}).get("dependency_patch_sha256") == digest(dependency_patch)
+        and prior.get("device_sources") == sources
+        and prior.get("build_recipe_sha256") == digest(recipe)
+        and all((compiled_source / name).is_file() and digest(compiled_source / name) == expected
+                for name, expected in spec["patched_files_sha256"].items())
+    )
+    if not known_build:
+        require(not check_only, "No verified source-built daemon; run scripts/setup")
+        run(sys.executable, str(recipe), capture=False)
+    manifest = json.loads(MANIFEST.read_text())
+    require(Path(manifest["binary"]["path"]).is_file(), "Missing daemon artifact")
+    require(digest(Path(manifest["binary"]["path"])) == manifest["binary"]["sha256"], "Daemon artifact changed")
+    print(json.dumps(manifest, indent=2))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="Verify existing sources and artifact without writes")
+    args = parser.parse_args()
+    require(shutil.which("git") is not None, "git is required")
+    if not args.check:
+        require(shutil.which("uv") is not None, "uv is required")
+        run("uv", "sync", "--locked", capture=False)
+    prepare(args.check)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (RuntimeError, subprocess.CalledProcessError) as error:
+        print(f"setup: {error}", file=sys.stderr)
+        sys.exit(1)

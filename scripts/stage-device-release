@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""Stage the verified device payload and its complete corresponding source."""
+import hashlib
+import io
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tarfile
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def verify_daemon_source(tree):
+    source = (tree / "src/trollvncserver.mm").read_text()
+    required = (
+        "gScreen->ipv6port = 0;",
+        'gScreen->listen6Interface = strdup("::1");',
+        "case 0x1008ff18UL: // XF86HomePage\n        if (down)\n            [gen menuPress];",
+        "case 0x1008ff7fUL: // XF86TaskPane\n        if (down)\n            [gen menuDoublePress];",
+    )
+    for fragment in required:
+        if fragment not in source:
+            raise RuntimeError(f"Required daemon behavior is absent from compiled source: {fragment}")
+
+
+def main():
+    build = json.loads((ROOT / "work/build-manifest.json").read_text())
+    lock = json.loads((ROOT / "dependency-lock.json").read_text())
+    source_lock = json.loads((ROOT / "device-sources.lock.json").read_text())
+    binary = Path(build["binary"]["path"])
+    verify_daemon_source(Path(build["source"]["path"]))
+    if sha(binary) != build["binary"]["sha256"] or build.get("device_sources") != source_lock:
+        raise RuntimeError("Device build does not match the current source lock")
+    if build.get("build_recipe_sha256") != sha(ROOT / "scripts/build-device-deps"):
+        raise RuntimeError("Rebuild using the current recipe before staging")
+    payload = ROOT / "work/device-release"
+    source = ROOT / "work/release-sources/device"
+    for folder in (payload, source / "archives", source / "scripts", source / "patches"):
+        folder.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(binary, payload / "trollvncserver")
+    helper = ROOT / "iphonebridge/device-session.sh"
+    shutil.copy2(helper, payload / helper.name)
+    manifest = {"schema_version": 1, "binary": {"sha256": sha(binary)}, "script_sha256": sha(helper),
+                "source": {k: v for k, v in build["source"].items() if k not in ("path", "patch")},
+                "static_libraries": build["static_libraries"], "device_sources": source_lock,
+                "build_recipe_sha256": build["build_recipe_sha256"], "supply_chain": build["supply_chain"],
+                "toolchain": {"theos_commit": lock["theos"]["commit"], "sdk": lock["theos"]["sdk"],
+                              "xcode": build["toolchain"]["xcode"], "cmake": build["toolchain"]["cmake"]}}
+    (payload / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    for name in ("dependency-lock.json", "device-sources.lock.json"):
+        shutil.copy2(ROOT / name, source / name)
+    for name in ("build-device-deps", "stage-device-release"):
+        shutil.copy2(ROOT / "scripts" / name, source / "scripts" / name)
+    for name in ("trollvnc-loopback.patch", "trollvnc-source-deps.patch"):
+        shutil.copy2(ROOT / "patches" / name, source / "patches" / name)
+    for spec in source_lock["sources"].values():
+        if spec.get("patch"):
+            shutil.copy2(ROOT / spec["patch"], source / spec["patch"])
+    shutil.copy2(helper, source / helper.name)
+    shutil.copy2(payload / "manifest.json", source / "build-manifest.json")
+    build_dir = binary.parents[3]
+    for spec in source_lock["sources"].values():
+        archive = build_dir / "downloads" / spec["archive"]
+        if sha(archive) != spec["sha256"]:
+            raise RuntimeError(f"Source archive changed: {archive}")
+        shutil.copy2(archive, source / "archives" / archive.name)
+    checkout = Path(os.environ.get("IPHONEBRIDGE_TROLLVNC_SOURCE", lock["trollvnc"]["path"])).expanduser()
+    if not checkout.is_absolute():
+        checkout = ROOT / checkout
+    data = subprocess.check_output(["git", "-C", str(checkout), "archive", lock["trollvnc"]["commit"]])
+    with tarfile.open(fileobj=io.BytesIO(data)) as original, tarfile.open(source / "archives/TrollVNC.tar.gz", "w:gz") as archive:
+        for member in original:
+            # Prebuilt libraries are replaced from exact source by our recipe.
+            if member.name.split("/")[0] in ("lib", "lib-simulator"):
+                continue
+            archive.addfile(member, original.extractfile(member) if member.isfile() else None)
+    (source / "README.md").write_text("""# Device daemon corresponding source
+
+This directory accompanies the iPhoneBridge binary release. `archives/` contains
+the complete unmodified source for each linked non-platform library plus TrollVNC
+at the exact revision in `dependency-lock.json`, excluding upstream prebuilt static
+libraries. `patches/` contains every daemon and library source modification.
+The build recipe replaces the upstream library directory and generated ABI headers.
+
+## Rebuild offline
+
+Prerequisites: macOS with Xcode command-line tools, Python 3.12+, CMake 3.24+
+(the release records the tested version), and Theos at the recorded commit with
+the iPhoneOS16.5 SDK. SDKs, system frameworks, platform zlib and compiler tooling
+are platform prerequisites and are not included in this source package.
+
+From this directory, run:
+
+```sh
+python3 scripts/build-device-deps --source-package . --theos /path/to/theos --build-dir /tmp/iphonebridge-device-build
+```
+
+The resulting daemon is in `TrollVNC/.theos/obj/trollvncserver` under the build
+directory. No device is contacted, installed, launched or stopped. The bundled
+`device-session.sh` is the installation and lifecycle helper used by the app.
+
+The daemon and its modifications are GPL-2.0-only. LZO permits GPL-2.0-or-later;
+LibVNCServer is GPL-2.0-or-later. The combined daemon is distributed under GPLv2.
+JPEG retains its IJG/BSD notices and PNG its PNG Reference Library License.
+All complete original notices remain inside the source archives. This software
+is based in part on the work of the Independent JPEG Group.
+
+JPEG, PNG, LZO and zlib encodings remain enabled. OpenSSL/GnuTLS/Gcrypt and SASL
+are disabled: this product transports loopback VNC inside its SSH tunnel.
+The LibVNCServer patch guards GNU endian macros that Darwin's endian.h does not
+define; without it the library mistakes little-endian iOS for big-endian and
+writes invalid RFB headers. The recipe checks the effective iOS preprocessor
+byte order and verifies every patch independently of enclosing Git checkouts.
+The generated `build-manifest.json` identifies the release artifact, source pins,
+and toolchain. Rebuilding on a different toolchain need not produce identical bytes.
+""")
+    sums = {str(p.relative_to(source)): sha(p) for p in sorted(source.rglob("*")) if p.is_file() and p.name != "SHA256SUMS.json"}
+    (source / "SHA256SUMS.json").write_text(json.dumps(sums, indent=2) + "\n")
+    print(f"Device payload: {payload}\nCorresponding source: {source}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,56 @@
+#!/bin/bash
+# Assemble a standalone Apple silicon app. Signs only this newly built bundle.
+set -euo pipefail
+root=$(cd "$(dirname "$0")/.." && pwd)
+cd "$root"
+version=$(cat VERSION)
+app="$root/iPhoneBridge.app"
+mkdir -p work
+stage=$(mktemp -d "$root/work/app-build.XXXXXX")/iPhoneBridge.app
+swift build -c release --arch arm64 -Xswiftc -file-prefix-map -Xswiftc "$root=." -Xswiftc -no-toolchain-stdlib-rpath
+mkdir -p "$stage/Contents/MacOS" "$stage/Contents/Resources"
+cp .build/arm64-apple-macosx/release/iPhoneBridge "$stage/Contents/MacOS/iPhoneBridge"
+# SwiftPM can add its build toolchain's Swift search path even when the compiler
+# uses the OS runtime. macOS 26 supplies Swift; remove only that build-host path.
+/usr/bin/python3 - "$stage/Contents/MacOS/iPhoneBridge" <<'PY'
+import subprocess
+import sys
+binary = sys.argv[1]
+lines = subprocess.check_output(['otool', '-l', binary], text=True).splitlines()
+for index, line in enumerate(lines):
+    if line.strip() == 'cmd LC_RPATH':
+        value = lines[index + 2].strip().removeprefix('path ').rsplit(' (offset', 1)[0]
+        if '.xctoolchain/usr/lib/swift' in value:
+            subprocess.run(['install_name_tool', '-delete_rpath', value, binary], check=True)
+PY
+/usr/bin/strip -S "$stage/Contents/MacOS/iPhoneBridge"
+cp assets/AppIcon.icns "$stage/Contents/Resources/AppIcon.icns"
+cp LICENSE THIRD_PARTY.md "$stage/Contents/Resources/"
+/usr/bin/python3 - "$stage/Contents/Info.plist" "$version" <<'PY'
+import plistlib
+import sys
+with open(sys.argv[1], 'wb') as output:
+    plistlib.dump({
+        'CFBundleName': 'iPhoneBridge',
+        'CFBundleDisplayName': 'iPhoneBridge',
+        'CFBundleIdentifier': 'net.snix.iPhoneBridge',
+        'CFBundleExecutable': 'iPhoneBridge',
+        'CFBundlePackageType': 'APPL',
+        'CFBundleShortVersionString': sys.argv[2],
+        'CFBundleVersion': '2',
+        'CFBundleIconFile': 'AppIcon',
+        'LSMinimumSystemVersion': '26.0',
+        'NSHighResolutionCapable': True,
+        'NSAppTransportSecurity': {'NSAllowsLocalNetworking': True},
+    }, output)
+PY
+.venv/bin/python scripts/bundle-runtime "$stage" --device-dir work/device-release
+/usr/bin/codesign --force --sign - "$stage"
+/usr/bin/codesign --verify --deep --strict "$stage"
+"$stage/Contents/Helpers/bridge" self-test
+if [ -e "$app" ]; then
+  backup=$(mktemp -d "$root/work/previous-app.XXXXXX")
+  mv "$app" "$backup/"
+fi
+mv "$stage" "$app"
+printf 'Built %s (Apple silicon, macOS 26+, ad-hoc signed)\n' "$app"

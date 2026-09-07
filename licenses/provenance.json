@@ -1,0 +1,642 @@
+[
+  {
+    "file": "licenses/TrollVNC/COPYING",
+    "source": "TrollVNC@a3e40816ea5b93a7c80c09625175893d15bd1070/COPYING",
+    "sha256": "2a1075fb74712d7850a5626012f2a6f60692b224253acbb8f5b688e827d050d9"
+  },
+  {
+    "file": "licenses/noVNC/LICENSE.txt",
+    "source": "noVNC@63107bd06d9e1f6136ff21aeda8cd62cbf0d433e/LICENSE.txt",
+    "sha256": "3ccd2242d7f5b6c5ae831a486f63cce1f18d8cd11c511f6a7a7251673763b2d1"
+  },
+  {
+    "file": "licenses/noVNC/AUTHORS",
+    "source": "noVNC@63107bd06d9e1f6136ff21aeda8cd62cbf0d433e/AUTHORS",
+    "sha256": "16ee0ef356d5107a4bc039f91abc99a341dc62b9aa8dd47547a2baed38507509"
+  },
+  {
+    "file": "licenses/noVNC/docs/LICENSE.BSD-2-Clause",
+    "source": "noVNC@63107bd06d9e1f6136ff21aeda8cd62cbf0d433e/docs/LICENSE.BSD-2-Clause",
+    "sha256": "f4371b28457e3e9f2db1fc972eb5ba16353dc5f8d7f42b2d5c3c2e576e40dd05"
+  },
+  {
+    "file": "licenses/noVNC/docs/LICENSE.BSD-3-Clause",
+    "source": "noVNC@63107bd06d9e1f6136ff21aeda8cd62cbf0d433e/docs/LICENSE.BSD-3-Clause",
+    "sha256": "c08e5ef2e6d004c97f92d45eee4f3a0257b6c957a6c68c7b2053d013ec3725c2"
+  },
+  {
+    "file": "licenses/noVNC/docs/LICENSE.MPL-2.0",
+    "source": "noVNC@63107bd06d9e1f6136ff21aeda8cd62cbf0d433e/docs/LICENSE.MPL-2.0",
+    "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+  },
+  {
+    "file": "licenses/noVNC/docs/LICENSE.OFL-1.1",
+    "source": "noVNC@63107bd06d9e1f6136ff21aeda8cd62cbf0d433e/docs/LICENSE.OFL-1.1",
+    "sha256": "e564f06d018e7b95bc3594c96a17f1d41865af4038c375e7aa974dd69df38602"
+  },
+  {
+    "file": "licenses/noVNC/vendor/pako/LICENSE",
+    "source": "noVNC@63107bd06d9e1f6136ff21aeda8cd62cbf0d433e/vendor/pako/LICENSE",
+    "sha256": "3bc404ffa7888053253eedcc5a667619aa08dc1be0bea400e5ff28c51602180f"
+  },
+  {
+    "file": "licenses/python/shellingham/LICENSE",
+    "source": "Installed wheel shellingham==1.5.4: shellingham-1.5.4.dist-info/LICENSE",
+    "sha256": "f388fd38cad13112c1dc0f669bbe80e7f84541edbafb72f3030d2ca7642c3c9d"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/LICENSE.txt",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/LICENSE.txt",
+    "sha256": "649a589ab31076e79e9ce62ba24eae9959598124176640dbc95f87bd10f34fcf"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/_core/include/numpy/libdivide/LICENSE.txt",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/_core/include/numpy/libdivide/LICENSE.txt",
+    "sha256": "fbc539f47d0cf83bc61378080fb873d5c14630126cacbfe754035c3926daa5ec"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/_core/src/common/pythoncapi-compat/COPYING",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/_core/src/common/pythoncapi-compat/COPYING",
+    "sha256": "3f2c1ffa76383a55ae0aac01c9737cd70050dff63e1f026694fbe9d662573c98"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/_core/src/highway/LICENSE",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/_core/src/highway/LICENSE",
+    "sha256": "e340270d4f64384569a91d546acb5b094d69ce47f0c015db77abb74dc6f815af"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/_core/src/multiarray/dragon4_LICENSE.txt",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/_core/src/multiarray/dragon4_LICENSE.txt",
+    "sha256": "f7b14309e5f54e5022b26448eefd419988ada2aec01d3c1162d84a0ea8f21f2c"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/_core/src/npysort/x86-simd-sort/LICENSE.md",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/_core/src/npysort/x86-simd-sort/LICENSE.md",
+    "sha256": "211e7d737d6179a08f791ebb0a99897ce7cd2457410c542876d125576edfe910"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/_core/src/umath/svml/LICENSE",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/_core/src/umath/svml/LICENSE",
+    "sha256": "c17011467b4fe6e20fbfbeda4df09e58c2bca5480a063e55735a4000a379aad9"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/fft/pocketfft/LICENSE.md",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/fft/pocketfft/LICENSE.md",
+    "sha256": "a85ca13fdf90160b64a0698215868c13b74d835ad0a4e2ba44713b8c5058a056"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/linalg/lapack_lite/LICENSE.txt",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/linalg/lapack_lite/LICENSE.txt",
+    "sha256": "a14cc25e10d40a3aa705b7de2fb764a6535d8ee9b2db4e1724900585457dfd55"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/ma/LICENSE",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/ma/LICENSE",
+    "sha256": "05f3b88351988ecfad10abe92c0c50e5875c6452d5009a0084cc291551ffcca6"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/random/LICENSE.md",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/random/LICENSE.md",
+    "sha256": "103166b62b80443afb9eb3488e052ea06be0cff566b908f199e561fde49af19f"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/random/src/distributions/LICENSE.md",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/random/src/distributions/LICENSE.md",
+    "sha256": "469778be8f33d54e1bcaab28c281cc472916d2d273f835e55bc487d30503face"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/random/src/mt19937/LICENSE.md",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/random/src/mt19937/LICENSE.md",
+    "sha256": "0e111337b25494a773106695f0e799f642b8567aaacca4f116a74a8177179156"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/random/src/pcg64/LICENSE.md",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/random/src/pcg64/LICENSE.md",
+    "sha256": "e7d4f4fb20358f314210a892ae17351e04993813646f697ec387385ca2a36918"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/random/src/philox/LICENSE.md",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/random/src/philox/LICENSE.md",
+    "sha256": "6f5828a57223d4cc7f8ea505a2623e7b978b242752c1515e355f46ba2cec1800"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/random/src/sfc64/LICENSE.md",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/random/src/sfc64/LICENSE.md",
+    "sha256": "9d4098846018319cd68e228ee6220361787f73bccbf00237a85e4fc9621b998f"
+  },
+  {
+    "file": "licenses/python/numpy/licenses/numpy/random/src/splitmix64/LICENSE.md",
+    "source": "Installed wheel numpy==2.5.3: numpy-2.5.3.dist-info/licenses/numpy/random/src/splitmix64/LICENSE.md",
+    "sha256": "268b0ca06759d31ea3ca68dd35f20e877916e927b1c2a835e4592a3c4354b1f9"
+  },
+  {
+    "file": "licenses/python/httpcore2/licenses/LICENSE.md",
+    "source": "Installed wheel httpcore2==2.12.0: httpcore2-2.12.0.dist-info/licenses/LICENSE.md",
+    "sha256": "c4df125c807b0613501e943a5c92496dd11d2c16604ce396097a8dde396304d9"
+  },
+  {
+    "file": "licenses/python/rpds-py/licenses/LICENSE",
+    "source": "Installed wheel rpds-py==2026.6.3: rpds_py-2026.6.3.dist-info/licenses/LICENSE",
+    "sha256": "314e4e91be3baa93c0fb4bccc9e4e97cd643eb839b065af921782c2175fe9909"
+  },
+  {
+    "file": "licenses/python/click/licenses/LICENSE.txt",
+    "source": "Installed wheel click==8.5.0: click-8.5.0.dist-info/licenses/LICENSE.txt",
+    "sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d"
+  },
+  {
+    "file": "licenses/python/sse-starlette/licenses/AUTHORS",
+    "source": "Installed wheel sse-starlette==3.4.11: sse_starlette-3.4.11.dist-info/licenses/AUTHORS",
+    "sha256": "c2ff63d2ecf128bbda8ab1b2016830a5da124202fbb97168685bb9946aed3f1a"
+  },
+  {
+    "file": "licenses/python/sse-starlette/licenses/LICENSE",
+    "source": "Installed wheel sse-starlette==3.4.11: sse_starlette-3.4.11.dist-info/licenses/LICENSE",
+    "sha256": "80af6bfccbebd2c14d4aab96695cab9950e177190cc80f5ef819e99996883e8e"
+  },
+  {
+    "file": "licenses/python/packaging/licenses/LICENSE",
+    "source": "Installed wheel packaging==26.3: packaging-26.3.dist-info/licenses/LICENSE",
+    "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+  },
+  {
+    "file": "licenses/python/packaging/licenses/LICENSE.APACHE",
+    "source": "Installed wheel packaging==26.3: packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+    "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+  },
+  {
+    "file": "licenses/python/packaging/licenses/LICENSE.BSD",
+    "source": "Installed wheel packaging==26.3: packaging-26.3.dist-info/licenses/LICENSE.BSD",
+    "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+  },
+  {
+    "file": "licenses/python/Incremental/licenses/LICENSE",
+    "source": "Installed wheel Incremental==24.11.0: incremental-24.11.0.dist-info/licenses/LICENSE",
+    "sha256": "d043bc8899b4695de1f4511d8f507b927e11723b981ce600fa3ef7b73954afa5"
+  },
+  {
+    "file": "licenses/python/charset-normalizer/licenses/LICENSE",
+    "source": "Installed wheel charset-normalizer==3.5.1: charset_normalizer-3.5.1.dist-info/licenses/LICENSE",
+    "sha256": "6d0d41bfe170ac6c7dc248c9a63e254d0fb45a60d50a8257d0af92c6e249b887"
+  },
+  {
+    "file": "licenses/python/Pygments/licenses/AUTHORS",
+    "source": "Installed wheel Pygments==2.21.0: pygments-2.21.0.dist-info/licenses/AUTHORS",
+    "sha256": "71a83872ad82f57be692cf827e048e2cd51d45169cfa1ea3f28706d97a872c0f"
+  },
+  {
+    "file": "licenses/python/Pygments/licenses/LICENSE",
+    "source": "Installed wheel Pygments==2.21.0: pygments-2.21.0.dist-info/licenses/LICENSE",
+    "sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17"
+  },
+  {
+    "file": "licenses/python/httpx2/licenses/LICENSE.md",
+    "source": "Installed wheel httpx2==2.12.0: httpx2-2.12.0.dist-info/licenses/LICENSE.md",
+    "sha256": "7e7d6dbaf7fe160d39fd6e84fd02c33cab96bcbea34d36998d545bceb4a19c30"
+  },
+  {
+    "file": "licenses/python/jsonschema-specifications/licenses/COPYING",
+    "source": "Installed wheel jsonschema-specifications==2025.9.1: jsonschema_specifications-2025.9.1.dist-info/licenses/COPYING",
+    "sha256": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
+  },
+  {
+    "file": "licenses/python/requests/licenses/LICENSE",
+    "source": "Installed wheel requests==2.34.2: requests-2.34.2.dist-info/licenses/LICENSE",
+    "sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+  },
+  {
+    "file": "licenses/python/requests/licenses/NOTICE",
+    "source": "Installed wheel requests==2.34.2: requests-2.34.2.dist-info/licenses/NOTICE",
+    "sha256": "f5110972dedad2b4e9d314518daf3b7d72d6e02e499acd802181de6f74571dcc"
+  },
+  {
+    "file": "licenses/python/rich/licenses/LICENSE",
+    "source": "Installed wheel rich==15.0.0: rich-15.0.0.dist-info/licenses/LICENSE",
+    "sha256": "deed7c17a4318158190a3ea239cc879a5a50271cebb98ae7025f48fbe58dca15"
+  },
+  {
+    "file": "licenses/python/PyJWT/licenses/AUTHORS.rst",
+    "source": "Installed wheel PyJWT==2.13.0: pyjwt-2.13.0.dist-info/licenses/AUTHORS.rst",
+    "sha256": "925ce43461029eedbf558ec0b7cf7fc4b045def5120ebb97937c70814071cf07"
+  },
+  {
+    "file": "licenses/python/PyJWT/licenses/LICENSE",
+    "source": "Installed wheel PyJWT==2.13.0: pyjwt-2.13.0.dist-info/licenses/LICENSE",
+    "sha256": "797a7a20231d4c433e9f1911db1731d06b5828b98f499819a034f7c0f56f5ce5"
+  },
+  {
+    "file": "licenses/python/jsonschema/licenses/COPYING",
+    "source": "Installed wheel jsonschema==4.26.0: jsonschema-4.26.0.dist-info/licenses/COPYING",
+    "sha256": "4f92a015a13c4d1a040bef018aa13430b4f1bc73b41b16bb846c346766de7439"
+  },
+  {
+    "file": "licenses/python/hyperlink/LICENSE",
+    "source": "Installed wheel hyperlink==21.0.0: hyperlink-21.0.0.dist-info/LICENSE",
+    "sha256": "7468ded55310f64fbf085b8e892df81d1bcc49263bf535d3c2c58b014cfae214"
+  },
+  {
+    "file": "licenses/python/pydantic_core/licenses/LICENSE",
+    "source": "Installed wheel pydantic_core==2.46.5: pydantic_core-2.46.5.dist-info/licenses/LICENSE",
+    "sha256": "2afdd30d54b4d62b6f488a6bcc1546e84ec5061f13f4209c03d012348783795a"
+  },
+  {
+    "file": "licenses/python/Twisted/licenses/LICENSE",
+    "source": "Installed wheel Twisted==26.4.0: twisted-26.4.0.dist-info/licenses/LICENSE",
+    "sha256": "d7a2f74fe5c2b3f610052b75b5a131728c49823b28088893dacacf8d58849a4d"
+  },
+  {
+    "file": "licenses/python/mcp/licenses/LICENSE",
+    "source": "Installed wheel mcp==2.2.0: mcp-2.2.0.dist-info/licenses/LICENSE",
+    "sha256": "5e13dbbc1d120fc2a03cecde7c91424ae2d7de11b63d58ded2f4431e261ee50d"
+  },
+  {
+    "file": "licenses/python/starlette/licenses/LICENSE.md",
+    "source": "Installed wheel starlette==1.6.0: starlette-1.6.0.dist-info/licenses/LICENSE.md",
+    "sha256": "dcb95677a02240243187e964f941847d19b17821cf99e5afae684fab328c19bf"
+  },
+  {
+    "file": "licenses/python/redis/licenses/LICENSE",
+    "source": "Installed wheel redis==8.1.0: redis-8.1.0.dist-info/licenses/LICENSE",
+    "sha256": "a57b250a5bf03d7afe55b74063313f2adb7b00d546c0ab149a89398333fe3cc8"
+  },
+  {
+    "file": "licenses/python/constantly/LICENSE",
+    "source": "Installed wheel constantly==23.10.4: constantly-23.10.4.dist-info/LICENSE",
+    "sha256": "020870fcaf4bf9c50b233e331817094fe109b91c0880570fd476f527cfbfc085"
+  },
+  {
+    "file": "licenses/python/vncdotool/licenses/LICENSE.txt",
+    "source": "Installed wheel vncdotool==1.4.2: vncdotool-1.4.2.dist-info/licenses/LICENSE.txt",
+    "sha256": "8e35130a7d98afafab662bc3461d3dd0b4aaf165171771b225af9f58c2f9e339"
+  },
+  {
+    "file": "licenses/python/h11/licenses/LICENSE.txt",
+    "source": "Installed wheel h11==0.16.0: h11-0.16.0.dist-info/licenses/LICENSE.txt",
+    "sha256": "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361"
+  },
+  {
+    "file": "licenses/python/pydantic/licenses/LICENSE",
+    "source": "Installed wheel pydantic==2.13.5: pydantic-2.13.5.dist-info/licenses/LICENSE",
+    "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+  },
+  {
+    "file": "licenses/python/pycparser/licenses/LICENSE",
+    "source": "Installed wheel pycparser==3.0: pycparser-3.0.dist-info/licenses/LICENSE",
+    "sha256": "0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1"
+  },
+  {
+    "file": "licenses/python/mdurl/LICENSE",
+    "source": "Installed wheel mdurl==0.1.2: mdurl-0.1.2.dist-info/LICENSE",
+    "sha256": "7c605df6e28667a9603118e98274f64a49ce3eed0d26fccce9534a345e0ef955"
+  },
+  {
+    "file": "licenses/python/python-multipart/licenses/LICENSE.txt",
+    "source": "Installed wheel python-multipart==0.0.32: python_multipart-0.0.32.dist-info/licenses/LICENSE.txt",
+    "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+  },
+  {
+    "file": "licenses/python/idna/licenses/LICENSE.md",
+    "source": "Installed wheel idna==3.19: idna-3.19.dist-info/licenses/LICENSE.md",
+    "sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04"
+  },
+  {
+    "file": "licenses/python/cffi/licenses/LICENSE",
+    "source": "Installed wheel cffi==2.1.1: cffi-2.1.1.dist-info/licenses/LICENSE",
+    "sha256": "5ba24ddc57067f9249add644c3afc41a5d6dc37e23433ef759d95df370b0af63"
+  },
+  {
+    "file": "licenses/python/certifi/licenses/LICENSE",
+    "source": "Installed wheel certifi==2026.7.22: certifi-2026.7.22.dist-info/licenses/LICENSE",
+    "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+  },
+  {
+    "file": "licenses/python/opentelemetry-api/licenses/LICENSE",
+    "source": "Installed wheel opentelemetry-api==1.44.0: opentelemetry_api-1.44.0.dist-info/licenses/LICENSE",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  {
+    "file": "licenses/python/annotated-types/licenses/LICENSE",
+    "source": "Installed wheel annotated-types==0.8.0: annotated_types-0.8.0.dist-info/licenses/LICENSE",
+    "sha256": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
+  },
+  {
+    "file": "licenses/python/referencing/licenses/COPYING",
+    "source": "Installed wheel referencing==0.37.0: referencing-0.37.0.dist-info/licenses/COPYING",
+    "sha256": "42dcd63495f87b4eb7c7757afa379bb55a53f94afd7a5f657d9adf57236e515c"
+  },
+  {
+    "file": "licenses/python/markdown-it-py/licenses/LICENSE",
+    "source": "Installed wheel markdown-it-py==4.2.0: markdown_it_py-4.2.0.dist-info/licenses/LICENSE",
+    "sha256": "4a2260d6e2cd0f5a151a1e86dbfe7d3ed552b1e2beabf9941c1ba5c49cbce484"
+  },
+  {
+    "file": "licenses/python/markdown-it-py/licenses/LICENSE.markdown-it",
+    "source": "Installed wheel markdown-it-py==4.2.0: markdown_it_py-4.2.0.dist-info/licenses/LICENSE.markdown-it",
+    "sha256": "792c48c5a849a15fdf9e37e8bcf9e6d1dd13b32b46c642a748a0a46a9919d473"
+  },
+  {
+    "file": "licenses/python/annotated-doc/licenses/LICENSE",
+    "source": "Installed wheel annotated-doc==0.0.5: annotated_doc-0.0.5.dist-info/licenses/LICENSE",
+    "sha256": "fff170779a6acbf65abdb405c087f1cee1786691e4a96a4034517e4a504a0cdf"
+  },
+  {
+    "file": "licenses/python/cryptography/licenses/LICENSE",
+    "source": "Installed wheel cryptography==50.0.1: cryptography-50.0.1.dist-info/licenses/LICENSE",
+    "sha256": "3e0c7c091a948b82533ba98fd7cbb40432d6f1a9acbf85f5922d2f99a93ae6bb"
+  },
+  {
+    "file": "licenses/python/cryptography/licenses/LICENSE.APACHE",
+    "source": "Installed wheel cryptography==50.0.1: cryptography-50.0.1.dist-info/licenses/LICENSE.APACHE",
+    "sha256": "aac73b3148f6d1d7111dbca32099f68d26c644c6813ae1e4f05f6579aa2663fe"
+  },
+  {
+    "file": "licenses/python/cryptography/licenses/LICENSE.BSD",
+    "source": "Installed wheel cryptography==50.0.1: cryptography-50.0.1.dist-info/licenses/LICENSE.BSD",
+    "sha256": "602c4c7482de6479dd2e9793cda275e5e63d773dacd1eca689232ab7008fb4fb"
+  },
+  {
+    "file": "licenses/python/typing-inspection/licenses/LICENSE",
+    "source": "Installed wheel typing-inspection==0.4.4: typing_inspection-0.4.4.dist-info/licenses/LICENSE",
+    "sha256": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
+  },
+  {
+    "file": "licenses/python/jwcrypto/licenses/LICENSE",
+    "source": "Installed wheel jwcrypto==1.6.0: jwcrypto-1.6.0.dist-info/licenses/LICENSE",
+    "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+  },
+  {
+    "file": "licenses/python/Automat/licenses/LICENSE",
+    "source": "Installed wheel Automat==25.4.16: automat-25.4.16.dist-info/licenses/LICENSE",
+    "sha256": "b2201301678d0a937d938543827ca1360712eb34e23de8ee3f3bfffbd4c0e376"
+  },
+  {
+    "file": "licenses/python/mcp-types/licenses/LICENSE",
+    "source": "Installed wheel mcp-types==2.2.0: mcp_types-2.2.0.dist-info/licenses/LICENSE",
+    "sha256": "5e13dbbc1d120fc2a03cecde7c91424ae2d7de11b63d58ded2f4431e261ee50d"
+  },
+  {
+    "file": "licenses/python/attrs/licenses/LICENSE",
+    "source": "Installed wheel attrs==26.1.0: attrs-26.1.0.dist-info/licenses/LICENSE",
+    "sha256": "882115c95dfc2af1eeb6714f8ec6d5cbcabf667caff8729f42420da63f714e9f"
+  },
+  {
+    "file": "licenses/python/python-dotenv/licenses/LICENSE",
+    "source": "Installed wheel python-dotenv==1.2.3: python_dotenv-1.2.3.dist-info/licenses/LICENSE",
+    "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+  },
+  {
+    "file": "licenses/python/zope.interface/licenses/LICENSE.txt",
+    "source": "Installed wheel zope.interface==8.6: zope_interface-8.6.dist-info/licenses/LICENSE.txt",
+    "sha256": "3e671db11df687516cc1db5b3d65e4aa383eaca3c20cea3faf53a0f7335d0a3c"
+  },
+  {
+    "file": "licenses/python/urllib3/licenses/LICENSE.txt",
+    "source": "Installed wheel urllib3==2.7.0: urllib3-2.7.0.dist-info/licenses/LICENSE.txt",
+    "sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686"
+  },
+  {
+    "file": "licenses/python/typing_extensions/licenses/LICENSE",
+    "source": "Installed wheel typing_extensions==4.16.0: typing_extensions-4.16.0.dist-info/licenses/LICENSE",
+    "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+  },
+  {
+    "file": "licenses/python/truststore/licenses/LICENSE",
+    "source": "Installed wheel truststore==0.10.4: truststore-0.10.4.dist-info/licenses/LICENSE",
+    "sha256": "33be7b7e8fa4fd19b1760e1a8ed8a668bdab852c91b692dd41424bcb725a9fca"
+  },
+  {
+    "file": "licenses/python/typer/licenses/LICENSE",
+    "source": "Installed wheel typer==0.27.2: typer-0.27.2.dist-info/licenses/LICENSE",
+    "sha256": "58992cebcf8dfb6e40c4e2112ed12126c243666dca3912a3d78b7ecac4859d49"
+  },
+  {
+    "file": "licenses/python/uvicorn/licenses/LICENSE.md",
+    "source": "Installed wheel uvicorn==0.52.4: uvicorn-0.52.4.dist-info/licenses/LICENSE.md",
+    "sha256": "efe1acf3e62fb99c288b0ec73e5a773b7268ef4320fe757ea994214e4b63c371"
+  },
+  {
+    "file": "licenses/python/pillow/licenses/LICENSE",
+    "source": "Installed wheel pillow==12.3.0: pillow-12.3.0.dist-info/licenses/LICENSE",
+    "sha256": "dda12a98c1979cf3d94df1cff45d27a4cb3f04a60c76f76902ac54cac03ec0ce"
+  },
+  {
+    "file": "licenses/python/websockify/licenses/COPYING",
+    "source": "Installed wheel websockify==0.13.0: websockify-0.13.0.dist-info/licenses/COPYING",
+    "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+  },
+  {
+    "file": "licenses/python/anyio/licenses/LICENSE",
+    "source": "Installed wheel anyio==4.15.1: anyio-4.15.1.dist-info/licenses/LICENSE",
+    "sha256": "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0"
+  },
+  {
+    "file": "licenses/LZO/NOTICE",
+    "source": "TrollVNC pinned include/lzo/lzoconf.h lines 1-26; library declares 2.10",
+    "sha256": "14422b2e7a4b80341547aa77d73f5f51931b0da2485b0186d69dffb88e0d2f39"
+  },
+  {
+    "file": "licenses/zlib/LICENSE",
+    "source": "https://raw.githubusercontent.com/madler/zlib/v1.3.1/LICENSE",
+    "sha256": "845efc77857d485d91fb3e0b884aaa929368c717ae8186b66fe1ed2495753243"
+  },
+  {
+    "file": "licenses/libjpeg-turbo/LICENSE.md",
+    "source": "https://codeload.github.com/libjpeg-turbo/libjpeg-turbo/tar.gz/refs/tags/3.1.3#LICENSE.md",
+    "sha256": "2189dc45a8fe96204069f8124caa53a148dfdc193f50f584c6ca7849a6072872"
+  },
+  {
+    "file": "licenses/libjpeg-turbo/README.ijg",
+    "source": "https://codeload.github.com/libjpeg-turbo/libjpeg-turbo/tar.gz/refs/tags/3.1.3#README.ijg",
+    "sha256": "75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6"
+  },
+  {
+    "file": "licenses/libpng/COPYING",
+    "source": "https://codeload.github.com/pnggroup/libpng/tar.gz/refs/tags/v1.6.58#LICENSE",
+    "sha256": "bdb0a645ea18c60507d0368379b1ac5474b92255fcc2d115e07486a7672ba526"
+  },
+  {
+    "file": "licenses/LZO/COPYING",
+    "source": "https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz#COPYING",
+    "sha256": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643"
+  },
+  {
+    "file": "licenses/LZO/AUTHORS",
+    "source": "https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz#AUTHORS",
+    "sha256": "a94f2d3916d2987ae0adc0a8dc641d94beb38e341d543bc956a6c8f0c3151c40"
+  },
+  {
+    "file": "licenses/LibVNCServer/COPYING",
+    "source": "https://codeload.github.com/LibVNC/libvncserver/tar.gz/42494999e6492aaab9c1db785ecd293ef10b3aed#COPYING",
+    "sha256": "4d23c8c814e5baf007d854f01d8502e77dc56a41144934e003fb32c4e052d20f"
+  },
+  {
+    "file": "licenses/LibVNCServer/AUTHORS",
+    "source": "https://codeload.github.com/LibVNC/libvncserver/tar.gz/42494999e6492aaab9c1db785ecd293ef10b3aed#AUTHORS",
+    "sha256": "ccf0eacbb640adb3a0e770aa78157e12589fa230a9b3683aa71acac1e1285f48"
+  },
+  {
+    "file": "licenses/LibVNCServer/README.md",
+    "source": "https://codeload.github.com/LibVNC/libvncserver/tar.gz/42494999e6492aaab9c1db785ecd293ef10b3aed#README.md",
+    "sha256": "1a66969cdd32d248cb42968697288d7e047a3c555a87c286caf21d96fe31c578"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.bdb.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.bdb.txt",
+    "sha256": "3bdff06e69991c94664f2ef5c5f8096f60b7dbec071756ea6cc26b445e06ec5b"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.bzip2.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.bzip2.txt",
+    "sha256": "1f38bbc7caacafd65169276d759c0d88c991b753b643ce35d0e45ea1971dd441"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.cpython.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.cpython.txt",
+    "sha256": "86e61415828a8b5b06ec8d024e6f086ce155a8b85fd0c419c0ba4dc004e74fdd"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.expat.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.expat.txt",
+    "sha256": "122f2c27000472a201d337b9b31f7eb2b52d091b02857061a8880371612d9534"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.libX11.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.libX11.txt",
+    "sha256": "2daec087a88e7c9b8082557cdeebad5bbb8155a4137472f0b22e269cd99d0c1e"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.libXau.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.libXau.txt",
+    "sha256": "56abe29bb1d9806a9e04fa9f80fed2c0f18027594df3f098148d814aef6bddfa"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.libedit.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.libedit.txt",
+    "sha256": "29cea33c32bbc9785142386377915612a2fa786482c46843383384aded2e09b1"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.libffi.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.libffi.txt",
+    "sha256": "deaf3a42effb551a5b140fa9afefed183a27f1341c6d1bf430d106a5e6931fc0"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.liblzma.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.liblzma.txt",
+    "sha256": "9a4062de0a2c388a98cf35a35d348b62fa97c838a71c3c28ee1a2d7d0a565b02"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.libuuid.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.libuuid.txt",
+    "sha256": "122ee1f7e258f2c3c0e538a75c037684f420454bf3850ddc74ce750bbf5fe86b"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.libxcb.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.libxcb.txt",
+    "sha256": "c5ffbfeaa501071ceeb97b7de2c0d703fdaa35de01c0fb6cbac1c28453a3e9fd"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.mpdecimal.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.mpdecimal.txt",
+    "sha256": "669512af7219f58be03a398766d7c9da11a3b3df9d3f05cb74c5ceca25c8da3b"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.ncurses.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.ncurses.txt",
+    "sha256": "87a4c4442337b8968ef956031c406b74f9cb7149b7ba87311bdaba534816201c"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.openssl-1.1.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.openssl-1.1.txt",
+    "sha256": "9c04cce50c4989d5601dd8b07f6ab922c40388b66ac736c9007cb1ed9d9dd560"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.openssl-3.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.openssl-3.txt",
+    "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.sqlite.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.sqlite.txt",
+    "sha256": "38bef3d28b24f145ea293bd3b6eb4b20396982abc8303128fb493986ea5bc719"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.tcl.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.tcl.txt",
+    "sha256": "c0a69a2bfd757361ec7e6143973b103c90409316b49e9c88db26ad6388e79f16"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.tix.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.tix.txt",
+    "sha256": "3ac5cdd0bef6c43ce34c6a7ced452081d9e5a0bf94082b9f9147d23ec9e214f5"
+  },
+  {
+    "file": "licenses/macOS-Python/LICENSE.zlib.txt",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/download/20260114/cpython-3.13.11%2B20260114-aarch64-apple-darwin-pgo%2Blto-full.tar.zst#python/licenses/LICENSE.zlib.txt",
+    "sha256": "818922b2620f12801a12bf78e399644a30990e66824abd8ca8ec24d451d6f92c"
+  },
+  {
+    "file": "licenses/macOS-USB/libimobiledevice-1.4.0/AUTHORS",
+    "source": "https://github.com/libimobiledevice/libimobiledevice/releases/download/1.4.0/libimobiledevice-1.4.0.tar.bz2#libimobiledevice-1.4.0/AUTHORS",
+    "sha256": "4920ad8427644a779b6d12a51121d69cdb609f26fdfff322c22efa5de7ffb584"
+  },
+  {
+    "file": "licenses/macOS-USB/libimobiledevice-1.4.0/COPYING",
+    "source": "https://github.com/libimobiledevice/libimobiledevice/releases/download/1.4.0/libimobiledevice-1.4.0.tar.bz2#libimobiledevice-1.4.0/COPYING",
+    "sha256": "7619c753cac95d4740220223bde48a032606fcaccde5e546f9bc444c81ab356d"
+  },
+  {
+    "file": "licenses/macOS-USB/libimobiledevice-glue-1.3.2/COPYING",
+    "source": "https://github.com/libimobiledevice/libimobiledevice-glue/releases/download/1.3.2/libimobiledevice-glue-1.3.2.tar.bz2#libimobiledevice-glue-1.3.2/COPYING",
+    "sha256": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c"
+  },
+  {
+    "file": "licenses/macOS-USB/libplist-2.7.0/AUTHORS",
+    "source": "https://github.com/libimobiledevice/libplist/releases/download/2.7.0/libplist-2.7.0.tar.bz2#libplist-2.7.0/AUTHORS",
+    "sha256": "9ee5828311bc47160791e9fc1574cb356d9d6a661b1d194a97cd254d58c9d3b9"
+  },
+  {
+    "file": "licenses/macOS-USB/libplist-2.7.0/COPYING",
+    "source": "https://github.com/libimobiledevice/libplist/releases/download/2.7.0/libplist-2.7.0.tar.bz2#libplist-2.7.0/COPYING",
+    "sha256": "7619c753cac95d4740220223bde48a032606fcaccde5e546f9bc444c81ab356d"
+  },
+  {
+    "file": "licenses/macOS-USB/libplist-2.7.0/libcnary/COPYING",
+    "source": "https://github.com/libimobiledevice/libplist/releases/download/2.7.0/libplist-2.7.0.tar.bz2#libplist-2.7.0/libcnary/COPYING",
+    "sha256": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c"
+  },
+  {
+    "file": "licenses/macOS-USB/libusbmuxd-2.1.1/AUTHORS",
+    "source": "https://github.com/libimobiledevice/libusbmuxd/releases/download/2.1.1/libusbmuxd-2.1.1.tar.bz2#libusbmuxd-2.1.1/AUTHORS",
+    "sha256": "f76632e73560fb36850d2d70cf72960240a82d8c527022a4165370f8a81fa9fc"
+  },
+  {
+    "file": "licenses/macOS-USB/libusbmuxd-2.1.1/COPYING",
+    "source": "https://github.com/libimobiledevice/libusbmuxd/releases/download/2.1.1/libusbmuxd-2.1.1.tar.bz2#libusbmuxd-2.1.1/COPYING",
+    "sha256": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c"
+  },
+  {
+    "file": "licenses/macOS-USB/openssl-3.6.2/LICENSE.txt",
+    "source": "https://github.com/openssl/openssl/releases/download/openssl-3.6.2/openssl-3.6.2.tar.gz#openssl-3.6.2/LICENSE.txt",
+    "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
+  },
+  {
+    "file": "licenses/macOS-USB/openssl-3.6.2/external/perl/Text-Template-1.56/LICENSE",
+    "source": "https://github.com/openssl/openssl/releases/download/openssl-3.6.2/openssl-3.6.2.tar.gz#openssl-3.6.2/external/perl/Text-Template-1.56/LICENSE",
+    "sha256": "9837f05336ef3cbacb6a96e1672a0426d81ad01191f214b8d48e22ca62338181"
+  },
+  {
+    "file": "licenses/GPL-3.0.txt",
+    "source": "https://www.gnu.org/licenses/gpl-3.0.txt",
+    "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986"
+  },
+  {
+    "file": "licenses/LGPL-3.0.txt",
+    "source": "websockify 0.13.0 installed distribution licenses/COPYING",
+    "sha256": "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"
+  },
+  {
+    "file": "licenses/Homebrew/LICENSE.txt",
+    "source": "Installed Homebrew LICENSE.txt (BSD-2-Clause, Homebrew contributors)",
+    "sha256": "f80329e58613ad669c0e73cb132d8060b9b2c55e339c73848068e4d1567f4627"
+  }
+]

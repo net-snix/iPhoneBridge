@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Python, viewer and Swift
+    runs-on: macos-15
+    timeout-minutes: 20
+    env:
+      # The official macos-15 image includes Xcode 26.3 / Swift 6.2.3.
+      # https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up locked Python environment
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.10.11"
+          python-version: "3.13.11"
+          enable-cache: true
+
+      - name: Install locked dependencies
+        run: uv sync --locked
+
+      - name: Test Python without a device
+        run: uv run --frozen python -m unittest discover -s tests -v
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Test viewer
+        run: node --test viewer/*.test.mjs
+
+      - name: Compile native app
+        run: |
+          swift --version
+          swift build -c release

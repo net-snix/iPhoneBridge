@@ -1,0 +1,44 @@
+{
+  "unit": "milliseconds",
+  "input_sent": false,
+  "size_probe": {
+    "median_ms": 7.2,
+    "min_ms": 6.6,
+    "max_ms": 117.8
+  },
+  "full_capture_png": {
+    "median_ms": 426.5,
+    "min_ms": 426.5,
+    "max_ms": 426.5
+  },
+  "framebuffer": {
+    "probe": [
+      1172,
+      2536
+    ],
+    "capture": [
+      1172,
+      2536
+    ],
+    "png_bytes": 1778018,
+    "luminance_range": [
+      0,
+      255
+    ]
+  },
+  "action_with_size_probe": {
+    "median_ms": 793.9,
+    "min_ms": 786.0,
+    "max_ms": 796.4
+  },
+  "action_with_full_frame_check": {
+    "median_ms": 1198.4,
+    "min_ms": 1196.9,
+    "max_ms": 1208.4
+  },
+  "screenshot": {
+    "median_ms": 530.9,
+    "min_ms": 527.7,
+    "max_ms": 534.6
+  }
+}
