@@ -22,7 +22,9 @@ def main():
     typing = commands.add_parser("type", help="Read text from stdin; avoids shell history")
     key = commands.add_parser("key")
     key.add_argument("name")
-    for subparser in (tap, drag, typing, key):
+    navigate = commands.add_parser("navigate", help="Open Home or App Switcher using the native Home button")
+    navigate.add_argument("name", choices=("home", "app-switcher"))
+    for subparser in (tap, drag, typing, key, navigate):
         subparser.add_argument("--size", nargs=2, type=int, required=True,
                                metavar=("WIDTH", "HEIGHT"), help="Exact latest screenshot size")
     args = parser.parse_args()
@@ -58,6 +60,8 @@ def main():
             result = control.drag(args.x1, args.y1, args.x2, args.y2, *args.size, args.duration)
         elif args.command == "type":
             result = control.type_text(sys.stdin.read(257), *args.size)
+        elif args.command == "navigate":
+            result = control.navigate(args.name, *args.size)
         else:
             result = control.key(args.name, *args.size)
     print(json.dumps(result, indent=2))

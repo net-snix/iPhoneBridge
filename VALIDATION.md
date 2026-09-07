@@ -12,6 +12,15 @@ Tested on the physical USB-connected iPhone `00008110-001914103EB8801E`, iPhone1
 - Initial capture was configured for 30 fps. The subsequent latency pass qualified 60 fps capture with precise changed-region updates; measured delivery and latency are in [PERFORMANCE.md](PERFORMANCE.md). No audio implementation.
 - Human interaction was confirmed in portrait. MCP landscape input was confirmed after physical rotation during the earlier running session; human input after launching directly in landscape has not been separately qualified.
 
+## Home and App Switcher controls
+
+- The native toolbar's Home Screen button returned Safari to the Home Screen. App Switcher opened the actual phone's app cards. The View menu action also reached the same native navigation command.
+- The first implementation launched the CLI for each button press; Espen reported it was slow. Native buttons now use the existing viewer connection and public `RFB.sendKey` API, with standard XF86HomePage/TaskPane keysyms. The pinned daemon patch maps key-down to upstream self-releasing Home/Home-double-press helpers. No CLI process, screenshot capture or completion wait is involved in native navigation.
+- Navigation-enabled daemon SHA-256 `a631bf9c1492114f819d15e6d4e897c1976c233257350ef39bb3e839ad0ceb43` was deployed and verified running at full scale with the qualified `-F 60 -P 60 -d 0` settings. A native Home toolbar press on this build visibly changed the phone's Home page.
+- An upward CLI drag on the visible Calculator card removed it from the switcher; the resulting native window retained Safari and Pokémon GO cards. Local evidence: `20260907T191918.062868Z-4ed82b22-drag.png`. CUA's synthetic drag inside WebKit did not act on the phone and is not counted as proof of human dragging; human clicking was verified separately above.
+- Home follows the phone's native behavior: pressing it in App Switcher returned to Safari, and a second press returned to Home. This is documented in everyday use.
+- Native menu shortcuts are configured as ⌘1 and ⌘2. Espen reported that the first menu-only implementation did not work. The corrected build uses an app-local key-down monitor before WebKit, scoped to the focused mirror window. After raising that window, CUA ⌘2 visibly opened App Switcher and ⌘1 visibly returned to the Home Screen. The native keyboard path is now verified on the phone; a human repeat of this final check remains optional.
+
 ## Physical input through MCP
 
 These were actual stdio MCP calls made using the official MCP client, with native PNG responses inspected after input. They are separate from the unit tests and from the human viewer.
@@ -32,12 +41,12 @@ Images remain local and ignored under `outputs/screenshots/`; they are not repos
 
 The hardened device session helper was deployed, started, stopped, and restarted. The cleanup probe verified that device daemon PID 11151 exited, remote `active/` disappeared, recorded local processes ended, and ports 15901/15801/15802 were released. Shared iproxy PIDs 86023 (USB SSH) and 95937 (Waypoint) retained their exact start/command identities. Local evidence: `work/cleanup-validation.json`.
 
-New Mac listeners bind to 127.0.0.1. The patched daemon binds device IPv4 loopback and disables its IPv6 RFB listener; a connection to device `[::1]:15901` was refused. No LAN relay, package installation, launchd change, root password, jailbreak change, pairing reset, iOS update, app termination, respring or reboot was performed.
+New Mac listeners bind to 127.0.0.1. The patched daemon binds device IPv4 loopback and disables its IPv6 RFB listener; a connection to device `[::1]:15901` was refused. No LAN relay, package installation, launchd change, root password, jailbreak change, pairing reset, iOS update, respring or reboot was performed. The later app-navigation test closed Calculator through its switcher card; it did not terminate Pokémon GO.
 
 ## Build and checks
 
-- 26 Python tests passed: coordinate bounds, stale orientation, serialized input, release on failure, shifted typing, useful MCP errors, PID ownership and cleanup.
-- 3 viewer tests passed: configuration/orientation messages, reconnect cleanup, and authentication failure handling.
+- 33 Python tests passed: coordinate bounds, stale orientation, serialized input, release on failure, shifted typing, useful MCP errors, PID ownership, cleanup, native Home event sequences and navigation CLI validation.
+- 4 viewer tests passed: configuration/orientation messages, reconnect cleanup, authentication failure handling, and navigation over the current connection without sending into disconnected or retired sessions.
 - Native release build passed without warnings after matching current WebKit delegate concurrency annotations.
 - `scripts/setup --check` passed pinned source, archive, patch, viewer and binary checks.
 - `scripts/check-mcp` verified six tools and decoded the returned native PNG against its reported dimensions.

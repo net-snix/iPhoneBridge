@@ -1,8 +1,25 @@
 diff --git a/src/trollvncserver.mm b/src/trollvncserver.mm
-index be6cce3..dd10a7b 100644
+index be6cce3..ee0f985 100644
 --- a/src/trollvncserver.mm
 +++ b/src/trollvncserver.mm
-@@ -4576,6 +4576,12 @@ static void setupRfbScreen(int argc, const char *argv[]) {
+@@ -2946,6 +2946,16 @@ static void kbdAddEvent(rfbBool down, rfbKeySym keySym, rfbClientPtr cl) {
+ 
+     // Map common XF86 multimedia/brightness keysyms to iOS HID events
+     switch ((unsigned long)keySym) {
++    // iPhoneBridge, 2026-09-07: bounded navigation actions self-release even
++    // when the viewer disconnects before its key-up packet arrives.
++    case 0x1008ff18UL: // XF86HomePage
++        if (down)
++            [gen menuPress];
++        return;
++    case 0x1008ff7fUL: // XF86TaskPane
++        if (down)
++            [gen menuDoublePress];
++        return;
+     // Brightness Up/Down
+     case 0x1008ff02UL: // XF86MonBrightnessUp
+         if (down)
+@@ -4576,6 +4586,12 @@ static void setupRfbScreen(int argc, const char *argv[]) {
      TVBindHostKind hostKind = tvClassifyBindHost(gBindHost, &v4Addr, &v6Addr);
      if (hostKind == kTVBindHostKindIPv4) {
          gScreen->listenInterface = v4Addr;

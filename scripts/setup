@@ -62,11 +62,11 @@ def prepare(check_only=False):
     source = checkout(spec, check_only)
     diff = run("git", "diff", "--binary", "HEAD", cwd=source)
     if not diff:
-        require(not check_only, "Loopback patch is not applied; run scripts/setup")
+        require(not check_only, "Reviewed TrollVNC patch is not applied; run scripts/setup")
         run("git", "apply", "--check", str(patch), cwd=source)
         run("git", "apply", str(patch), cwd=source)
         diff = run("git", "diff", "--binary", "HEAD", cwd=source)
-    require(diff == patch.read_bytes(), "TrollVNC contains changes beyond the reviewed loopback patch")
+    require(diff == patch.read_bytes(), "TrollVNC contains changes beyond the reviewed project patch")
     for relative, expected in spec["bundled_archives_sha256"].items():
         require(digest(source / relative) == expected, f"Bundled archive changed: {relative}")
     viewer = checkout(LOCK["novnc"], check_only)
@@ -81,7 +81,8 @@ def prepare(check_only=False):
     binary = source / ".theos/obj/trollvncserver"
     prior = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
     known_build = binary.is_file() and (
-        digest(binary) == spec["existing_build_sha256"] or (
+        (digest(binary) == spec["existing_build_sha256"]
+         and source_sha == spec["existing_build_source_sha256"]) or (
             prior.get("source", {}).get("files_sha256") == source_sha
             and prior.get("binary", {}).get("sha256") == digest(binary)
             and prior.get("build_command") == LOCK["build_command"]

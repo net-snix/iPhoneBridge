@@ -25,6 +25,7 @@ function harness(native = true) {
     }
     disconnect() { this.dispatchEvent(new Event('disconnect')); }
     focus() { this.focused = true; }
+    sendKey(...args) { (this.keys ??= []).push(args); }
   }
   class FakeObserver {
     constructor(callback) { this.callback = callback; observer = this; }
@@ -95,4 +96,21 @@ test('authentication errors wait for explicit retry without collecting credentia
   h.elements.reconnect.dispatchEvent(new Event('click'));
   assert.equal(h.clients.length, 2);
   h.api.stop();
+});
+
+test('navigation sends one gesture over the existing live session and refuses stale sessions', () => {
+  const h = harness();
+  const c = h.clients[0];
+  assert.equal(h.api.navigate('home'), false, 'no input before connection');
+  c.dispatchEvent(new Event('connect'));
+  assert.equal(h.api.navigate('home'), true);
+  assert.equal(h.api.navigate('app-switcher'), true);
+  assert.equal(h.api.navigate('power'), false);
+  assert.deepEqual(c.keys, [[0x1008FF18, null], [0x1008FF7F, null]]);
+  assert.equal(h.clients.length, 1, 'navigation reuses the video connection');
+  c.disconnect();
+  assert.equal(h.api.navigate('home'), false);
+  h.api.stop();
+  assert.equal(h.api.navigate('app-switcher'), false);
+  assert.equal(c.keys.length, 2, 'disconnect/stop never queue input for a later connection');
 });

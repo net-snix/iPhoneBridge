@@ -252,6 +252,31 @@ def key(name: str, width: int, height: int):
     return _mutate("key", width, height, lambda session: _press(session, KEYS[name.lower()]))
 
 
+def _home_press(session):
+    # TrollVNC maps RFB button 3 (mask 4) to Consumer Menu down/up. Its
+    # keyboard Home keysym is a different key and does not perform this action.
+    try:
+        session.call("mouseDown", 3)
+        time.sleep(0.05)  # Upstream STHIDEventGenerator fingerLiftDelay.
+    finally:
+        session.release("mouseUp", 3)
+
+
+def navigate(name: str, width: int, height: int):
+    """Open Home or App Switcher using native Home button events, then screenshot."""
+    if name not in ("home", "app-switcher"):
+        raise BridgeInputError("Supported navigation actions: home, app-switcher")
+
+    def operation(session):
+        _home_press(session)
+        if name == "app-switcher":
+            time.sleep(0.15)  # Upstream menuDoublePress multiTapInterval.
+            _home_press(session)
+        time.sleep(0.5)  # Let SpringBoard finish Home/App Switcher transition.
+
+    return _mutate(name, width, height, operation)
+
+
 def health():
     """Read the local RFB banner without sending input or starting services."""
     try:

@@ -157,6 +157,40 @@ class ControlTests(unittest.TestCase):
             session.call("mouseDown", 1)
         self.assertEqual(self.client.events, [])
 
+    def test_native_home_uses_menu_button_and_returns_screenshot(self):
+        with patch.object(control.time, "sleep") as sleep:
+            result = control.navigate("home", 1170, 2532)
+        self.assertEqual(self.client.events, [("mouseDown", 3), ("mouseUp", 3), ("disconnect",)])
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [0.05, 0.5, 0.25])
+        self.assertEqual(result["action"], "home")
+        self.assertEqual(self.client.capture_count, 2)
+        self.assertTrue(Path(result["path"]).is_file())
+
+    def test_native_switcher_uses_two_released_home_presses(self):
+        with patch.object(control.time, "sleep") as sleep:
+            result = control.navigate("app-switcher", 1170, 2532)
+        self.assertEqual(self.client.events, [("mouseDown", 3), ("mouseUp", 3),
+                                             ("mouseDown", 3), ("mouseUp", 3), ("disconnect",)])
+        self.assertEqual([call.args[0] for call in sleep.call_args_list], [0.05, 0.15, 0.05, 0.5, 0.25])
+        self.assertEqual(result["action"], "app-switcher")
+        control.api.connect.assert_called_once()
+
+    def test_navigation_stale_size_rejects_before_menu_press(self):
+        with self.assertRaisesRegex(control.BridgeInputError, "Framebuffer changed"):
+            control.navigate("app-switcher", 2532, 1170)
+        self.assertEqual(self.client.events, [("disconnect",)])
+
+    def test_navigation_menu_release_attempted_after_timeout(self):
+        self.client.fail = "mouseDown"
+        with self.assertRaisesRegex(control.BridgeActionError, "may have been applied"):
+            control.navigate("app-switcher", 1170, 2532)
+        self.assertEqual(self.client.events, [("mouseDown", 3), ("mouseUp", 3), ("disconnect",)])
+
+    def test_unknown_navigation_rejected_before_connection(self):
+        with self.assertRaises(control.BridgeInputError):
+            control.navigate("power", 1170, 2532)
+        control.api.connect.assert_not_called()
+
     def test_flock_serializes_threads(self):
         acquired = threading.Event()
         def contender():

@@ -28,8 +28,11 @@ transitive dependencies; their files remain intact in the virtual environment.
 
 The TrollVNC CLI is compiled locally from the pinned source plus
 `patches/trollvnc-loopback.patch`. That patch prevents the upstream IPv4
-loopback option from leaving an IPv6 listener on all interfaces. It is plainly
-marked in the modified source. Setup checks that the complete tracked source
+loopback option from leaving an IPv6 listener on all interfaces. It also maps
+XF86HomePage and XF86TaskPane key-down events to the upstream self-releasing
+Home press and Home double-press helpers for native toolbar navigation; key-up
+events are ignored, and ordinary keyboard Home behavior remains unchanged.
+Both changes are plainly marked in the modified source. Setup checks that the complete tracked source
 diff equals that reviewed patch and refuses unrelated source changes.
 
 This is **not a complete source rebuild of every linked dependency**. Upstream
@@ -75,7 +78,7 @@ This product includes cryptographic software written by Eric Young
 ## Setup records
 
 `scripts/setup` runs `uv sync --locked`, verifies pinned source trees and the
-patch, reuses the already reviewed binary when its hash matches, and invokes
+patch, reuses the already reviewed binary when its binary and source hashes match, and invokes
 only the CLI `make all` target when a rebuild is needed. Existing checkouts are
 never reset, switched, cleaned, pulled or overwritten. Missing TrollVNC/noVNC
 checkouts are cloned to the exact paths in `dependency-lock.json`.

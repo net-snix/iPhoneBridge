@@ -14,6 +14,8 @@ Double-click **iPhoneBridge.app** in this directory, or run:
 
 The app starts the bridge automatically and fills the window with the live phone screen. Keep the iPhone awake and unlocked. Use **View → Reconnect** after a disconnected cable, and **View → Enter Full Screen** for a larger view. Quitting the app stops the bridge, including any CLI/MCP connection using it. Capture targets 60 fps and sends precise changed regions without an added coalescing delay. The live test delivered about 55 fps during motion and 59 fps for sparse changes, with about 98 ms input-to-visible response; see [PERFORMANCE.md](PERFORMANCE.md) for the comparison and measurement limits.
 
+The two buttons at the top right provide **Home Screen (⌘1)** and **App Switcher (⌘2)**, also available in the View menu. Focus the mirror window to use its shortcuts. To close an iPhone app, open App Switcher, drag left or right to find its card, then drag that card upward off the screen. Click a card to switch to it. Home sends the phone's native Home button event; from App Switcher it can first return to the selected app, so press again to reach the Home Screen. Controls are disabled while disconnected or reconnecting.
+
 To build the local Mac app again:
 
 ```sh
@@ -55,9 +57,11 @@ Always screenshot first. Use **raw framebuffer pixels** and supply the returned 
 ./bridge drag 150 1365 1010 1365 --duration 0.8 --size 1172 2536
 printf '%s' 'Bridge test 123' | ./bridge type --size 1172 2536
 ./bridge key enter --size 1172 2536
+./bridge navigate home --size 1172 2536
+./bridge navigate app-switcher --size 1172 2536
 ```
 
-`swipe` is a CLI alias for `drag`. Input supports one finger, 0.1–5 second drags, and up to 256 printable ASCII characters plus tab/newline using a US hardware keyboard layout. Arbitrary Unicode and multitouch/pinch are unsupported. `key home` is a keyboard navigation key, not the iPhone Home gesture. Do not send secrets; input text is omitted from bridge metadata/logs but may appear in screenshots and the calling client's history.
+`swipe` is a CLI alias for `drag`. Input supports one finger, 0.1–5 second drags, and up to 256 printable ASCII characters plus tab/newline using a US hardware keyboard layout. Arbitrary Unicode and multitouch/pinch are unsupported. `key home` is a keyboard navigation key; `navigate home` sends the iPhone Home button event, and `navigate app-switcher` sends a double press. The CLI waits for a fresh screenshot. The native toolbar sends these gestures directly over the existing live connection for a faster response. The six MCP tools remain the same. Do not send secrets; input text is omitted from bridge metadata/logs but may appear in screenshots and the calling client's history.
 
 ## Setup and deployment
 
@@ -78,7 +82,7 @@ iproxy -u 00008110-001914103EB8801E 2222:22
 
 The bridge verifies that exact existing forward and iOS 15.1.1. It does not create or replace the shared tunnel, reset pairing, install a jailbreak, update iOS, install a package, or configure launchd. Device files are confined to `/var/mobile/Media/iPhoneBridge`. Deployment uses no root password. If the phone or version changes, review compatibility and update the explicit configuration before use.
 
-TrollVNC is compiled from its pinned GPL source with a small IPv6 listener fix. Its upstream supplied static dependencies are hash pinned, not rebuilt from source here. No compiled daemon is committed or publicly distributed. Original bridge code is MIT; see [THIRD_PARTY.md](THIRD_PARTY.md) and retained [licenses](licenses/) for the separate upstream terms and build provenance limitations.
+TrollVNC is compiled from its pinned GPL source with an IPv6 listener fix and two navigation key mappings. Its upstream supplied static dependencies are hash pinned, not rebuilt from source here. No compiled daemon is committed or publicly distributed. Original bridge code is MIT; see [THIRD_PARTY.md](THIRD_PARTY.md) and retained [licenses](licenses/) for the separate upstream terms and build provenance limitations.
 
 ## Transport
 

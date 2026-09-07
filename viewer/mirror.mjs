@@ -138,6 +138,16 @@ export function mountMirror(RFB, environment = {}) {
     connect();
   }
 
+  function navigate(destination) {
+    // Standard XF86 keysyms handled by the pinned phone daemon patch. These
+    // are complete button gestures on key-down, so a lost key-up cannot hold Home.
+    const keysym = destination === 'home' ? 0x1008FF18 : destination === 'app-switcher' ? 0x1008FF7F : 0;
+    if (!keysym || !connected || !client || stopped) return false;
+    client.sendKey(keysym, null);
+    client.focus();
+    return true;
+  }
+
   function stop() {
     stopped = true;
     clearTimers();
@@ -150,5 +160,5 @@ export function mountMirror(RFB, environment = {}) {
   button.addEventListener('click', reconnect);
   win.addEventListener('pagehide', stop);
   connect();
-  return { reconnect, stop, currentClient: () => connected ? client : null };
+  return { reconnect, stop, navigate, currentClient: () => connected ? client : null };
 }
