@@ -1,3 +1,22 @@
+# Independent review — 2026-09-08
+
+The [new independent pass](docs/performance-independent-2026-09-08.md) confirms
+the size probe saves about **403 ms per agent action**, but finds an important
+problem with the later `-Q 1` change: **three slow-reader tests lost the final
+screen update**, verified against direct USB screenshots. Final-frame recovery
+needs fixing before the frame-dropping optimization can be considered complete.
+
+The installed native app delivered **50.7–53.7 fps on the heavy fixture**, with
+input medians of **83.5 and 97 ms**. WebKit used roughly **one CPU core** during
+a separate heavy-load profile. USB streaming measured about **45 MB/s** with
+either tested cipher. PNG level 2 saved **17–37 ms of encoding** for about
+**5–6% more bytes** on two fixed frames, with identical decoded pixels.
+
+The report evaluates Fable's findings, distinguishes source estimates from live
+measurements, and includes [raw numeric results](docs/performance-independent-2026-09-08.json).
+This pass adds diagnostics and findings; it does not promote new runtime tuning.
+The sections below retain the earlier measurements and their original scope.
+
 # Mirror latency — 2026-09-07
 
 The selected profile reduced input-to-visible response from about **166 ms to 83–98 ms** and increased delivered motion from **30 fps to about 55 fps** on the physical iPhone. Sparse animation delivered about **59 fps**. Full resolution and the existing Tight encoder quality/compression levels remain unchanged.

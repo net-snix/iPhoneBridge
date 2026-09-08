@@ -1,4 +1,11 @@
-# Validation — 2026-09-07
+# Validation — updated 2026-09-08
+
+**Known failure in installed daemon `a82e40b4…` with `-Q 1`:** a slow RAW reader
+can cause the final physical screen change to be dropped. Three independent
+trials returned a stale RFB counter while direct USB screenshots showed the
+new value. See the [independent performance review](docs/performance-independent-2026-09-08.md)
+and `scripts/measure-frame-retention`. This remains unresolved; the passing
+automated checks below do not cover that device-side failure.
 
 Test hardware: USB-connected iPhone 13 Pro (`iPhone14,2`), jailbroken iOS 15.1.1,
 and an Apple silicon Mac. Device identifiers and private screenshots are omitted.
@@ -87,3 +94,16 @@ of notarization or independent security review.
 
 - Rebuilt through `scripts/setup`, `scripts/stage-device-release` and `scripts/build-app`, installed to `/Applications`, and connected from the installed app: `status` reported USB, SSH and viewer services, the device log showed `Max in-flight updates set to 1`, and a CLI screenshot returned the live 1172×2536 frame.
 - Measured on the phone with the source checkout's bridge before the app rebuild: request round trip 7.6 → 2.8 ms, `stop` 1 s, `connect` 4 s, and the heavy-load latency and fps comparison in [PERFORMANCE.md](PERFORMANCE.md). Human viewing, navigation buttons and MCP input were not re-run on this build.
+
+## Independent installed-app checks (2026-09-08)
+
+- Native WKWebView barcode tests completed 120/120 ordinary input responses and
+  four ten-second motion runs with quality 6, compression 2 and full resolution.
+- Three deliberate slow-reader tests reproduced the stale-frame failure above.
+  Recovery with a subsequent idle input was verified each time.
+- Five installed stdio MCP screenshot calls returned decodable native PNGs.
+- The 48 Python tests, 17 viewer tests, Swift release build and installed bundle
+  signature check passed. Only diagnostics and review documents changed.
+- Normal app mode was restored, showing the live Home Screen. Fixture services
+  stopped, bridge health passed, and existing shared USB forwards retained
+  their original process identities. No phone app was terminated in this pass.
