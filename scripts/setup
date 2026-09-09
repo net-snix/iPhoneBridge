@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import runpy
 import shutil
 import subprocess
 import sys
@@ -67,7 +68,8 @@ def prepare(check_only=False):
     diff = run("git", "diff", "--binary", "HEAD", cwd=source)
     require(not diff or diff == patch.read_bytes(), "TrollVNC contains unrelated source changes")
     viewer = checkout(LOCK["novnc"], check_only)
-    require(not git(viewer, "status", "--porcelain"), "noVNC checkout is dirty")
+    prepare_viewer = runpy.run_path(str(ROOT / "scripts/prepare-viewer"))["prepare"]
+    prepare_viewer(viewer, LOCK["novnc"], ROOT, check_only=check_only)
     sources = json.loads((ROOT / "device-sources.lock.json").read_text())
     recipe = ROOT / "scripts/build-device-deps"
     dependency_patch = ROOT / "patches/trollvnc-source-deps.patch"

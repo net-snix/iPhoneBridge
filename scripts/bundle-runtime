@@ -229,10 +229,8 @@ def main():
         copy_tree(ROOT / name, bridge / name)
     no_vnc = Paths.discover(ROOT).novnc
     lock = json.loads((ROOT / "dependency-lock.json").read_text())["novnc"]
-    if run("git", "-C", str(no_vnc), "rev-parse", "HEAD") != lock["commit"]:
-        raise RuntimeError("noVNC checkout does not match dependency-lock.json")
-    if run("git", "-C", str(no_vnc), "status", "--porcelain", "--untracked-files=no"):
-        raise RuntimeError("noVNC checkout has uncommitted tracked modifications")
+    prepare_viewer = runpy.run_path(str(ROOT / "scripts/prepare-viewer"))["prepare"]
+    prepare_viewer(no_vnc, lock, ROOT, check_only=True)
     (bridge / "novnc").mkdir()
     for name in ("core", "vendor"):
         copy_tree(no_vnc / name, bridge / "novnc" / name)
@@ -262,7 +260,9 @@ def main():
             item["bundled_sha256"] = sha(contents / item["path"])
     result = {"schema_version": 1, "python_version": sys.version.split()[0],
               "python_build": (python / "BUILD").read_text().strip(),
-              "novnc_commit": lock["commit"], "device_sha256": manifest["binary"]["sha256"],
+              "novnc_commit": lock["commit"], "novnc_patch_sha256": lock["patch_sha256"],
+              "novnc_patched_files_sha256": lock["patched_files_sha256"],
+              "device_sha256": manifest["binary"]["sha256"],
               "usb": usb, "audited_macho_files": binaries, "signed_macos_files": signed,
               "python_runtime": "Resources/runtime/python"}
     (contents / "Resources/runtime-manifest.json").write_text(json.dumps(result, indent=2) + "\n")

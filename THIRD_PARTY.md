@@ -37,6 +37,11 @@ is an upstream license reference, not an assertion about the phone's zlib versio
 `patches/trollvnc-loopback.patch` prevents an IPv6 wildcard listener when the
 IPv4 loopback option is selected. It also maps XF86HomePage and XF86TaskPane
 key-down events to TrollVNC's self-releasing Home press and double-press helpers.
+The same patch removes the default update delay, retries the newest screen after
+an in-flight encode drops a capture, and avoids hashing the full buffer twice in
+the normal precise-update path. Retries retain a flag, not a queue of images.
+Frame swaps retain the acquired clients until their exact send locks are released,
+so disconnecting clients can complete cleanup.
 `patches/trollvnc-source-deps.patch` updates the library link list for the source
 build. `patches/libvncserver-darwin-endian.patch` prevents undefined GNU endian
 macros in Darwin's header from overriding the correct little-endian target
@@ -55,7 +60,13 @@ checks the loopback and navigation behavior in the compiled source.
 | websockify | 0.13.0 | LGPL-3.0; `licenses/python/websockify/` |
 
 The complete noVNC checkout is distributed as source, with its original notices,
-AUTHORS and documentation. Python dependencies and transitive download hashes
+AUTHORS and documentation. `patches/novnc-image-lifecycle.patch` loads encoded
+rectangles through a temporary HTML image and converts it to an ImageBitmap.
+It releases the image and object URL after conversion, closes the bitmap after
+drawing, handles decode failure and timeout, and disposes pending images on
+disconnect. These modified files remain MPL-2.0.
+The patch and resulting source hashes are pinned in `dependency-lock.json` and
+verified by `scripts/prepare-viewer` before bundling. Python dependencies and transitive download hashes
 are pinned in `uv.lock`. Their installed source, metadata and license files
 remain in the bundled environment. Native runtime components retain their
 own notices and source records alongside the release source package. Python

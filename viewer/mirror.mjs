@@ -1,4 +1,4 @@
-// Original iPhoneBridge code, MIT. noVNC remains unmodified in /novnc/.
+// Original iPhoneBridge code, MIT. The reviewed noVNC source is served in /novnc/.
 export function mountMirror(RFB, environment = {}) {
   const win = environment.window ?? window;
   const doc = environment.document ?? document;

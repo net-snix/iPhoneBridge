@@ -10,13 +10,23 @@ export async function coordinateBenchmark(mirror) {
     try {
       const request = await fetch('http://127.0.0.1:15802/benchmark-run', { cache: 'no-store' }).then(r => r.json());
       const client = mirror.currentClient();
-      if (client && request.id && request.id !== previous) {
+      if ((client || request.mode === 'image-quality') && request.id && request.id !== previous) {
         previous = request.id;
-        active = installBenchmark({ client, screen: document.getElementById('screen') });
-        if (request.mode === 'input') await active.runInput(request);
-        else if (request.mode === 'animation') await active.runAnimation(request);
-        active.stop();
-        active = null;
+        try {
+          if (request.mode === 'image-quality') {
+            const { installImageQuality } = await import('./image-quality.mjs');
+            if (stopped) break;
+            active = installImageQuality();
+            await active.run(request);
+          } else {
+            active = installBenchmark({ client, screen: document.getElementById('screen') });
+            if (request.mode === 'input') await active.runInput(request);
+            else if (request.mode === 'animation') await active.runAnimation(request);
+          }
+        } finally {
+          active?.stop();
+          active = null;
+        }
       }
     } catch (error) {
       // A stopped USB fixture server is normal between profile changes.

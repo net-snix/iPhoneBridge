@@ -1,8 +1,384 @@
+diff --git a/src/ClientSendLocks.h b/src/ClientSendLocks.h
+new file mode 100644
+index 0000000..2528646
+--- /dev/null
++++ b/src/ClientSendLocks.h
+@@ -0,0 +1,56 @@
++/*
++ * iPhoneBridge framebuffer client locks, 2026-09-09.
++ * Copyright (c) 2026 iPhoneBridge contributors.
++ * SPDX-License-Identifier: GPL-2.0-only
++ */
++#ifndef TV_CLIENT_SEND_LOCKS_H
++#define TV_CLIENT_SEND_LOCKS_H
++
++#include <pthread.h>
++#include <rfb/rfb.h>
++#include <vector>
++
++// Keep the exact acquired clients alive until their send locks are released.
++// A second iterator would omit clients that disconnected and could include new
++// clients whose locks this capture never acquired.
++class TVClientSendLocks {
++public:
++    explicit TVClientSendLocks(rfbScreenInfoPtr screen) {
++        rfbClientIteratorPtr iterator = rfbGetClientIterator(screen);
++        try {
++            rfbClientPtr client;
++            while ((client = rfbClientIteratorNext(iterator))) {
++                // The iterator owns a temporary ref. Retain our own before it
++                // advances; LibVNC removes closed clients before waiting for
++                // their refs to reach zero and freeing their mutexes.
++                clients_.push_back(client);
++                rfbIncrClientRef(client);
++                pthread_mutex_lock(&client->sendMutex);
++            }
++        } catch (...) {
++            rfbReleaseClientIterator(iterator);
++            unlock();
++            throw;
++        }
++        rfbReleaseClientIterator(iterator);
++    }
++
++    TVClientSendLocks(const TVClientSendLocks &) = delete;
++    TVClientSendLocks &operator=(const TVClientSendLocks &) = delete;
++    ~TVClientSendLocks() { unlock(); }
++
++    void unlock() {
++        // Release all send locks before allowing any client teardown to run.
++        // Keep acquisition/release order identical to the original traversal.
++        for (rfbClientPtr client : clients_)
++            pthread_mutex_unlock(&client->sendMutex);
++        for (rfbClientPtr client : clients_)
++            rfbDecrClientRef(client);
++        clients_.clear();
++    }
++
++private:
++    std::vector<rfbClientPtr> clients_;
++};
++
++#endif
+diff --git a/src/FrameUpdateRetry.h b/src/FrameUpdateRetry.h
+new file mode 100644
+index 0000000..9137bfa
+--- /dev/null
++++ b/src/FrameUpdateRetry.h
+@@ -0,0 +1,44 @@
++/*
++ * iPhoneBridge capture retry state, 2026-09-09.
++ * Copyright (c) 2026 iPhoneBridge contributors.
++ * SPDX-License-Identifier: GPL-2.0-only
++ */
++#ifndef TV_FRAME_UPDATE_RETRY_H
++#define TV_FRAME_UPDATE_RETRY_H
++
++#include <atomic>
++
++// One pending resnapshot, never a queue of old frames. The capture thread calls
++// deferCapture() then takeRetryIfReady(); client output threads call started()
++// and finished(). A true return requests a capture on the next display tick.
++class TVFrameUpdateRetry {
++public:
++    void started() { inflight_.fetch_add(1); }
++
++    bool finished(int limit) {
++        inflight_.fetch_sub(1);
++        return takeRetryIfReady(limit);
++    }
++
++    bool deferCapture(int limit) {
++        if (limit <= 0 || inflight_.load() < limit)
++            return false;
++        pending_.store(true);
++        return true;
++    }
++
++    bool takeRetryIfReady(int limit) {
++        // The capture-side recheck covers completion between the busy check
++        // and pending.store(). Sequential consistency ensures either this
++        // recheck or the completing client observes the retry obligation.
++        return (limit <= 0 || inflight_.load() < limit) && pending_.exchange(false);
++    }
++
++    int inflight() const { return inflight_.load(); }
++
++private:
++    std::atomic<int> inflight_{0};
++    std::atomic<bool> pending_{false};
++};
++
++#endif
+diff --git a/src/ScreenCapturer.mm b/src/ScreenCapturer.mm
+index afc7ea7..f4df755 100644
+--- a/src/ScreenCapturer.mm
++++ b/src/ScreenCapturer.mm
+@@ -24,6 +24,7 @@
+ #import <UIKit/UIImage.h>
+ #import <UIKit/UIScreen.h>
+ #import <mach/mach.h>
++#include <atomic>
+ 
+ #import "Control.h"
+ #import "IOKitSPI.h"
+@@ -158,6 +159,10 @@ void CARenderServerRenderDisplay(kern_return_t a, CFStringRef b, IOSurfaceRef su
+ #pragma mark - Rendering
+ 
+ static CFIndex sDirtyFrameCount = 0;
++// forceNextFrameUpdate can be called by a VNC output/input thread. Only the
++// display-link thread owns the dirty counter and surface; other threads request
++// invalidation without capturing or taking client send locks.
++static std::atomic<bool> sForceFrameUpdate(true);
+ 
+ - (BOOL)renderDisplayToScreenSurface:(IOSurfaceRef)dstSurface {
+ #if TARGET_OS_SIMULATOR
+@@ -179,8 +184,9 @@ static CFIndex sDirtyFrameCount = 0;
+         }
+     });
+ 
++    bool forceFrameUpdate = sForceFrameUpdate.exchange(false);
+     CFIndex dirtyFrameCount = CARenderServerGetDirtyFrameCount(NULL);
+-    if (dirtyFrameCount == sDirtyFrameCount) {
++    if (!forceFrameUpdate && dirtyFrameCount == sDirtyFrameCount) {
+         return NO; // No change
+     }
+ 
+@@ -383,7 +389,7 @@ static CFIndex sDirtyFrameCount = 0;
+ }
+ 
+ - (void)forceNextFrameUpdate {
+-    sDirtyFrameCount = 0; // Force next frame to be treated as dirty
++    sForceFrameUpdate.store(true);
+ }
+ 
+ #pragma mark - Private Methods
+@@ -404,6 +410,7 @@ static CFIndex sDirtyFrameCount = 0;
+     CVReturn cvret = CVPixelBufferCreateWithIOSurface(kCFAllocatorDefault, mScreenSurface,
+                                                       (__bridge CFDictionaryRef)attrs, &pixelBuffer);
+     if (cvret != kCVReturnSuccess || !pixelBuffer) {
++        [self forceNextFrameUpdate];
+         return;
+     }
+ 
+@@ -412,6 +419,7 @@ static CFIndex sDirtyFrameCount = 0;
+     OSStatus status = CMVideoFormatDescriptionCreateForImageBuffer(kCFAllocatorDefault, pixelBuffer, &formatDesc);
+     if (status != noErr || !formatDesc) {
+         CVPixelBufferRelease(pixelBuffer);
++        [self forceNextFrameUpdate];
+         return;
+     }
+ 
+@@ -429,6 +437,8 @@ static CFIndex sDirtyFrameCount = 0;
+     if (status == noErr && sampleBuffer) {
+         mFrameHandler(sampleBuffer);
+         CFRelease(sampleBuffer);
++    } else {
++        [self forceNextFrameUpdate];
+     }
+ 
+     if (formatDesc)
 diff --git a/src/trollvncserver.mm b/src/trollvncserver.mm
-index be6cce3..08e6ab0 100644
+index be6cce3..629bd35 100644
 --- a/src/trollvncserver.mm
 +++ b/src/trollvncserver.mm
-@@ -2946,6 +2946,16 @@ static void kbdAddEvent(rfbBool down, rfbKeySym keySym, rfbClientPtr cl) {
+@@ -44,8 +44,10 @@
+ 
+ #import "BulletinManager.h"
+ #import "ClipboardManager.h"
++#import "ClientSendLocks.h"
+ #import "Control.h"
+ #import "FBSOrientationObserver.h"
++#import "FrameUpdateRetry.h"
+ #import "IOKitSPI.h"
+ #import "Logging.h"
+ #import "PSAssistiveTouchSettingsDetail.h"
+@@ -1969,18 +1971,19 @@ NS_INLINE void copyRectsFromBackToFront(DirtyRect *rects, int rectCount) {
+ 
+ #pragma mark - Display Hooks
+ 
+-static std::atomic<int> gInflight(0);
++static TVFrameUpdateRetry gFrameUpdates;
+ 
+ // Track encode life-cycle to provide backpressure via inflight counter
+ static void displayHook(rfbClientPtr cl) {
+     (void)cl;
+-    gInflight.fetch_add(1, std::memory_order_relaxed);
++    gFrameUpdates.started();
+ }
+ 
+ static void displayFinishedHook(rfbClientPtr cl, int result) {
+     (void)cl;
+     (void)result;
+-    gInflight.fetch_sub(1, std::memory_order_relaxed);
++    if (gFrameUpdates.finished(gMaxInflightUpdates))
++        [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
+ }
+ 
+ static int setDesktopSizeHook(int width, int height, int numScreens, rfbExtDesktopScreen *extDesktopScreens,
+@@ -2005,6 +2008,20 @@ static const int cNoScalePadThresholdPx = 8; // if both |dW| and |dH| <= this, d
+ // Flush-time hashing optimization
+ static const BOOL cParallelHashOnFlush = YES; // use parallel hashing at flush to reduce wall time
+ 
++// Full hashes are identical before dirty accumulation and at flush. Keep the
++// parallel path for the immediate profile; only sparse hashes need replacing.
++static void hashFullBackBuffer(void) {
++    if (cParallelHashOnFlush) {
++        int threads = (int)[[NSProcessInfo processInfo] processorCount];
++        threads = MAX(2, MIN(8, threads));
++        hashTiledFromBufferParallel((const uint8_t *)gBackBuffer, gWidth, gHeight,
++                                    (size_t)gWidth * (size_t)gBytesPerPixel, threads);
++    } else {
++        hashTiledFromBuffer((const uint8_t *)gBackBuffer, gWidth, gHeight,
++                            (size_t)gWidth * (size_t)gBytesPerPixel);
++    }
++}
++
+ #pragma mark - Frame Handlers
+ 
+ static std::atomic<int> gRotationQuad(0); // 0=0°, 1=90°, 2=180°, 3=270° (clockwise)
+@@ -2231,25 +2248,6 @@ static int tryLockAllClients(pthread_mutex_t **locked, size_t *lockedCount, size
+     return 1;
+ }
+ 
+-// Blocking lock helpers (original behavior): lock all clients, then unlock all.
+-NS_INLINE void lockAllClientsBlocking(void) {
+-    rfbClientIteratorPtr it = rfbGetClientIterator(gScreen);
+-    rfbClientPtr cl;
+-    while ((cl = rfbClientIteratorNext(it))) {
+-        pthread_mutex_lock(&cl->sendMutex);
+-    }
+-    rfbReleaseClientIterator(it);
+-}
+-
+-NS_INLINE void unlockAllClientsBlocking(void) {
+-    rfbClientIteratorPtr it = rfbGetClientIterator(gScreen);
+-    rfbClientPtr cl;
+-    while ((cl = rfbClientIteratorNext(it))) {
+-        pthread_mutex_unlock(&cl->sendMutex);
+-    }
+-    rfbReleaseClientIterator(it);
+-}
+-
+ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
+ 
+ #if DEBUG
+@@ -2264,9 +2262,14 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
+     }
+ 
+     // Busy-drop: if encoders are busy and limit reached, skip this frame (disabled when -Q 0)
+-    if (gMaxInflightUpdates > 0 && gInflight.load(std::memory_order_relaxed) >= gMaxInflightUpdates) {
++    if (gFrameUpdates.deferCapture(gMaxInflightUpdates)) {
++        // Rendering already consumed this dirty counter. Arrange one fresh
++        // resnapshot after capacity returns, even if the screen stops changing.
++        // Recheck here in case completion raced the pending retry publication.
++        if (gFrameUpdates.takeRetryIfReady(gMaxInflightUpdates))
++            [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
+         // When busy dropping, skip all hashing/dirty work.
+-        TVLogVerbose(@"drop frame due to inflight=%d >= limit=%d", gInflight.load(std::memory_order_relaxed),
++        TVLogVerbose(@"drop frame due to inflight=%d >= limit=%d", gFrameUpdates.inflight(),
+                      gMaxInflightUpdates);
+         return;
+     }
+@@ -2520,10 +2523,10 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
+ #endif
+             }
+         } else {
+-            lockAllClientsBlocking();
++            TVClientSendLocks clientLocks(gScreen);
+             swapBuffers();
+             rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+-            unlockAllClientsBlocking();
++            clientLocks.unlock();
+ 
+ #if DEBUG
+             CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+@@ -2586,10 +2589,10 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
+             }
+         } else {
+             // Blocking swap to avoid tearing
+-            lockAllClientsBlocking();
++            TVClientSendLocks clientLocks(gScreen);
+             swapBuffers();
+             rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+-            unlockAllClientsBlocking();
++            clientLocks.unlock();
+ 
+ #if DEBUG
+             CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+@@ -2615,12 +2618,12 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
+     CFAbsoluteTime __tv_tHash0 = CFAbsoluteTimeGetCurrent();
+ #endif
+ 
+-    if (cSparseHashDuringDefer && gDeferWindowSec > 0) {
++    BOOL usedSparseHash = cSparseHashDuringDefer && gDeferWindowSec > 0;
++    if (usedSparseHash) {
+         hashTiledFromBufferSparse((const uint8_t *)gBackBuffer, gWidth, gHeight,
+                                   (size_t)gWidth * (size_t)gBytesPerPixel, cHashStrideX, cHashStrideY);
+     } else {
+-        resetCurrTileHashes();
+-        hashTiledFromBuffer((const uint8_t *)gBackBuffer, gWidth, gHeight, (size_t)gWidth * (size_t)gBytesPerPixel);
++        hashFullBackBuffer();
+     }
+ 
+ #if DEBUG
+@@ -2683,26 +2686,14 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
+         return;
+     }
+ 
+-    // At flush: recompute full hashes for precise rects
+-    {
++    // Sparse hashes need a precise replacement; full hashes remain valid.
++    if (usedSparseHash) {
+ 
+ #if DEBUG
+         CFAbsoluteTime __tv_tHashFull0 = CFAbsoluteTimeGetCurrent();
+ #endif
+ 
+-        if (cParallelHashOnFlush) {
+-            // Use number of logical CPUs as thread hint (capped)
+-            int threads = (int)[[NSProcessInfo processInfo] processorCount];
+-            if (threads < 2)
+-                threads = 2;
+-            if (threads > 8)
+-                threads = 8;
+-            hashTiledFromBufferParallel((const uint8_t *)gBackBuffer, gWidth, gHeight,
+-                                        (size_t)gWidth * (size_t)gBytesPerPixel, threads);
+-        } else {
+-            resetCurrTileHashes();
+-            hashTiledFromBuffer((const uint8_t *)gBackBuffer, gWidth, gHeight, (size_t)gWidth * (size_t)gBytesPerPixel);
+-        }
++        hashFullBackBuffer();
+ 
+ #if DEBUG
+         CFAbsoluteTime __tv_tHashFull1 = CFAbsoluteTimeGetCurrent();
+@@ -2831,14 +2822,14 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
+         }
+     } else {
+         // Original blocking behavior to avoid tearing.
+-        lockAllClientsBlocking();
++        TVClientSendLocks clientLocks(gScreen);
+         swapBuffers();
+         if (fullScreen) {
+             rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+         } else {
+             markRectsModified(rects, rectCount);
+         }
+-        unlockAllClientsBlocking();
++        clientLocks.unlock();
+ 
+ #if DEBUG
+         CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+@@ -2857,7 +2848,7 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
+                  @"rects=%.3fms total=%.3fms (rectCount=%d, changedPct=%d%%, fullscreen=%@, inflight=%d/%d)",
+                  rotQ, __tv_msLock, __tv_msResize, __tv_msRotate, __tv_msScaleOrCopy, __tv_msHash, __tv_msRects,
+                  (__tv_tEnd - __tv_tStart) * 1000.0, rectCount, changedPct, fullScreen ? @"YES" : @"NO",
+-                 gInflight.load(std::memory_order_relaxed), gMaxInflightUpdates);
++                 gFrameUpdates.inflight(), gMaxInflightUpdates);
+ #endif
+ }
+ 
+@@ -2946,6 +2937,16 @@ static void kbdAddEvent(rfbBool down, rfbKeySym keySym, rfbClientPtr cl) {
  
      // Map common XF86 multimedia/brightness keysyms to iOS HID events
      switch ((unsigned long)keySym) {
@@ -19,7 +395,7 @@ index be6cce3..08e6ab0 100644
      // Brightness Up/Down
      case 0x1008ff02UL: // XF86MonBrightnessUp
          if (down)
-@@ -4554,6 +4564,13 @@ static void setupRfbScreen(int argc, const char *argv[]) {
+@@ -4554,6 +4555,13 @@ static void setupRfbScreen(int argc, const char *argv[]) {
          exit(EXIT_FAILURE);
      }
  
@@ -33,7 +409,7 @@ index be6cce3..08e6ab0 100644
      // BGRA (little-endian) layout
      gScreen->paddedWidthInBytes = gWidth * gBytesPerPixel;
      gScreen->serverFormat.redShift = bitsPerSample * 2;   // 16
-@@ -4576,6 +4593,12 @@ static void setupRfbScreen(int argc, const char *argv[]) {
+@@ -4576,6 +4584,12 @@ static void setupRfbScreen(int argc, const char *argv[]) {
      TVBindHostKind hostKind = tvClassifyBindHost(gBindHost, &v4Addr, &v6Addr);
      if (hostKind == kTVBindHostKindIPv4) {
          gScreen->listenInterface = v4Addr;

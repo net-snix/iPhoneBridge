@@ -46,7 +46,9 @@ jobs:
           package-manager-cache: false
 
       - name: Test viewer
-        run: node --test viewer/*.test.mjs
+        run: |
+          python3 scripts/prepare-viewer
+          node --test viewer/*.test.mjs
 
       - name: Compile native app
         run: |

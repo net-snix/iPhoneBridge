@@ -1,3 +1,17 @@
+# Frame delivery repair — 2026-09-09
+
+Version 0.2.1 repairs the lost final frame described below and a client-lock
+cleanup race. It also gives viewer images explicit resource lifetimes and
+recovers from decode failures instead of leaving the render queue stalled.
+The 22-minute test verified final-frame delivery and responsive input, but
+continuous-motion cadence still declined and renderer memory still grew. The
+original long-session slowdown is not fully resolved.
+See the [repair and sustained-use report](docs/performance-fix-2026-09-09.md)
+and [numeric results](docs/performance-fix-2026-09-09.json) for the tested
+artifacts, unchanged image settings, and remaining limits.
+
+The following sections retain their original artifact scope and findings.
+
 # Independent review — 2026-09-08
 
 The [new independent pass](docs/performance-independent-2026-09-08.md) confirms

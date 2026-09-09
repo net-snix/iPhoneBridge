@@ -24,10 +24,44 @@ def verify_daemon_source(tree):
         "case 0x1008ff18UL: // XF86HomePage\n        if (down)\n            [gen menuPress];",
         "case 0x1008ff7fUL: // XF86TaskPane\n        if (down)\n            [gen menuDoublePress];",
         "gScreen->deferUpdateTime = 1;",
+        "gFrameUpdates.finished(gMaxInflightUpdates)",
+        "gFrameUpdates.takeRetryIfReady(gMaxInflightUpdates)",
+        "if (usedSparseHash)",
+        "TVClientSendLocks clientLocks(gScreen)",
     )
     for fragment in required:
         if fragment not in source:
             raise RuntimeError(f"Required daemon behavior is absent from compiled source: {fragment}")
+    capture = (tree / "src/ScreenCapturer.mm").read_text()
+    if "sForceFrameUpdate.exchange(false)" not in capture or "sForceFrameUpdate.store(true)" not in capture:
+        raise RuntimeError("Required atomic capture invalidation is absent from compiled source")
+
+
+def verify_build_provenance(build, project, source_lock, root):
+    """Reject stale build records before copying a binary or corresponding source."""
+    spec = project["trollvnc"]
+    source = build["source"]
+    for field in ("commit", "tree", "patch_sha256"):
+        if source.get(field) != spec[field]:
+            raise RuntimeError(f"Device source metadata differs from current pin: {field}; rebuild before staging")
+    if sha(root / spec["patch"]) != spec["patch_sha256"]:
+        raise RuntimeError("TrollVNC patch bytes differ from the reviewed pin")
+    if source.get("dependency_patch_sha256") != sha(root / "patches/trollvnc-source-deps.patch"):
+        raise RuntimeError("Device dependency patch differs from the built source; rebuild before staging")
+    tree = Path(source["path"])
+    for name, expected in spec["patched_files_sha256"].items():
+        if sha(tree / name) != expected:
+            raise RuntimeError(f"Compiled source differs from reviewed bytes: {name}")
+    toolchain = build.get("toolchain", {})
+    if toolchain.get("theos_commit") != project["theos"]["commit"]:
+        raise RuntimeError("Device build uses a different Theos revision; rebuild before staging")
+    sdk_path = toolchain.get("sdk_path")
+    if not isinstance(sdk_path, str) or Path(sdk_path).name != project["theos"]["sdk"]:
+        raise RuntimeError("Device build uses a different SDK; rebuild before staging")
+    if sha(Path(build["binary"]["path"])) != build["binary"]["sha256"] or build.get("device_sources") != source_lock:
+        raise RuntimeError("Device build does not match the current source lock")
+    if build.get("build_recipe_sha256") != sha(root / "scripts/build-device-deps"):
+        raise RuntimeError("Rebuild using the current recipe before staging")
 
 
 def main():
@@ -35,11 +69,8 @@ def main():
     lock = json.loads((ROOT / "dependency-lock.json").read_text())
     source_lock = json.loads((ROOT / "device-sources.lock.json").read_text())
     binary = Path(build["binary"]["path"])
+    verify_build_provenance(build, lock, source_lock, ROOT)
     verify_daemon_source(Path(build["source"]["path"]))
-    if sha(binary) != build["binary"]["sha256"] or build.get("device_sources") != source_lock:
-        raise RuntimeError("Device build does not match the current source lock")
-    if build.get("build_recipe_sha256") != sha(ROOT / "scripts/build-device-deps"):
-        raise RuntimeError("Rebuild using the current recipe before staging")
     payload = ROOT / "work/device-release"
     source = ROOT / "work/release-sources/device"
     for folder in (payload, source / "archives", source / "scripts", source / "patches"):
@@ -51,7 +82,8 @@ def main():
                 "source": {k: v for k, v in build["source"].items() if k not in ("path", "patch")},
                 "static_libraries": build["static_libraries"], "device_sources": source_lock,
                 "build_recipe_sha256": build["build_recipe_sha256"], "supply_chain": build["supply_chain"],
-                "toolchain": {"theos_commit": lock["theos"]["commit"], "sdk": lock["theos"]["sdk"],
+                "toolchain": {"theos_commit": build["toolchain"]["theos_commit"],
+                              "sdk": Path(build["toolchain"]["sdk_path"]).name,
                               "xcode": build["toolchain"]["xcode"], "cmake": build["toolchain"]["cmake"]}}
     (payload / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     for name in ("dependency-lock.json", "device-sources.lock.json"):

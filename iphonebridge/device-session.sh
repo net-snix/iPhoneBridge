@@ -78,7 +78,7 @@ run)
     trap cleanup EXIT
     trap 'exit 0' HUP INT TERM
     # Full resolution; precise dirty regions with no coalescing delay. Keep
-    # blocking swaps and the upstream two-encode limit to preserve final frames.
+    # blocking swaps; the patched single-update limit retries the final capture.
     DISABLE_TWEAKS=1 "$binary" -b 127.0.0.1 -p 15901 -n iPhoneBridge \
         -B off -H 0 -C off -T off -i off -I off \
         -O on -U off -s 1 -F 60 -P 60 -d 0 -Q 1 &

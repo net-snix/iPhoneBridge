@@ -29,6 +29,10 @@ export THEOS="$HOME/Code/oss/theos"
 builds the device daemon and its JPEG, PNG, LZO, and LibVNCServer dependencies from
 verified source archives. The platform SDK supplies zlib. The daemon is built
 without OpenSSL/SASL because the product carries loopback RFB through SSH.
+The default device build directory includes a hash of its inputs so a changed
+patch gets a fresh build tree. An explicit `--build-dir` remains available.
+`scripts/prepare-viewer` applies the pinned noVNC image-lifecycle patch and
+verifies every modified file. It rejects unrelated source changes.
 
 `build-app` compiles Swift, bundles the locked Python environment and USB
 utilities with their dynamic dependencies, copies the viewer and verified phone
@@ -52,6 +56,7 @@ without contacting the phone.
 ```sh
 uv sync --locked
 uv run --frozen python -m unittest discover -s tests -v
+python3 scripts/prepare-viewer
 node --test viewer/*.test.mjs
 swift build -c release
 ./scripts/setup --check
@@ -62,6 +67,9 @@ Unit tests and CI do not require a phone. Live verification is separate; see
 [VALIDATION.md](../VALIDATION.md). To rebuild the icon, run `scripts/build-icon`
 with Xcode's Icon Composer installed; checked-in PNG/ICNS files are sufficient
 for an ordinary app build.
+The daemon retry tests compile a small C++ concurrency harness with the host
+compiler. Viewer tests exercise the actual prepared noVNC source, including
+image failure, timeout, resource release, and disconnect during a pending flush.
 
 ## Rebuild the released dependencies
 

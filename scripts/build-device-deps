@@ -55,7 +55,8 @@ def checkout_path(spec, variable):
 def main():
     recipe_sha = sha(Path(__file__))
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--build-dir", type=Path, default=ROOT / "work/device-build")
+    parser.add_argument("--build-dir", type=Path,
+                        help="Explicit build directory; otherwise isolate each reviewed source recipe")
     parser.add_argument("--source-package", type=Path)
     parser.add_argument("--theos", type=Path)
     parser.add_argument("--jobs", type=int, default=4)
@@ -63,7 +64,10 @@ def main():
     base = args.source_package.resolve() if args.source_package else ROOT
     lock = json.loads((base / "device-sources.lock.json").read_text())
     project = json.loads((base / "dependency-lock.json").read_text())
-    work = args.build_dir.resolve()
+    source_identity = {"trollvnc": project["trollvnc"], "libraries": lock, "recipe": recipe_sha,
+                       "dependency_patch": sha(base / "patches/trollvnc-source-deps.patch")}
+    build_key = hashlib.sha256(json.dumps(source_identity, sort_keys=True).encode()).hexdigest()[:12]
+    work = (args.build_dir or ROOT / "work" / f"device-build-{build_key}").resolve()
     theos = (args.theos or Path(os.environ.get("THEOS", project["theos"]["path"]))).expanduser().resolve()
     sdk = theos / "sdks" / project["theos"]["sdk"]
     if not sdk.is_dir():

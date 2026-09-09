@@ -16,7 +16,7 @@ from iphonebridge.runtime import PATHS  # noqa: E402
 WORK = PATHS.data
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('label')
-parser.add_argument('--mode', choices=['input', 'animation'], default='input')
+parser.add_argument('--mode', choices=['input', 'animation', 'image-quality'], default='input')
 parser.add_argument('--compression', type=int, choices=range(10), default=2)
 parser.add_argument('--trials', type=int, default=30)
 parser.add_argument('--duration-ms', type=int, default=10000)

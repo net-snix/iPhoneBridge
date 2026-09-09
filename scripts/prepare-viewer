@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+"""Prepare exactly the reviewed noVNC patch; reject unrelated source changes."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import subprocess
+
+
+def prepare(source, spec, root, check_only=True):
+    source, root = Path(source), Path(root)
+
+    def git(*arguments):
+        return subprocess.check_output(["git", "-C", str(source), *arguments])
+
+    for revision, expected in (("HEAD", spec["commit"]), ("HEAD^{tree}", spec["tree"])):
+        if git("rev-parse", revision).decode().strip() != expected:
+            raise RuntimeError(f"noVNC checkout differs from the reviewed {revision}")
+    if git("ls-files", "--others", "--exclude-standard").strip():
+        raise RuntimeError("noVNC checkout contains untracked source files")
+    patch = root / spec["patch"]
+    patch_bytes = patch.read_bytes()
+    if hashlib.sha256(patch_bytes).hexdigest() != spec["patch_sha256"]:
+        raise RuntimeError("noVNC patch changed; update the reviewed dependency pin first")
+    diff = git("diff", "--binary", "HEAD")
+    if diff and diff != patch_bytes:
+        raise RuntimeError("noVNC checkout contains unrelated source changes")
+    if not diff:
+        if check_only:
+            raise RuntimeError("Reviewed noVNC patch is not prepared; run scripts/setup")
+        git("apply", "--check", str(patch))
+        # Include reviewed new files in subsequent diffs without staging content.
+        git("apply", "--intent-to-add", str(patch))
+    if git("diff", "--binary", "HEAD") != patch_bytes:
+        raise RuntimeError("noVNC patch did not apply exactly")
+    for name, expected in spec["patched_files_sha256"].items():
+        if hashlib.sha256((source / name).read_bytes()).hexdigest() != expected:
+            raise RuntimeError(f"Patched noVNC source differs from reviewed bytes: {name}")
+    return source
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="Verify without fetching or changing files")
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parents[1]
+    spec = json.loads((root / "dependency-lock.json").read_text())["novnc"]
+    source = Path(os.environ.get("IPHONEBRIDGE_NOVNC_SOURCE", spec["path"])).expanduser()
+    if not source.is_absolute():
+        source = root / source
+    if not source.exists():
+        if args.check:
+            raise RuntimeError("Missing noVNC source; run scripts/prepare-viewer")
+        source.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "clone", "--no-checkout", spec["url"], str(source)], check=True)
+        subprocess.run(["git", "-C", str(source), "checkout", "--detach", spec["commit"]], check=True)
+    print(prepare(source, spec, root, check_only=args.check))
+
+
+if __name__ == "__main__":
+    main()

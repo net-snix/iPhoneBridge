@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 — 2026-09-09
+
+- Deliver the newest screen after a busy encoder drops a capture, fixing stale final frames when motion stops.
+- Release the exact acquired client locks during frame swaps, allowing disconnected clients to finish cleanup.
+- Release decoded viewer images explicitly and recover from image failures instead of leaving rendering stalled.
+- Avoid base64 image URLs and duplicate full-frame hashing in the normal capture path.
+- Add source-pinned viewer preparation and regression coverage for capture races and image lifecycle failures.
 
 - Daemon: remove LibVNCServer's default 5 ms delay before every update and drop frames behind an in-flight encode (`-Q 1`) for lower mirror latency under heavy motion.
 - Faster stop and reconnect: the device session script polls every 0.2 s.
