@@ -59,6 +59,7 @@ export async function readImageDecoderCapability(environment = globalThis) {
 
 export function installImageQuality() {
   let stopped = false, busy = false, stopReason = 'Image quality diagnostic stopped';
+  let decodeContext = null;
   const pending = new Set();
   const cases = [
     { name: 'full-resolution-png', width: 1172, height: 2536, mime: 'image/png' },
@@ -72,6 +73,7 @@ export function installImageQuality() {
     stopReason = reason;
     stopped = true;
     for (const cancel of [...pending]) cancel();
+    decodeContext?.dispose(new Error(stopReason));
   }
 
   function bounded(start, label) {
@@ -115,7 +117,7 @@ export function installImageQuality() {
     return result;
   }
 
-  async function compareCase(spec, ImageResource, Base64) {
+  async function compareCase(spec, ImageResource, Base64, context) {
     let source, baseline, baselineCanvas, currentCanvas, resource;
     let loaded, failed;
     try {
@@ -158,7 +160,7 @@ export function installImageQuality() {
       const currentStart = performance.now();
       await bounded(finish => {
         resource = new ImageResource(new Uint8Array(bytes), spec.mime, spec.width, spec.height,
-          () => finish(null), error => finish(error));
+          () => finish(null), error => finish(error), context);
         resource.start();
       }, 'Current image decode');
       contexts[1].drawImage(resource.image, 0, 0);
@@ -200,13 +202,15 @@ export function installImageQuality() {
     const capability = readImageDecoderCapability();
     const deadline = setTimeout(() => stop('Image quality diagnostic exceeded 45s'), 45000);
     try {
-      const [{ default: ImageResource }, { default: Base64 }] = await bounded(finish => {
-        Promise.all([import('/novnc/core/image-resource.js'), import('/novnc/core/base64.js')])
+      const [{ default: ImageResource }, { default: ImageDecodeContext }, { default: Base64 }] = await bounded(finish => {
+        Promise.all([import('/novnc/core/image-resource.js'), import('/novnc/core/image-context.js'),
+          import('/novnc/core/base64.js')])
           .then(value => finish(null, value), finish);
       }, 'Diagnostic module load');
+      decodeContext = new ImageDecodeContext(document);
       for (const spec of cases) {
         currentCase = spec.name;
-        const result = await compareCase(spec, ImageResource, Base64);
+        const result = await compareCase(spec, ImageResource, Base64, decodeContext);
         report.cases.push(result);
         if (!result.exactMatch) {
           report.failure ??= { case: spec.name, reason: 'Decoded pixel buffers differ' };
@@ -216,6 +220,8 @@ export function installImageQuality() {
       report.failure = { case: currentCase, reason: error.message };
     } finally {
       clearTimeout(deadline);
+      decodeContext?.dispose();
+      decodeContext = null;
       report.finishedAt = performance.now();
       report.completedCases = report.cases.length;
       report.requestedCases = cases.length;

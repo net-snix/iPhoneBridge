@@ -37,6 +37,9 @@ try:
             for line in reports.read_text().splitlines():
                 report = json.loads(line)
                 if report.get('id') == request['id']:
+                    if args.mode in {'input', 'animation'} and not report.get('visibleQualification'):
+                        report['failure'] = report.get('failure') or {
+                            'reason': 'Visible performance is unqualified: visibility was hidden or unobserved'}
                     print(json.dumps(report, indent=2))
                     raise SystemExit(1 if report.get('failure') else 0)
         time.sleep(0.5)

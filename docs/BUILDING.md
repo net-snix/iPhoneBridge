@@ -70,6 +70,9 @@ for an ordinary app build.
 The daemon retry tests compile a small C++ concurrency harness with the host
 compiler. Viewer tests exercise the actual prepared noVNC source, including
 image failure, timeout, resource release, and disconnect during a pending flush.
+Decoder-context tests also cover bounded document ownership, waiting jobs and
+cancellation at a context boundary. Native pixel and sustained-use checks are
+described in [renderer-memory-2026-09-09.md](renderer-memory-2026-09-09.md).
 
 ## Rebuild the released dependencies
 

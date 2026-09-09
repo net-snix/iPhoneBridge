@@ -22,10 +22,11 @@
     "commit": "63107bd06d9e1f6136ff21aeda8cd62cbf0d433e",
     "tree": "cae4519a8bf3930266db05dc1808b93a11c24236",
     "patch": "patches/novnc-image-lifecycle.patch",
-    "patch_sha256": "b0cc11781f77f68716f36866f1f4444d926eb67ac103fcd2c8497c50dd3cef4f",
+    "patch_sha256": "541cb361ea42df8bf860635373b7abeb73c199743a0250290685f663e85ea9be",
     "patched_files_sha256": {
-      "core/display.js": "1854b9137234ffa6be0fc03ba641a81c0a8973aa7cc02b03b55c0a64aaca2ab2",
-      "core/image-resource.js": "a0b39401380ac8652dffecfdf2b4bcf67d83efcefc8b6a24fc4761c6e2cae2d9",
+      "core/display.js": "0aa493edd1c3bb1fa77faba7fc8f39503222dfb4694330f39a02c426ce8a0637",
+      "core/image-context.js": "d5bc4a9b0b5b41d67fd1f4464ae3f9a7778cafc6c53a9147661272ef7b374d60",
+      "core/image-resource.js": "efbfc34135bf0559b7ed54f199f9e99f3d5070e7a2ea7037a8908bc1fc578ebe",
       "core/rfb.js": "bb2e752c8724752a99a71ed8eb7aec5ed2614ff1eb48ba16e53f3aefc63c0039",
       "tests/test.display.js": "a275c9c744e05a6f46796beb046bda8fe61d8cbdebb1b9d596646c5ee165bf77"
     }

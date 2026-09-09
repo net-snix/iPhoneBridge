@@ -1,11 +1,13 @@
 // Explicit diagnostics only: the normal mirror never imports this module.
 import { installBenchmark } from './benchmark.mjs';
+import { installRenderMetrics } from './render-metrics.mjs';
 
 export async function coordinateBenchmark(mirror) {
   let previous = '';
   let stopped = false;
   let active = null;
-  addEventListener('pagehide', () => { stopped = true; active?.stop(); }, { once: true });
+  const metrics = installRenderMetrics(mirror);
+  addEventListener('pagehide', () => { stopped = true; active?.stop(); metrics.stop(); }, { once: true });
   while (!stopped) {
     try {
       const request = await fetch('http://127.0.0.1:15802/benchmark-run', { cache: 'no-store' }).then(r => r.json());

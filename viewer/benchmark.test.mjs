@@ -54,7 +54,8 @@ function rig({ valid = true, latency = 64, respond = true, animation = false,
     requestAnimationFrame: fn => schedule(fn, 16), cancelAnimationFrame: cancel,
     fetch: async (url, options) => { reports.push({ url, data: JSON.parse(options.body) }); return { ok: true }; },
   };
-  const runner = installBenchmark({ client, screen: { querySelector: () => canvas }, environment });
+  const document = Object.assign(new EventTarget(), { hidden: false, hasFocus: () => true });
+  const runner = installBenchmark({ client, screen: { querySelector: () => canvas, ownerDocument: document }, environment });
   async function drive(promise) {
     let finished = false, value, error;
     promise.then(result => { value = result; finished = true; }, reason => { error = reason; finished = true; });
@@ -69,8 +70,19 @@ function rig({ valid = true, latency = 64, respond = true, animation = false,
     if (error) throw error;
     return value;
   }
-  return { runner, client, keys, reports, drive, schedule };
+  return { runner, client, keys, reports, drive, schedule, document };
 }
+
+test('a hidden interval invalidates an otherwise successful animation benchmark', async () => {
+  const fixture = rig({ animation: true });
+  fixture.schedule(() => { fixture.document.hidden = true; fixture.document.dispatchEvent(new Event('visibilitychange')); }, 200);
+  fixture.schedule(() => { fixture.document.hidden = false; fixture.document.dispatchEvent(new Event('visibilitychange')); }, 400);
+  const report = await fixture.drive(fixture.runner.runAnimation({ durationMs: 1000 }));
+  assert.ok(report.receivedFps > 30);
+  assert.equal(report.visibleQualification, false);
+  assert.equal(report.visibility.hiddenMs, 200);
+  assert.match(report.failure.reason, /hidden/);
+});
 
 test('locates scaled/JPEG-noisy header and footer, decodes big-endian uint32', () => {
   for (const sequence of [0, 1, 0x80000000, 0x12345678, 0xffffffff]) {

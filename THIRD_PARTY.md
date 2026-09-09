@@ -62,6 +62,10 @@ checks the loopback and navigation behavior in the compiled source.
 The complete noVNC checkout is distributed as source, with its original notices,
 AUTHORS and documentation. `patches/novnc-image-lifecycle.patch` loads encoded
 rectangles through a temporary HTML image and converts it to an ImageBitmap.
+The images belong to an isolated, attached decoding document. That document
+admits at most 4,096 images, then is removed after its outstanding conversions
+finish. Subsequent images wait for a new document; the mirror and RFB connection
+continue normally. This bounds WebKit's native history of loaded image URLs.
 It releases the image and object URL after conversion, closes the bitmap after
 drawing, handles decode failure and timeout, and disposes pending images on
 disconnect. These modified files remain MPL-2.0.

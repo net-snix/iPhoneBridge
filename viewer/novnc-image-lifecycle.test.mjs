@@ -12,6 +12,7 @@ const moduleURL = name => pathToFileURL(resolve(source, 'core', name)).href;
 class Element extends EventTarget {
   constructor() {
     super();
+    this.ownerDocument = globalThis.document;
     this.style = {};
     this.children = [];
     this.width = this.height = 0;
@@ -24,6 +25,8 @@ class Element extends EventTarget {
   }
   appendChild(child) { this.children.push(child); child.parentNode = this; }
   removeChild(child) { this.children.splice(this.children.indexOf(child), 1); child.parentNode = null; }
+  remove() { this.parentNode?.removeChild(this); }
+  setAttribute(name, value) { this[name] = value; }
   getContext() { return this.context; }
   focus() {}
   querySelector() { return this.children.flatMap(child => child.children)[0] ?? null; }
@@ -50,7 +53,25 @@ globalThis.window = Object.assign(new EventTarget(), {
 });
 globalThis.document = {
   documentElement: new Element(), body: new Element(),
-  createElement: () => new Element(), addEventListener() {}, removeEventListener() {},
+  createElement(tag) {
+    const element = new Element();
+    if (tag === 'iframe') {
+      decoderFrames.push(element);
+      element.contentDocument = {
+        frame: element,
+        createElement(tag) {
+          assert.equal(tag, 'img');
+          const image = new Image();
+          image.ownerDocument = this;
+          return image;
+        },
+      };
+    } else {
+      assert.notEqual(tag, 'img', 'image decoding belongs to the explicitly owned document');
+    }
+    return element;
+  },
+  addEventListener() {}, removeEventListener() {},
 };
 document.documentElement.dataset = {};
 globalThis.MutationObserver = globalThis.ResizeObserver = Observer;
@@ -59,15 +80,21 @@ if (!globalThis.navigator) globalThis.navigator = { userAgent: 'test', platform:
 
 const { default: Display } = await import(moduleURL('display.js'));
 const { default: ImageResource } = await import(moduleURL('image-resource.js'));
+const { default: ImageDecodeContext } = await import(moduleURL('image-context.js'));
 const { default: RFB } = await import(moduleURL('rfb.js'));
 const { initLogging } = await import(moduleURL('util/logging.js'));
 initLogging('none');
 
-let images, bitmaps, objectURLs, revokedURLs, timers, nextTimer, nextURL;
+let images, bitmaps, objectURLs, revokedURLs, timers, nextTimer, nextURL, decoderFrames, owners;
 globalThis.createImageBitmap ??= () => {};
 beforeEach(t => {
   images = []; bitmaps = []; objectURLs = new Map(); revokedURLs = [];
   timers = new Map(); nextTimer = 0; nextURL = 0;
+  decoderFrames = []; owners = [];
+  t.after(() => {
+    for (const owner of owners) owner.dispose();
+    assert.ok(decoderFrames.every(frame => !frame.parentNode), 'all display/context owners remove their frame');
+  });
   class Image extends EventTarget {
     constructor() {
       super(); this._src = ''; this.naturalWidth = this.naturalHeight = 0;
@@ -75,6 +102,7 @@ beforeEach(t => {
     }
     get src() { return this._src; }
     set src(value) {
+      assert.notEqual(value, '', 'remove the source attribute without scheduling an empty-URL error');
       if (value && Image.failAssignment) throw new Error('image source unavailable');
       this._src = value;
       if (value && Image.immediateEvent) this[Image.immediateEvent]();
@@ -84,6 +112,11 @@ beforeEach(t => {
     }
     removeEventListener(type, callback) {
       this.listeners.delete(callback); super.removeEventListener(type, callback);
+    }
+    removeAttribute(name) {
+      assert.equal(name, 'src');
+      assert.equal(this.listeners.size, 0, 'detach callbacks before clearing the source');
+      this._src = '';
     }
     load(width = 4, height = 4) {
       this.naturalWidth = width; this.naturalHeight = height;
@@ -116,6 +149,7 @@ beforeEach(t => {
 
 function displayRig() {
   const display = new Display(new Element());
+  owners.push(display);
   display.resize(4, 4);
   const drawn = [], errors = [];
   display.drawImage = bitmap => {
@@ -125,8 +159,9 @@ function displayRig() {
   display.onerror = error => errors.push(error);
   return { display, drawn, errors };
 }
-function enqueue(display, data = new Uint8Array([1, 2, 3, 4])) {
+async function enqueue(display, data = new Uint8Array([1, 2, 3, 4])) {
   display.imageRect(0, 0, 4, 4, 'image/jpeg', data);
+  await tick();
   return images.at(-1);
 }
 function fireTimer(delay) {
@@ -163,12 +198,12 @@ async function settleRemaining() {
 test('object URLs snapshot exact bytes and ordered drawing owns only completed bitmaps', async () => {
   const { display, drawn } = displayRig();
   const bytes = new Uint8Array([9, 1, 2, 3, 8]);
-  const first = enqueue(display, bytes.subarray(1, 4));
+  const first = await enqueue(display, bytes.subarray(1, 4));
   bytes.fill(0); // The real RFB socket reuses its receive storage.
   const blob = objectURLs.get(first.src);
   assert.equal(blob.type, 'image/jpeg');
   assert.deepEqual(new Uint8Array(await blob.arrayBuffer()), new Uint8Array([1, 2, 3]));
-  const second = enqueue(display);
+  const second = await enqueue(display);
   const flushed = display.flush();
   second.load();
   assert.notEqual(second.src, '', 'the HTML source stays valid until bitmap conversion completes');
@@ -187,7 +222,7 @@ test('object URLs snapshot exact bytes and ordered drawing owns only completed b
 
 test('legacy byte arrays retain the same encoded bytes as typed-array rectangles', async () => {
   const { display } = displayRig();
-  const image = enqueue(display, [0, 127, 255]);
+  const image = await enqueue(display, [0, 127, 255]);
   assert.deepEqual(new Uint8Array(await objectURLs.get(image.src).arrayBuffer()), new Uint8Array([0, 127, 255]));
   complete(image);
   await display.flush();
@@ -200,25 +235,28 @@ test('disposal releases both decode stages and callback ownership including late
     const onReady = () => ready++;
     const onError = () => failed++;
     const bytes = new Uint8Array([1, 2, 3]);
-    const resource = new ImageResource(bytes, 'image/jpeg', 4, 4, onReady, onError);
-    const image = resource._sourceImage;
+    const context = new ImageDecodeContext(document);
+    owners.push(context);
+    const resource = new ImageResource(bytes, 'image/jpeg', 4, 4, onReady, onError, context);
     const lateLoad = resource._loaded, lateError = resource._failed;
     if (stage !== 'unstarted') {
       resource.start(); resource.start();
+      await tick();
       assert.equal(timers.size, 1);
     }
+    const image = resource._sourceImage;
     if (stage === 'converting' || stage === 'ready') image.load();
     if (stage === 'ready') { resolveBitmap(image); await tick(); }
     resource.dispose(); resource.dispose();
     lateLoad(); lateError();
-    if (image.decode) resolveBitmap(image);
+    if (image?.decode) resolveBitmap(image);
     await tick();
     resource.start();
     assert.equal(ready, stage === 'ready' ? 1 : 0);
     assert.equal(failed, 0);
     assert.equal(resource.image, null);
     assert.ok(Object.values(resource).every(value =>
-      value !== image && value !== bytes && value !== onReady && value !== onError &&
+      (image === null || value !== image) && value !== bytes && value !== onReady && value !== onError &&
       typeof value !== 'string' && typeof value !== 'function'),
     'a retired resource retains no image, bytes, URL or callback');
     assertReleased();
@@ -228,7 +266,7 @@ test('disposal releases both decode stages and callback ownership including late
 test('synchronous load during source assignment can draw and dispose safely', async () => {
   const { display, drawn, errors } = displayRig();
   Image.immediateEvent = 'load';
-  resolveBitmap(enqueue(display));
+  resolveBitmap(await enqueue(display));
   await display.flush();
   assert.deepEqual(drawn, [0]);
   assert.deepEqual(errors, []);
@@ -238,7 +276,7 @@ test('synchronous load during source assignment can draw and dispose safely', as
 test('synchronous error during source assignment fails and disposes safely', async () => {
   const { display, drawn, errors } = displayRig();
   Image.immediateEvent = 'fail';
-  enqueue(display);
+  await enqueue(display);
   await assert.rejects(display.flush(), /decode/);
   assert.deepEqual(drawn, []);
   assert.equal(errors.length, 1);
@@ -248,8 +286,8 @@ test('synchronous error during source assignment fails and disposes safely', asy
 for (const failure of ['decode', 'dimensions', 'bitmap', 'bitmap dimensions', 'timeout', 'conversion timeout']) {
   test(`${failure} failure releases the whole queue and rejects pending and future flushes`, async () => {
     const { display, drawn, errors } = displayRig();
-    const first = enqueue(display);
-    const second = enqueue(display);
+    const first = await enqueue(display);
+    const second = await enqueue(display);
     const rejected = assert.rejects(display.flush(), failure.includes('dimensions') ? /dimensions/ : failure.includes('timeout') ? /timed out/ : /decode/);
     complete(second);
     await tick();
@@ -277,8 +315,8 @@ for (const failure of ['decode', 'dimensions', 'bitmap', 'bitmap dimensions', 't
 
 test('a later queued decode error fails immediately without waiting for the head', async () => {
   const { display, errors } = displayRig();
-  enqueue(display);
-  const second = enqueue(display);
+  await enqueue(display);
+  const second = await enqueue(display);
   const rejected = assert.rejects(display.flush(), /decode/);
   second.fail();
   await rejected;
@@ -290,7 +328,7 @@ test('a later queued decode error fails immediately without waiting for the head
 test('a synchronous image source error terminates rendering without a fallback', async () => {
   const { display, errors } = displayRig();
   Image.failAssignment = true;
-  enqueue(display);
+  await enqueue(display);
   await assert.rejects(display.flush(), /image source unavailable/);
   assert.equal(errors.length, 1);
   assertReleased();
@@ -299,7 +337,7 @@ test('a synchronous image source error terminates rendering without a fallback',
 test('a synchronous bitmap conversion error releases the HTML source and fails rendering', async () => {
   const { display, errors } = displayRig();
   Image.bitmapThrows = true;
-  enqueue(display).load();
+  (await enqueue(display)).load();
   await assert.rejects(display.flush(), /bitmap conversion unavailable/);
   assert.equal(errors.length, 1);
   assertReleased();
@@ -307,7 +345,7 @@ test('a synchronous bitmap conversion error releases the HTML source and fails r
 
 test('late bitmap rejection after a conversion timeout reports only the original failure', async () => {
   const { display, errors } = displayRig();
-  const image = enqueue(display);
+  const image = await enqueue(display);
   image.load();
   const rejected = assert.rejects(display.flush(), /timed out/);
   fireTimer(10000);
@@ -320,7 +358,7 @@ test('late bitmap rejection after a conversion timeout reports only the original
 
 test('late image error after timeout reports only the original failure', async () => {
   const { display, errors } = displayRig();
-  const image = enqueue(display);
+  const image = await enqueue(display);
   const rejected = assert.rejects(display.flush(), /timed out/);
   fireTimer(10000);
   image.fail();
@@ -332,8 +370,8 @@ test('late image error after timeout reports only the original failure', async (
 
 test('canvas draw failures reject flush and free the current and following resources', async () => {
   const { display, errors } = displayRig();
-  const first = enqueue(display);
-  enqueue(display);
+  const first = await enqueue(display);
+  await enqueue(display);
   display.drawImage = () => { throw new Error('canvas unavailable'); };
   const rejected = assert.rejects(display.flush(), /canvas unavailable/);
   complete(first);
@@ -345,7 +383,7 @@ test('canvas draw failures reject flush and free the current and following resou
 
 test('a queued canvas flip failure also terminates the flush instead of hanging it', async () => {
   const { display, errors } = displayRig();
-  const first = enqueue(display);
+  const first = await enqueue(display);
   display.flip();
   display._targetCtx.drawImage = () => { throw new Error('canvas flip failed'); };
   display._damage(0, 0, 4, 4);
@@ -358,8 +396,8 @@ test('a queued canvas flip failure also terminates the flush instead of hanging 
 
 test('disconnect closes queued bitmaps, releases canvases and closes late conversion results', async () => {
   const { display, drawn, errors } = displayRig();
-  const first = enqueue(display);
-  const second = enqueue(display);
+  const first = await enqueue(display);
+  const second = await enqueue(display);
   first.load();
   complete(second);
   await tick();
@@ -378,7 +416,7 @@ test('disconnect closes queued bitmaps, releases canvases and closes late conver
 test('repeated image rectangles release URLs, sources, bitmaps, listeners and decode timers', async () => {
   const { display, drawn } = displayRig();
   for (let i = 0; i < 1000; i++) {
-    complete(enqueue(display));
+    complete(await enqueue(display));
     await display.flush();
     assertReleased();
   }
@@ -388,6 +426,7 @@ test('repeated image rectangles release URLs, sources, bitmaps, listeners and de
 
 function connectedRFB(target = new Element()) {
   const client = new RFB(target, 'ws://127.0.0.1/websockify', { shared: true });
+  owners.push(client._display);
   client._sock._websocket.readyState = Socket.OPEN;
   client._updateConnectionState('connected');
   client._display.resize(4, 4);
@@ -403,7 +442,7 @@ test('real RFB rendering failure rejects its flush and emits one unclean disconn
   const client = connectedRFB();
   const disconnects = [];
   client.addEventListener('disconnect', event => disconnects.push(event.detail));
-  const pending = enqueue(client._display);
+  const pending = await enqueue(client._display);
   waitForPreviousFrame(client);
   pending.fail();
   await tick();
@@ -417,7 +456,7 @@ test('real RFB normal disconnect while flushing consumes cancellation without re
   const client = connectedRFB();
   const disconnects = [];
   client.addEventListener('disconnect', event => disconnects.push(event.detail));
-  const pending = enqueue(client._display);
+  const pending = await enqueue(client._display);
   waitForPreviousFrame(client);
   client.disconnect();
   pending.load();
@@ -441,7 +480,7 @@ test('the viewer reconnects automatically after an actual RFB image-decode failu
   first._sock._websocket.readyState = Socket.OPEN;
   first._updateConnectionState('connected');
   first._display.resize(4, 4);
-  enqueue(first._display).fail();
+  (await enqueue(first._display)).fail();
   await tick();
   assert.equal(mirror.currentClient(), null);
   fireTimer(1000);

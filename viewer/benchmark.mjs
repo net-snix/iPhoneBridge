@@ -1,4 +1,5 @@
 // Opt-in physical-phone benchmark. Original iPhoneBridge code, MIT.
+import { observeVisibility } from './visibility.mjs';
 const COLORS = [
   [16, 16, 16], [240, 240, 240], [255, 48, 48], [48, 255, 48],
   [48, 48, 255], [48, 255, 255], [255, 255, 48], [255, 48, 255], [255, 144, 48],
@@ -74,6 +75,7 @@ export function installBenchmark({ client, screen, compressionLevel, label = '',
   const send = environment.fetch ?? fetch;
   let location = null, lastSearch = -Infinity, stopped = false, busy = false;
   let cancelWait = null, releaseKey = null;
+  let visibility = null;
 
   if (compressionLevel !== undefined) setCompression(compressionLevel);
 
@@ -137,6 +139,7 @@ export function installBenchmark({ client, screen, compressionLevel, label = '',
     if (stopped) throw new Error('Benchmark runner has stopped');
     if (options.compressionLevel !== undefined) setCompression(options.compressionLevel);
     busy = true;
+    visibility = observeVisibility(screen.ownerDocument ?? globalThis.document, clock);
     return { mode, label: options.label ?? label, id: options.id ?? null,
       compressionLevel: client.compressionLevel, qualityLevel: client.qualityLevel,
       timeOrigin: clock.timeOrigin, startedAt: clock.now(), samples: [], events: [], failure: null };
@@ -144,6 +147,12 @@ export function installBenchmark({ client, screen, compressionLevel, label = '',
 
   async function finishReport(report) {
     report.finishedAt = clock.now();
+    report.visibility = visibility.stop();
+    visibility = null;
+    report.visibleQualification = report.visibility.available && !report.visibility.hadHidden;
+    if (report.visibility.hadHidden) {
+      report.failure ??= { reason: 'Mirror was hidden during the benchmark; visible performance is unqualified' };
+    }
     report.p50 = percentile(report.samples, 0.5);
     report.p95 = percentile(report.samples, 0.95);
     report.sampleUnit = 'milliseconds';

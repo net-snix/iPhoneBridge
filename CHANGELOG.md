@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 — Unreleased candidate
+
+- Bound WebKit's retained image-load history by giving the decoder its own document with a limited lifetime.
+- Keep the existing native JPEG decoder, image quality, framebuffer size and VNC connection.
+- Record window visibility during performance tests so covered-window throttling cannot be mistaken for active mirror performance.
+
 ## 0.2.1 — 2026-09-09
 
 - Deliver the newest screen after a busy encoder drops a capture, fixing stale final frames when motion stops.

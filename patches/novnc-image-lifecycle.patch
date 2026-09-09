@@ -1,17 +1,18 @@
 diff --git a/core/display.js b/core/display.js
-index 4efd6f4..8544432 100644
+index 4efd6f4..a6837f0 100644
 --- a/core/display.js
 +++ b/core/display.js
-@@ -7,7 +7,7 @@
+@@ -7,7 +7,8 @@
   */
  
  import * as Log from './util/logging.js';
 -import Base64 from "./base64.js";
 +import ImageResource from './image-resource.js';
++import ImageDecodeContext from './image-context.js';
  import { toSigned32bit } from './util/int.js';
  
  export default class Display {
-@@ -16,6 +16,8 @@ export default class Display {
+@@ -16,6 +17,8 @@ export default class Display {
  
          this._renderQ = [];  // queue drawing actions for in-oder rendering
          this._flushPromise = null;
@@ -20,7 +21,15 @@ index 4efd6f4..8544432 100644
  
          // the full frame buffer (logical canvas) size
          this._fbWidth = 0;
-@@ -301,18 +303,30 @@ export default class Display {
+@@ -41,6 +44,7 @@ export default class Display {
+         }
+ 
+         this._targetCtx = this._target.getContext('2d');
++        this._imageContext = new ImageDecodeContext(this._target.ownerDocument);
+ 
+         // the visible canvas viewport (i.e. what actually gets seen)
+         this._viewportLoc = { 'x': 0, 'y': 0, 'w': this._target.width, 'h': this._target.height };
+@@ -301,18 +305,30 @@ export default class Display {
      }
  
      flush() {
@@ -52,7 +61,7 @@ index 4efd6f4..8544432 100644
      fillRect(x, y, width, height, color, fromQueue) {
          if (this._renderQ.length !== 0 && !fromQueue) {
              this._renderQPush({
-@@ -363,12 +377,19 @@ export default class Display {
+@@ -363,12 +379,19 @@ export default class Display {
  
      imageRect(x, y, width, height, mime, arr) {
          /* The internal logic cannot handle empty images, so bail early */
@@ -67,7 +76,7 @@ index 4efd6f4..8544432 100644
 +        try {
 +            img = new ImageResource(arr, mime, width, height,
 +                                    () => this._scanRenderQ(),
-+                                    error => this._failRenderQ(error));
++                                    error => this._failRenderQ(error), this._imageContext);
 +        } catch (error) {
 +            this._failRenderQ(error);
 +            return;
@@ -75,7 +84,7 @@ index 4efd6f4..8544432 100644
  
          this._renderQPush({
              'type': 'img',
-@@ -378,6 +399,7 @@ export default class Display {
+@@ -378,6 +401,7 @@ export default class Display {
              'width': width,
              'height': height
          });
@@ -83,7 +92,7 @@ index 4efd6f4..8544432 100644
      }
  
      videoFrame(x, y, width, height, frame) {
-@@ -480,6 +502,10 @@ export default class Display {
+@@ -480,6 +504,10 @@ export default class Display {
      }
  
      _renderQPush(action) {
@@ -94,7 +103,7 @@ index 4efd6f4..8544432 100644
          this._renderQ.push(action);
          if (this._renderQ.length === 1) {
              // If this can be rendered immediately it will be, otherwise
-@@ -488,14 +514,43 @@ export default class Display {
+@@ -488,14 +516,44 @@ export default class Display {
          }
      }
  
@@ -122,6 +131,7 @@ index 4efd6f4..8544432 100644
 +            this._disposeRenderAction(action);
 +        }
 +        this._renderQ = [];
++        this._imageContext.dispose(error);
 +        if (this._flushPromise !== null) {
 +            this._flushReject(error);
 +            this._flushPromise = null;
@@ -143,7 +153,7 @@ index 4efd6f4..8544432 100644
          let ready = true;
          while (ready && this._renderQ.length > 0) {
              const a = this._renderQ[0];
-@@ -513,22 +568,11 @@ export default class Display {
+@@ -513,22 +571,11 @@ export default class Display {
                      this.blitImage(a.x, a.y, a.width, a.height, a.data, 0, true);
                      break;
                  case 'img':
@@ -170,7 +180,7 @@ index 4efd6f4..8544432 100644
                          ready = false;
                      }
                      break;
-@@ -557,7 +601,7 @@ export default class Display {
+@@ -557,7 +604,7 @@ export default class Display {
                          let display = this;
                          a.frame.promise.then(() => {
                              display._scanRenderQ();
@@ -179,7 +189,7 @@ index 4efd6f4..8544432 100644
                          ready = false;
                      }
                      break;
-@@ -572,7 +616,7 @@ export default class Display {
+@@ -572,7 +619,7 @@ export default class Display {
              this._flushPromise !== null) {
              this._flushResolve();
              this._flushPromise = null;
@@ -188,12 +198,150 @@ index 4efd6f4..8544432 100644
          }
      }
  }
+diff --git a/core/image-context.js b/core/image-context.js
+new file mode 100644
+index 0000000..a5bd1e3
+--- /dev/null
++++ b/core/image-context.js
+@@ -0,0 +1,132 @@
++/*
++ * iPhoneBridge: bounded document ownership for native image decoding.
++ * Licensed under MPL 2.0 (see LICENSE.txt).
++ */
++
++const MAX_IMAGE_JOBS = 4096;
++
++// WebKit's DocumentLoader retains each notified resource URL for its lifetime:
++// https://github.com/WebKit/WebKit/blob/b5f0255e3ed796abfd39614950fe8e2ab2a223e8/Source/WebCore/loader/DocumentLoader.h
++// Revoke/dispose cannot clear that history. Bound it with an owned document,
++// while keeping the same native decoder and the viewer/RFB session alive.
++// Remove this owner once supported WebKit versions bound that URL history and
++// the unchanged decoder passes the native long-running memory/cadence check.
++export default class ImageDecodeContext {
++    constructor(document) {
++        if (!document || typeof document.createElement !== 'function') {
++            throw new Error("Image decode context requires an owner document");
++        }
++        this._document = document;
++        this._current = null;
++        this._waiters = new Set();
++        this._abort = new AbortController();
++        this._error = null;
++        this._pumping = false;
++    }
++
++    acquire(signal) {
++        if (this._error !== null) { return Promise.reject(this._error); }
++        if (signal?.aborted) { return Promise.reject(signal.reason); }
++        return new Promise((resolve, reject) => {
++            const waiter = { resolve, reject, signal, abort: null };
++            waiter.abort = () => {
++                if (!this._waiters.has(waiter)) { return; }
++                this._removeWaiter(waiter);
++                reject(signal.reason);
++                this._pump();
++            };
++            this._waiters.add(waiter);
++            signal?.addEventListener('abort', waiter.abort, { once: true });
++            this._pump();
++        });
++    }
++
++    _removeWaiter(waiter) {
++        this._waiters.delete(waiter);
++        waiter.signal?.removeEventListener('abort', waiter.abort);
++    }
++
++    _createDocument() {
++        const frame = this._document.createElement('iframe');
++        try {
++            frame.hidden = true;
++            frame.setAttribute('aria-hidden', 'true');
++            frame.tabIndex = -1;
++            // The initial about:blank document becomes active and same-origin
++            // on attachment. Setting src would cause an extra navigation.
++            this._document.body.appendChild(frame);
++            if (this._error !== null) { throw this._error; }
++            const document = frame.contentDocument;
++            if (!document) { throw new Error("Image decoder document is unavailable"); }
++            this._current = { frame, document, uses: 0, active: 0 };
++        } catch (error) {
++            frame.remove();
++            throw error;
++        }
++    }
++
++    _removeDocument() {
++        const current = this._current;
++        if (current === null) { return; }
++        this._current = null;
++        const frame = current.frame;
++        current.frame = current.document = null;
++        frame.remove();
++    }
++
++    _lease() {
++        let owner = this, current = this._current;
++        current.uses++;
++        current.active++;
++        return {
++            document: current.document,
++            signal: this._abort.signal,
++            release() {
++                if (owner === null) { return; }
++                const releasedOwner = owner;
++                owner = null;
++                current.active--;
++                current = null;
++                this.document = this.signal = null;
++                releasedOwner._pump();
++            },
++        };
++    }
++
++    _pump() {
++        if (this._pumping || this._error !== null) { return; }
++        this._pumping = true;
++        try {
++            while (this._error === null) {
++                if (this._current?.uses === MAX_IMAGE_JOBS) {
++                    if (this._current.active !== 0) { break; }
++                    this._removeDocument();
++                }
++                if (this._waiters.size === 0 || this._error !== null) { break; }
++                if (this._current === null) { this._createDocument(); }
++                if (this._waiters.size === 0 || this._error !== null) { continue; }
++                const waiter = this._waiters.values().next().value;
++                this._removeWaiter(waiter);
++                waiter.resolve(this._lease());
++            }
++        } catch (error) {
++            this.dispose(error);
++        } finally {
++            this._pumping = false;
++        }
++    }
++
++    dispose(error = new Error("Image decode context disposed")) {
++        if (this._error !== null) { return; }
++        this._error = error;
++        for (const waiter of this._waiters) {
++            this._removeWaiter(waiter);
++            waiter.reject(error);
++        }
++        // Active resources synchronously clear their sources before the frame
++        // is removed. Already resolved admissions also observe this signal.
++        this._abort.abort(error);
++        this._removeDocument();
++        this._document = null;
++    }
++}
 diff --git a/core/image-resource.js b/core/image-resource.js
 new file mode 100644
-index 0000000..dddf66b
+index 0000000..916ee9e
 --- /dev/null
 +++ b/core/image-resource.js
-@@ -0,0 +1,121 @@
+@@ -0,0 +1,155 @@
 +/*
 + * iPhoneBridge: bounded lifetime for encoded image rectangles.
 + * Licensed under MPL 2.0, like the surrounding noVNC display code.
@@ -202,9 +350,16 @@ index 0000000..dddf66b
 +const DECODE_TIMEOUT = 10000;
 +
 +export default class ImageResource {
-+    constructor(data, mime, width, height, onReady, onError) {
++    constructor(data, mime, width, height, onReady, onError, context) {
++        if (!context || typeof context.acquire !== 'function') {
++            throw new Error("Image rectangle requires a decode context");
++        }
 +        this.image = null;
-+        this._sourceImage = new Image();
++        this._sourceImage = null;
++        this._context = context;
++        this._lease = null;
++        this._admission = null;
++        this._contextFailed = null;
 +        this.ready = false;
 +        this._disposed = false;
 +        this._decoding = false;
@@ -219,27 +374,50 @@ index 0000000..dddf66b
 +        // FileReaderLoader path and its internal temporary object URL.
 +        const bytes = ArrayBuffer.isView(data) ?
 +            new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : new Uint8Array(data);
-+        this._url = URL.createObjectURL(new Blob([bytes], { type: mime }));
++        this._blob = new Blob([bytes], { type: mime });
++        this._url = null;
 +        this._loaded = this._handleLoad.bind(this);
 +        this._failed = () => this._fail(new Error("Image rectangle failed to decode"));
 +    }
 +
 +    start() {
 +        if (this._disposed || this._timer !== null || this.ready) { return; }
-+        this._sourceImage.addEventListener('load', this._loaded);
-+        this._sourceImage.addEventListener('error', this._failed);
++        this._admission = new AbortController();
 +        this._timer = setTimeout(() => {
 +            this._fail(new Error("Image rectangle decode timed out"));
 +        }, DECODE_TIMEOUT);
 +        try {
-+            this._sourceImage.src = this._url;
++            this._context.acquire(this._admission.signal)
++                .then(lease => this._beginDecode(lease))
++                .catch(error => this._fail(error));
 +        } catch (error) {
 +            this._fail(error);
 +        }
 +    }
 +
++    _beginDecode(lease) {
++        if (this._disposed) { lease.release(); return; }
++        if (lease.signal.aborted) {
++            const error = lease.signal.reason;
++            lease.release();
++            this._fail(error);
++            return;
++        }
++        this._lease = lease;
++        this._context = this._admission = null;
++        const signal = lease.signal;
++        this._contextFailed = () => this._fail(signal.reason);
++        signal.addEventListener('abort', this._contextFailed, { once: true });
++        this._sourceImage = lease.document.createElement('img');
++        this._sourceImage.addEventListener('load', this._loaded);
++        this._sourceImage.addEventListener('error', this._failed);
++        this._url = URL.createObjectURL(this._blob);
++        this._blob = null;
++        this._sourceImage.src = this._url;
++    }
++
 +    _handleLoad() {
-+        if (this._disposed || this._decoding) { return; }
++        if (this._disposed || this._decoding || this._sourceImage === null) { return; }
 +        if (this._sourceImage.naturalWidth !== this._width ||
 +            this._sourceImage.naturalHeight !== this._height) {
 +            this._fail(new Error("Decoded image has incorrect dimensions. Got " +
@@ -258,17 +436,17 @@ index 0000000..dddf66b
 +                    return;
 +                }
 +                this.image = bitmap;
-+                this._releaseSource();
 +                if (bitmap.width !== this._width || bitmap.height !== this._height) {
 +                    this._fail(new Error("Decoded bitmap has incorrect dimensions. Got " +
 +                                         bitmap.width + "x" + bitmap.height + ". Expected " +
 +                                         this._width + "x" + this._height + "."));
 +                    return;
 +                }
++                this._releaseSource();
 +                this.ready = true;
 +                this._clearTimer();
 +                this._onReady();
-+            }, error => this._fail(error));
++            }).catch(error => this._fail(error));
 +        } catch (error) {
 +            this._fail(error);
 +        }
@@ -287,15 +465,19 @@ index 0000000..dddf66b
 +
 +    _releaseSource() {
 +        this._removeListeners();
-+        if (this._sourceImage !== null) {
-+            this._sourceImage.src = "";
-+            this._sourceImage = null;
-+        }
-+        if (this._url !== null) {
-+            URL.revokeObjectURL(this._url);
-+            this._url = null;
-+        }
++        const source = this._sourceImage, url = this._url, lease = this._lease;
++        const admission = this._admission, contextFailed = this._contextFailed;
++        this._sourceImage = this._url = this._lease = this._admission = null;
++        this._blob = this._context = this._contextFailed = null;
 +        this._loaded = this._failed = null;
++        lease?.signal.removeEventListener('abort', contextFailed);
++        try {
++            source?.removeAttribute('src');
++        } finally {
++            if (url !== null) { URL.revokeObjectURL(url); }
++            admission?.abort(new Error("Image rectangle admission cancelled"));
++            lease?.release();
++        }
 +    }
 +
 +    _fail(error) {
