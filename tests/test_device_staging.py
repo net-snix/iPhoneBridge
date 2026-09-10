@@ -29,6 +29,7 @@ class DeviceStagingTests(unittest.TestCase):
         self.tree = self.root / "work/build/TrollVNC"
         modified = {}
         for name in ("Makefile", "src/trollvncserver.mm", "src/ScreenCapturer.mm",
+                     "src/ScreenCapturer.h", "src/CaptureSchedule.h",
                      "src/FrameUpdateRetry.h", "src/ClientSendLocks.h"):
             path = self.write(f"work/build/TrollVNC/{name}", name.encode())
             modified[name] = digest(path.read_bytes())

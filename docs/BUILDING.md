@@ -67,8 +67,16 @@ Unit tests and CI do not require a phone. Live verification is separate; see
 [VALIDATION.md](../VALIDATION.md). To rebuild the icon, run `scripts/build-icon`
 with Xcode's Icon Composer installed; checked-in PNG/ICNS files are sufficient
 for an ordinary app build.
-The daemon retry tests compile a small C++ concurrency harness with the host
-compiler. Viewer tests exercise the actual prepared noVNC source, including
+Daemon tests extract complete production functions and headers from the patches;
+they do not need vendor sources or downloads. Thirty-five behavior cases cover
+publication coalescing, retained reader locks, frame replacement, dirty regions,
+rotation, client start/stop and capture deadlines. On macOS, the actual frame
+handler uses CoreVideo/vImage under UndefinedBehaviorSanitizer, and the timer
+methods run against real Dispatch. Eleven separate pthread/UBSan cases exercise
+LibVNCServer's actual snapshot and resize functions. Small attributed fixtures
+contain only unchanged pinned upstream helpers; missing patch context fails the
+tests. These host regressions do not establish iPhone performance.
+Viewer tests exercise the actual prepared noVNC source, including
 image failure, timeout, resource release, and disconnect during a pending flush.
 Decoder-context tests also cover bounded document ownership, waiting jobs and
 cancellation at a context boundary. Native pixel and sustained-use checks are

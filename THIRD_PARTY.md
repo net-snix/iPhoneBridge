@@ -37,15 +37,29 @@ is an upstream license reference, not an assertion about the phone's zlib versio
 `patches/trollvnc-loopback.patch` prevents an IPv6 wildcard listener when the
 IPv4 loopback option is selected. It also maps XF86HomePage and XF86TaskPane
 key-down events to TrollVNC's self-releasing Home press and double-press helpers.
-The same patch removes the default update delay, retries the newest screen after
-an in-flight encode drops a capture, and avoids hashing the full buffer twice in
-the normal precise-update path. Retries retain a flag, not a queue of images.
-Frame swaps retain the acquired clients until their exact send locks are released,
-so disconnecting clients can complete cleanup.
+The same patch removes the default update delay and prepares the newest screen
+in the existing back buffer while an encoder reads the published front buffer.
+Only one prepared frame exists. Publication tries every retained client's send
+lock without blocking, preserving pending pixels and dirty tiles when a reader
+is busy. Completion coalesces an asynchronous publication attempt; every display
+tick retries it even when the screen has stopped changing. Full tile hashes
+advance their published baseline only with a successful frame swap.
+Capture keeps its configured cap, with one strict deadline timer and session
+generations that reject obsolete callbacks. Client population changes reconcile
+capture start/stop on the main queue. New-client admission is serialized with
+publication and resize. Frame swaps release the exact acquired reader locks
+before dropping their retained references, allowing disconnect cleanup to finish.
+The upstream `-a` flag remains accepted as a compatibility no-op; swaps always
+use the safe path. Positive `-P` values use complete hashes of the prepared frame.
 `patches/trollvnc-source-deps.patch` updates the library link list for the source
-build. `patches/libvncserver-darwin-endian.patch` prevents undefined GNU endian
+build. `patches/libvncserver-iphonebridge.patch` prevents undefined GNU endian
 macros in Darwin's header from overriding the correct little-endian target
-configuration. All patches are included in the corresponding-source package.
+configuration. It also provides a retained client snapshot and a format-aware
+framebuffer resize, so disconnect cannot change the set of locks to release and
+client colour conversion sees the final framebuffer format under those locks.
+All patches are included in the corresponding-source package.
+The daemon and LibVNCServer regression fixtures in `tests/` contain attributed
+upstream excerpts under their original GPL terms; they are not MIT relicensed.
 The build verifies patch application outside enclosing Git repositories and
 checks effective byte order with the iOS compiler. Release staging explicitly
 checks the loopback and navigation behavior in the compiled source.
@@ -69,8 +83,8 @@ document; the mirror and RFB connection continue normally. This bounds WebKit's
 native history of loaded image URLs. Each image retains its object URL and
 document lease until drawing or disposal. The patch handles decode failure and
 timeout and disposes pending images on disconnect. These modified files remain
-MPL-2.0. The current candidate's sustained performance qualification remains
-incomplete; see [the renderer investigation](docs/renderer-memory-2026-09-09.md).
+MPL-2.0. Evidence and qualification are recorded in
+[the renderer investigation](docs/renderer-memory-2026-09-09.md).
 The patch and resulting source hashes are pinned in `dependency-lock.json` and
 verified by `scripts/prepare-viewer` before bundling. Python dependencies and transitive download hashes
 are pinned in `uv.lock`. Their installed source, metadata and license files

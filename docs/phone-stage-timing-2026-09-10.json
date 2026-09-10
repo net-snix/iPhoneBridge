@@ -1,0 +1,236 @@
+{
+  "schema_version": 1,
+  "diagnostic_daemon_sha256": "181b6fadc15a97fcf9acb5da75043a0632d5dcb981ef2f0366760773209a8797",
+  "baseline_daemon_sha256": "3487cfad710fc41ddaf01b8e48ce976dc5c21e53d0b9df8cbf22eb818b69569e",
+  "diagnostic_only": true,
+  "canonical_session_restored": true,
+  "same_five_static_libraries_as_baseline": true,
+  "measurement": "One phone-only Tight sink, no Mac image decoding, no input; one bounded report after300s.",
+  "origin_unix_ns": 1789063277090525000,
+  "duration_seconds": 300,
+  "valid_single_client": true,
+  "profile_changed": false,
+  "profile": {
+    "bits_per_pixel": 32,
+    "depth": 24,
+    "big_endian": 0,
+    "true_colour": 255,
+    "red_max": 255,
+    "green_max": 255,
+    "blue_max": 255,
+    "red_shift": 0,
+    "green_shift": 8,
+    "blue_shift": 16,
+    "preferred_encoding": 7,
+    "tight_quality_level": 6,
+    "tight_compress_level": 2
+  },
+  "sink_duration_seconds": 310.0005315419985,
+  "sink_data_update_fps": 45.445083367837306,
+  "minute_summaries": [
+    {
+      "start_seconds": 0,
+      "cad_ticks_per_second": 59.95,
+      "captures_per_second": 55.1,
+      "completed_sends_per_second": 55.06666666666667,
+      "thermal_state_values": [
+        1,
+        2
+      ],
+      "counters": {
+        "cad_ticks": 3597,
+        "capture_starts": 3306,
+        "display_changed": 3305,
+        "display_unchanged": 0,
+        "early_admission_busy": 3521,
+        "late_admission_busy": 1,
+        "full_requests": 1,
+        "incremental_requests": 3303,
+        "send_starts": 3304,
+        "send_finishes": 3304,
+        "send_failures": 0,
+        "unpaired_send_finishes": 0,
+        "pipelined_requests": 0
+      },
+      "weighted_mean_ms": {
+        "cad_gap_ms": 16.681822469410456,
+        "capture_gap_ms": 18.150406081694403,
+        "capture_late_ms": 1.4837462420574885,
+        "timer_wake_late_ms": 0.05912866452772074,
+        "immediate_queue_ms": 0.014228863087871286,
+        "update_display_ms": 7.703542686838124,
+        "handle_framebuffer_ms": 1.669842278366112,
+        "capture_callback_ms": 9.44407808472012,
+        "encode_send_ms": 7.4194472881355935,
+        "request_gap_ms": 18.160628670905236,
+        "finish_to_request_ms": 3.829979243112322,
+        "request_to_send_ms": 6.911105792978208
+      }
+    },
+    {
+      "start_seconds": 60,
+      "cad_ticks_per_second": 59.983333333333334,
+      "captures_per_second": 53.1,
+      "completed_sends_per_second": 53.06666666666667,
+      "thermal_state_values": [
+        2
+      ],
+      "counters": {
+        "cad_ticks": 3599,
+        "capture_starts": 3186,
+        "display_changed": 3186,
+        "display_unchanged": 0,
+        "early_admission_busy": 3589,
+        "late_admission_busy": 1,
+        "full_requests": 0,
+        "incremental_requests": 3185,
+        "send_starts": 3184,
+        "send_finishes": 3184,
+        "send_failures": 0,
+        "unpaired_send_finishes": 0,
+        "pipelined_requests": 0
+      },
+      "weighted_mean_ms": {
+        "cad_gap_ms": 16.66981764378994,
+        "capture_gap_ms": 18.831300784682988,
+        "capture_late_ms": 2.164627435655995,
+        "timer_wake_late_ms": 0.060899864929424535,
+        "immediate_queue_ms": 0.02886882573852923,
+        "update_display_ms": 7.848901472065285,
+        "handle_framebuffer_ms": 1.743383085373509,
+        "capture_callback_ms": 9.66034033584432,
+        "encode_send_ms": 7.913882126256281,
+        "request_gap_ms": 18.842655384615384,
+        "finish_to_request_ms": 3.4207519372056514,
+        "request_to_send_ms": 7.508486306532664
+      }
+    },
+    {
+      "start_seconds": 120,
+      "cad_ticks_per_second": 60.0,
+      "captures_per_second": 47.21666666666667,
+      "completed_sends_per_second": 47.18333333333333,
+      "thermal_state_values": [
+        2
+      ],
+      "counters": {
+        "cad_ticks": 3600,
+        "capture_starts": 2833,
+        "display_changed": 2834,
+        "display_unchanged": 0,
+        "early_admission_busy": 3595,
+        "late_admission_busy": 1,
+        "full_requests": 0,
+        "incremental_requests": 2831,
+        "send_starts": 2832,
+        "send_finishes": 2831,
+        "send_failures": 0,
+        "unpaired_send_finishes": 0,
+        "pipelined_requests": 0
+      },
+      "weighted_mean_ms": {
+        "cad_gap_ms": 16.667259944444442,
+        "capture_gap_ms": 21.172242605012354,
+        "capture_late_ms": 4.505590427109071,
+        "timer_wake_late_ms": 0.05629627259966311,
+        "immediate_queue_ms": 0.025495166831508306,
+        "update_display_ms": 8.107067424135499,
+        "handle_framebuffer_ms": 1.8609260162314751,
+        "capture_callback_ms": 10.034738119266056,
+        "encode_send_ms": 9.886432953020133,
+        "request_gap_ms": 21.18637746379371,
+        "finish_to_request_ms": 2.03114153655952,
+        "request_to_send_ms": 9.269740144774012
+      }
+    },
+    {
+      "start_seconds": 180,
+      "cad_ticks_per_second": 60.0,
+      "captures_per_second": 37.3,
+      "completed_sends_per_second": 37.266666666666666,
+      "thermal_state_values": [
+        2
+      ],
+      "counters": {
+        "cad_ticks": 3600,
+        "capture_starts": 2238,
+        "display_changed": 2238,
+        "display_unchanged": 0,
+        "early_admission_busy": 3595,
+        "late_admission_busy": 1,
+        "full_requests": 0,
+        "incremental_requests": 2236,
+        "send_starts": 2235,
+        "send_finishes": 2236,
+        "send_failures": 0,
+        "unpaired_send_finishes": 0,
+        "pipelined_requests": 0
+      },
+      "weighted_mean_ms": {
+        "cad_gap_ms": 16.666716666666666,
+        "capture_gap_ms": 26.815779133154603,
+        "capture_late_ms": 10.149109888293118,
+        "timer_wake_late_ms": 0.06821167558425584,
+        "immediate_queue_ms": 0.03393986480322004,
+        "update_display_ms": 9.915739781054512,
+        "handle_framebuffer_ms": 2.160227961555655,
+        "capture_callback_ms": 12.15076048278945,
+        "encode_send_ms": 13.422634838998212,
+        "request_gap_ms": 26.839783765652953,
+        "finish_to_request_ms": 1.1634645527728085,
+        "request_to_send_ms": 12.253844653243847
+      }
+    },
+    {
+      "start_seconds": 240,
+      "cad_ticks_per_second": 59.95,
+      "captures_per_second": 36.35,
+      "completed_sends_per_second": 36.15,
+      "thermal_state_values": [
+        2
+      ],
+      "counters": {
+        "cad_ticks": 3597,
+        "capture_starts": 2181,
+        "display_changed": 2181,
+        "display_unchanged": 0,
+        "early_admission_busy": 3579,
+        "late_admission_busy": 7,
+        "full_requests": 0,
+        "incremental_requests": 2169,
+        "send_starts": 2170,
+        "send_finishes": 2169,
+        "send_failures": 0,
+        "unpaired_send_finishes": 0,
+        "pipelined_requests": 0
+      },
+      "weighted_mean_ms": {
+        "cad_gap_ms": 16.681874895746454,
+        "capture_gap_ms": 27.50667455295736,
+        "capture_late_ms": 10.840007840440164,
+        "timer_wake_late_ms": 0.07152741926433916,
+        "immediate_queue_ms": 0.041097434794646975,
+        "update_display_ms": 10.222735442457589,
+        "handle_framebuffer_ms": 2.2039232859761686,
+        "capture_callback_ms": 12.503230614115491,
+        "encode_send_ms": 13.849748824343015,
+        "request_gap_ms": 27.658800783771323,
+        "finish_to_request_ms": 1.2143772798524666,
+        "request_to_send_ms": 12.59396073732719
+      }
+    }
+  ],
+  "thermal_state_definition": {
+    "1": "fair",
+    "2": "serious",
+    "source": "https://developer.apple.com/documentation/foundation/processinfo/thermalstate-swift.enum",
+    "note": "Categorical system thermal state exposed by NSProcessInfo, not CPU temperature or an exact frequency measurement."
+  },
+  "limits": [
+    "Encode/send includes compression, socket writes and waits; CPU time was not measured.",
+    "Capture callback contains updateDisplay and handleFramebuffer; these nested durations must not be added a second time.",
+    "Timing instrumentation adds some overhead; no frame-rate pass is inferred from this diagnostic.",
+    "This run supports increasing phone pipeline cost under reported thermal pressure; it does not establish that every stage slowdown is caused solely by heat."
+  ],
+  "finding": "Display-link cadence stayed near60Hz while completed sends fell from55 to36/s. Mean capture callback grew from9.4 to12.5ms and encode/send from7.3 to13.8ms. Delayed timer lateness remained roughly0.05\u20130.07ms, too small to explain the decline. Current pre-capture admission serializes these stages; a bounded latest-frame prepare/publish design is under review."
+}

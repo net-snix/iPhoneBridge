@@ -18,10 +18,19 @@ a 22-minute windowless memory test with 950,716 JPEG rectangles. The current
 direct-image candidate passes 74 Node tests and four installed native pixel
 comparisons, but its physical-phone test delivered about 30 frames/s. Synthetic
 replays previously described as visible had a zero-size canvas and cannot
-qualify displayed speed. Work was paused at the user's request on 2026-09-10;
-no benchmark is running and the phone retains the prior `f3054357` daemon.
+qualify displayed speed. Work resumed at the user's request on 2026-09-10.
+The reviewed capture-scheduling candidate is integrated, but its next visible
+test still declined to about 36 fps. It is not qualified for promotion.
 
-## Saved pause checkpoint — 2026-09-10
+The first installed capture candidate (`8c061f12`) delivered 54.75 updates/s in a
+60-second phone-only Tight sink, then 53.97 updates/s over five minutes. Its
+minute means were 54.75, 54.80, 54.18, 53.05 and 53.05 updates/s. This removes
+the observed 30 fps collapse in that test, but initial delivery is below the old
+cold 60 fps result. The subsequent timer-precision candidate failed its sustained
+tests below. These measurements discard encoded bytes and do not qualify native
+display speed, input latency or pixel quality.
+
+## Current capture investigation — 2026-09-10
 
 The latest physical test held WebContent at 96–120 MiB while cadence declined.
 A separate 600-second Tight sink delivered 20,828 updates and logged 15,153
@@ -29,21 +38,229 @@ captures rejected by the phone's busy gate: together, 59.97 capture outcomes/s.
 The immediate cadence loss is upstream of the Mac renderer; the numeric evidence
 is preserved in [renderer-cadence-2026-09-10.json](renderer-cadence-2026-09-10.json).
 
-An uninstalled capture-scheduling candidate is saved locally under
-`work/renderer-memory-20260909/capture-retry-candidate/`. It contains the exact
-baseline and candidate sources, complete and incremental patches, their hashes,
-eight scheduler regressions, and the five existing retry regressions. The host
-checks passed and an independent static concurrency review found no actionable
-issues. The candidate has not been built for the phone or qualified for speed.
-Pending canonical integration edits are saved in
-`parent-integration-preparation.patch` alongside the candidate. The canonical
-daemon patch and dependency pin remain unchanged.
+The tested early-admission scheduler checks capacity before copying the screen and coalesces
+an asynchronous retry when encoding completes. Display ticks and retries share
+one capture cap. Eight scheduler regressions and five existing retry regressions
+pass, and independent static review found no actionable concurrency issue.
+The strict-timer variant also passes eight real Dispatch lifetime cases and
+72 repository Python tests. Actual installed bytes and launch arguments were
+verified against daemon `3487cfad`.
 
-Resume with review and integration of that saved candidate, then build and verify
-the actual installed daemon before cold/warm throughput, input, independent
-final-frame checks and a visible 22-minute run. Capture admission reduces wasted
-copies but also reduces capture/encoding overlap; measured ordinary behavior must
-decide whether to keep or reject it. No push or release has been made.
+That variant delivered 55.71 updates/s in a minute-long Tight sink. In the native
+app, the first 30-second barcode window measured 42.56 fps and subsequent
+continuous telemetry fell to 36 fps. The run was stopped after 112 seconds;
+WebContent stayed at 127–137 MiB, with no hidden intervals or reconnects.
+All four native pixel comparisons matched, and 30 input responses completed
+with a 98.5 ms median and 116.55 ms p95 before that run.
+
+Closing only the native app preserved the verified phone daemon, USB and SSH
+session. A subsequent sink averaged 55.57 updates/s over a minute, but its
+last second fell to 46 updates/s. A subsequent five-minute sink reproduced the
+full decline, with minute means of 53.55, 46.35, 33.68, 30.07 and 30.00 updates/s.
+This occurred without Mac rendering. Short sink runs do not establish sustained
+performance. Capture admission reduces wasted copies but also reduces
+capture/encoding overlap. The subsequent stage timing below identified this
+serialization as the next repair target. No performance benefit
+has been established for the strict timer itself. No push or release has been made.
+
+### Bounded phone stage timing
+
+A separate diagnostic daemon (`181b6fad`) used the exact same five static
+libraries as `3487cfad` and recorded scalar timing distributions for 300 seconds,
+then emitted one report. One Tight client completed the run without reconnects
+or profile changes. The normal daemon was restored and verified afterward.
+The [sanitized stage measurements](phone-stage-timing-2026-09-10.json) preserve
+minute summaries and their interpretation limits.
+
+Display-link ticks remained near 60 Hz while delivered updates declined from
+about 55 to 36/s. Mean capture-callback time rose from 9.4 to 12.5 ms; encoding
+plus sending rose from 7.3 to 13.8 ms. Timer wake lateness stayed near
+0.05–0.07 ms. The phone reported a fair thermal state initially and a serious
+state from the 50–60-second window onward. Apple's
+[thermal-state definition](https://developer.apple.com/documentation/foundation/processinfo/thermalstate-swift.enum/serious)
+associates the serious category with measures that reduce system performance.
+This is a categorical system signal, not CPU temperature or clock speed.
+
+The tested early-admission scheduler serializes capture and encoding, so the
+growing sum of their costs limits throughput. Encode/send includes socket waits;
+this probe alone does not assign the whole increase to JPEG CPU work or heat.
+A bounded latest-frame preparation/publication split is staged to restore
+overlap while preserving client locks and final-frame delivery. Capture prepares
+one replaceable back buffer; publication must retain that frame until all readers
+can safely release the front buffer. Completion retries publication without
+recapturing, and every display tick also retries when the source has stopped
+changing. The canonical patch is integrated and its six resulting source files
+match the reviewed candidate exactly. Thirty-five portable host cases pass,
+including fourteen prepare/publish, hash, rotation, final-frame and lifecycle
+cases, eight real Dispatch timer cases, five retained snapshot/try-lock cases,
+four publication-state cases and four capture-cap cases. The fourteen
+prepare/publish cases also pass UndefinedBehaviorSanitizer. These checks do not
+establish iPhone speed.
+
+The associated concurrency review found two existing resize hazards in the
+pinned library/caller boundary. Lock acquisition and release traverse separate
+client lists, which can change during disconnect. The library also resets the
+pixel format and updates client conversion tables before the caller restores its
+BGRA layout after unlocking. The staged change uses a retained client
+snapshot and commits the final pixel format with geometry under the same locks.
+The explicit-format path must also avoid exposing an intermediate RGB layout to
+clients still being initialized before their admission hook. Library regressions
+pass eleven cases using the actual patched functions with pthread locks and
+UndefinedBehaviorSanitizer; physical rotation and
+client join/disconnect checks remain pending.
+
+### Overlap candidate delivery preflight
+
+Normal source-built daemon `ae83019c` completed a 300-second physical-phone Tight
+sink at 1172×2536, quality 6, compression 2 and the unchanged 60-fps profile.
+It delivered 17,862 complete image updates: **59.54 updates/s overall**, with
+minute means of **59.58, 59.57, 59.40, 59.55 and 59.60**. The final 30 seconds
+averaged 59.67. No native renderer was connected during the collection; encoded
+bytes were discarded. The prior daemon was restored and the preserved USB,
+viewer and fixture services verified afterward.
+
+This initial run passed the five-minute delivery preflight, but the later
+warmed-phone comparison below failed. It does not establish sustained native
+display speed or 22-minute memory behavior.
+Thermal state was not instrumented in this normal binary, so earlier runs are
+not a thermally matched A/B comparison. Exact artifact identities and results
+are in [overlap-qualification-2026-09-10.json](overlap-qualification-2026-09-10.json).
+
+The subsequent native run passed all four exact image comparisons and 30 input
+trials (82 ms median, 107.7 ms p95), but failed the visible-speed gate. Its first
+barcode window measured 55.27 fps; continuous frame/flip telemetry fell to
+32.18 fps by 181 seconds. An independent 30-second barcode window then measured
+33.89 fps. WebContent stayed at 124–139 MiB with one decoder document, the same
+connection and telemetry identity, no hidden intervals, and unchanged floating
+window geometry. The collector was stopped at 200 seconds; it did not complete
+22 minutes. The phone-only improvement therefore does not resolve the complete
+native slowdown. Source comparison found matching Tight format, quality and
+compression, and about 43 JPEG rectangles per update throughout both paths.
+The barcode's source sequence advanced at 60.01 iterations/s in both the initial
+and slow native windows. In the slow window the viewer observed 1,017 distinct
+sequences and skipped 783 source increments. The fixture increments once per
+Safari animation callback, so its source animation remained near 60 Hz while
+the mirror displayed 33.89 fps. This observation applies to that native window;
+the later encoded-byte sink does not decode the source barcode.
+
+A 15.6-second Time Profiler capture of the same slow WebContent process
+recorded 9.743 seconds of sampled running time across its threads. Canvas
+drawing appeared in 3.220 seconds of those samples; shared-bitmap creation in
+2.955 seconds; JPEG stacks in 2.833 seconds. Image-load event dispatch included
+the synchronous draw and decode work, so these overlapping stack totals must
+not be read as separate costs or asynchronous image-load waits. This establishes
+a substantial native draw/decode cost, but one slow-state profile does not
+explain the gradual decline. The native app was then closed and the prior
+daemon restored through the owned-session supervisor.
+
+The immediate warmed-phone comparison then reproduced the decline without
+native rendering. The same `ae83019c` daemon and unchanged heavy-motion fixture
+delivered 9,161 updates over 300 seconds, averaging **30.54 updates/s**. The first
+eight seconds were near 59–60; delivery fell to 31 by the eleventh second and
+remained near 29–30. The temporary daemon was restored afterward. This establishes
+that the native viewer is not necessary for the slowdown and that overlap alone
+does not sustain 60 fps in these later conditions. The daemon was restarted
+between tests and its thermal state was not instrumented, so this comparison
+does not by itself prove a thermal cause. Phone-side tick, preparation,
+publication and encode/send timing is the next discriminator.
+
+### Overlap timing identifies the limiting stage
+
+A separate `ee9e9971` diagnostic recorded 300 seconds of scalar stage counters
+inside a 310-second phone-only sink. It preserved the `ae83019c` algorithms and
+four exact codec archives, adding optional timing around the transport library's
+existing update writes. All 30 windows were valid: one client and capture session,
+unchanged format/quality, no send failures, and observed socket timing. The
+normal daemon was restored afterward. [Sanitized results](overlap-stage-timing-2026-09-10.json)
+record source identities and interpretation limits.
+
+Display ticks stayed at 60 Hz, and capture/preparation remained near 59.6 fps
+throughout. Encoding plus sending grew from 7.80 ms in the first minute to
+22.51 ms in the last, while measured update socket writes grew from only 0.21
+to 0.69 ms. The remaining elapsed time in the send path grew from 7.59 to
+21.82 ms. Publication and delivery fell to about 30 fps as encoding remained
+active across frame intervals. Late completion-to-next-send gaps averaged
+10.89 ms, including a 9.66 ms mean wait for queued publication work on main.
+The latest preparation was typically fresh by the eventual publication, while
+older preparations were overwritten during encoding.
+
+The capture callback itself grew from 9.63 to 13.50 ms and remained below one
+60 Hz interval on average. iOS reported fair thermal state for the first
+40–50 seconds and serious state thereafter. This localizes the remaining
+bottleneck to encode/send work plus publication scheduling; it does not prove
+that all elapsed send time is JPEG CPU work or establish a CPU clock/core cause.
+The paired CPU probe below separates on-CPU cost from waiting during this stage.
+
+### Paired output-thread CPU timing
+
+The source-built `bcebccf7` diagnostic repeated the same full-resolution Q6/C2
+phone-only sink for 310 seconds, collecting 30 fixed windows over its first
+300 seconds. All same-thread clock pairs were valid, with no CPU-clock errors,
+overlapping sends, client changes, profile changes or send failures. The normal
+daemon was restored afterward. Its codec and LibVNC archives were byte-identical
+to the preceding `ee9e` diagnostic.
+
+| Minute | Capture/s | Send/s | Send wall, ms | Output-thread CPU, ms | Wall minus CPU, ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 59.78 | 59.48 | 7.54 | 7.53 | 0.015 |
+| 2 | 59.83 | 59.52 | 10.48 | 10.17 | 0.307 |
+| 3 | 59.80 | 55.37 | 13.30 | 12.95 | 0.353 |
+| 4 | 59.67 | 33.37 | 20.53 | 19.80 | 0.723 |
+| 5 | 59.67 | 30.15 | 22.33 | 21.04 | 1.289 |
+
+The final send interval was 94.23% on-CPU. The dominant increase is therefore
+processing time, rather than socket blocking or time waiting to be scheduled.
+These measurements cover all work on the sending pthread between display
+hooks, including Tight classification, codecs, protocol and socket work. They
+do not isolate JPEG CPU time. Final-minute update writes averaged 0.650 ms;
+the separate delay before starting the next send averaged 10.83 ms.
+
+Every policy sample reported `QOS_CLASS_DEFAULT` (21), with raw Mach current
+priority and priority both 31. Requested QoS excludes temporary overrides;
+these fields do not identify the effective QoS, CPU core or frequency. Thermal
+state was fair in the first six windows and serious thereafter. The correlation
+does not by itself establish a thermal cause. Capture and preparation remained
+near 60/s throughout, so the loss is still downstream of source capture.
+
+The JPEG build already includes ARM Neon implementations and enables SIMD.
+Increasing Tight's rectangle-size limit globally would change which tiles use
+lossless encoding and would exceed a pinned 16-bit client's JPEG scratch
+buffer. JPEG-only merging is a separate possible experiment, but changes DCT
+block boundaries and cannot promise identical decoded pixels. Neither option
+has been adopted as a fix. See the [CPU measurements and exact source hashes](overlap-cpu-timing-2026-09-10.json).
+
+A controlled source-built QoS trial changed only the dedicated output pthread
+to `QOS_CLASS_USER_INTERACTIVE`. The setter succeeded, and all 30 measured
+windows reported the requested class. It still slowed from 59.45 to 31.12
+sends/s, with final-minute send CPU at 20.64 ms versus the control's 21.04 ms.
+Capture remained near 60/s. This candidate failed the sustained cadence gate
+and was not promoted; the normal daemon was restored. See the
+[comparison and exact candidate hashes](output-qos-trial-2026-09-10.json).
+
+### Exact JPEG CPU attribution
+
+The `3483b27e` source diagnostic adds paired CPU and wall probes around the
+actual legacy `tjCompress` call and the separate `SendSubrect` palette/translation
+block. It repeats the same 310-second sink with the default output QoS, collecting
+30 windows over 300 seconds. Every whole-send and stage pair was complete, with
+no probe or operation failures. The profile stayed unchanged, and the normal
+daemon was restored afterward.
+
+| Minute | Send/s | Whole output CPU, ms/update | JPEG CPU | Palette/translation CPU | Other output CPU |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 59.42 | 7.40 | 6.61 | 0.32 | 0.47 |
+| 2 | 59.45 | 10.13 | 9.13 | 0.45 | 0.56 |
+| 3 | 58.63 | 11.70 | 10.54 | 0.51 | 0.65 |
+| 4 | 40.23 | 17.76 | 15.88 | 0.80 | 1.07 |
+| 5 | 32.07 | 20.44 | 18.26 | 0.96 | 1.22 |
+
+JPEG accounts for **89.34%** of the final-minute output CPU. The mean JPEG call
+count remains about 43 per update, while capture stays near 60/s. The unchanged
+serial JPEG cost alone exceeds a 16.67 ms frame interval. This supports testing
+two bounded encoders on the existing tiles; it does not establish a parallel
+speedup or qualify native display, latency or memory behavior. The other-CPU
+column includes instrumentation, planning, protocol and remaining output work.
+See the [paired sums, scope and exact source hashes](jpeg-stage-timing-2026-09-10.json).
 
 ## Why the previous cleanup did not stop growth
 
@@ -260,13 +477,14 @@ The verbose probe had one client and no Mac renderer. Verbose logging itself
 can add overhead, and starting it replaced both the phone daemon and SSH
 session. The canonical session was restored and verified afterward. See the
 [numeric diagnosis](renderer-cadence-2026-09-10.json). A coalesced asynchronous
-capture retry is being evaluated; it has not been installed or qualified.
+capture retry has been installed for the tests described above; it remains
+unqualified for sustained visible performance.
 
 ### Remaining qualification
 
-Testing is authorized and ongoing. The corrected synthetic replay must first
-prove its canvas is displayed, then establish a matched visible comparison.
-The installed candidate still needs a successful physical-phone animation run
+Testing is authorized and ongoing. The corrected synthetic replay verified
+visible changing pixels in a short preflight; its longer attempt was invalidated
+by an occluded interval. The candidate still needs a successful physical-phone animation run
 longer than 20 minutes with continuous memory and connection telemetry, input
 latency before/after, and independent USB final-frame verification. Native
 pixel equivalence alone does not qualify sustained speed. The candidate has

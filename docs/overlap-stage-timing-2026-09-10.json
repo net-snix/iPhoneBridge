@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "status": "source_capture_sustained_encode_send_and_publication_limit_delivery_cpu_attribution_pending",
+  "diagnostic_sha256": "ee9e997114de2e1135b98b5bfc5ee4e4402beb93d429e50b050d45aedc1ba9fe",
+  "source_baseline_sha256": "ae83019cbec6f4e1e8974fdf93d7f9f3d84cb27ccc715ecbec256e0ddab52f0f",
+  "static_libraries": {
+    "libpng16.a": "47c913a83284fa60b491c9bab11ceaca9f1c0cba128e9f3c4a0083cab2928c9b",
+    "libturbojpeg.a": "d4967c44b7dff2b9556767e705b72fc6f093c356a3b86b15ec24122bfc1177a9",
+    "libvncserver.a": "77340f0d7c6c0ee172d6584110c1ee7b8f59b2161748a9a192d42bb072d656fa",
+    "liblzo2.a": "08c7a833bad0300129735444e5a0738665660d38e201792dbe7d2dc98f45c0f0",
+    "libjpeg.a": "031dcf5703827840eb7da733ac7652046a31ca7dacd994b742d6fa8d0b7449ae"
+  },
+  "duration_seconds": 300,
+  "origin_unix_ns": 1789069470143893000,
+  "profile": {
+    "bits_per_pixel": 32,
+    "depth": 24,
+    "big_endian": 0,
+    "true_colour": 255,
+    "red_max": 255,
+    "green_max": 255,
+    "blue_max": 255,
+    "red_shift": 0,
+    "green_shift": 8,
+    "blue_shift": 16,
+    "preferred_encoding": 7,
+    "tight_quality_level": 6,
+    "tight_compress_level": 2,
+    "turbo_quality_level": 79,
+    "turbo_subsampling": 0,
+    "width": 1172,
+    "height": 2536,
+    "copy_rect": -1,
+    "last_rect": -1,
+    "new_fb_size": -1,
+    "extended_desktop_size": 0,
+    "cursor_shape": 0,
+    "cursor_position": 0,
+    "extended_clipboard": 0
+  },
+  "single_client_valid": true,
+  "profile_changed": false,
+  "previous_daemon_restored": true,
+  "host_regressions": {
+    "collector_socket_cases": 14,
+    "overlap_cases_per_arm": 14,
+    "dispatch_timer_cases_per_arm": 8,
+    "capture_cap_cases": 4,
+    "arms": [
+      "diagnostic_disabled",
+      "diagnostic_enabled"
+    ],
+    "sanitizer": "UndefinedBehaviorSanitizer",
+    "source_change_after_build": false
+  },
+  "sink": {
+    "started_utc": "2026-09-10T19:44:30Z",
+    "elapsed_seconds": 310.00142070802394,
+    "data_updates": 14011,
+    "data_update_fps": 45.196567060885556,
+    "data_update_gaps_ms": {
+      "50": 17.402791505446658,
+      "95": 34.752610194846056,
+      "99": 36.095786282094195,
+      "100": 111.11079197144136
+    },
+    "payload_bytes": 6212074530
+  },
+  "minutes": [
+    {
+      "start_seconds": 0,
+      "ios_thermal_states": [
+        1,
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.78333333333333,
+        "display_changed": 59.6,
+        "display_unchanged": 0.18333333333333332,
+        "prepare_success": 59.6,
+        "publications": 59.56666666666667,
+        "send_finishes": 59.43333333333333,
+        "source_dirty_counter_advances": 59.983333333333334
+      },
+      "weighted_mean_ms": {
+        "cad_gap_ms": 16.667880383439844,
+        "capture_gap_ms": 16.72487261572783,
+        "capture_late_ms": 0.05821064456218628,
+        "timer_wake_late_ms": 0.08679336734693878,
+        "update_display_ms": 7.733598436018958,
+        "render_display_ms": 3.1193691219239374,
+        "surface_transfer_ms": 4.445260497762864,
+        "sample_wrap_ms": 0.059746911996644295,
+        "pixel_buffer_access_ms": 0.007619513914988814,
+        "copy_rotate_scale_ms": 1.4117504725950782,
+        "hash_dirty_ms": 0.38369120190156597,
+        "prepare_ms": 1.8038581739373603,
+        "publish_attempt_ms": 0.02441751160390516,
+        "capture_callback_ms": 9.629697794814607,
+        "encode_send_ms": 7.80457702467751,
+        "request_gap_ms": 16.82282206954571,
+        "finish_to_request_ms": 3.5809619377453727,
+        "request_to_send_ms": 5.436985497617045,
+        "finish_to_send_ms": 9.019064450364553,
+        "update_socket_write_ms": 0.21205543550196296,
+        "encode_send_except_update_writes_ms": 7.592520922602356,
+        "publication_queue_ms": 7.217664856982614,
+        "latest_prepared_age_at_publish_ms": 0.02719802602126469
+      },
+      "publication_capacity_busy": 10,
+      "publication_client_lock_busy": 0,
+      "pending_preparations_replaced": 1
+    },
+    {
+      "start_seconds": 60,
+      "ios_thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 59.983333333333334,
+        "capture_starts": 59.833333333333336,
+        "display_changed": 59.63333333333333,
+        "display_unchanged": 0.2,
+        "prepare_success": 59.63333333333333,
+        "publications": 59.61666666666667,
+        "send_finishes": 59.6,
+        "source_dirty_counter_advances": 59.983333333333334
+      },
+      "weighted_mean_ms": {
+        "cad_gap_ms": 16.67117835509864,
+        "capture_gap_ms": 16.7129839275766,
+        "capture_late_ms": 0.04633325752089137,
+        "timer_wake_late_ms": 0.07264447074735081,
+        "update_display_ms": 7.718025311977716,
+        "render_display_ms": 3.2932319955282283,
+        "surface_transfer_ms": 4.248805645612074,
+        "sample_wrap_ms": 0.04596580081050866,
+        "pixel_buffer_access_ms": 0.0063189681525992174,
+        "copy_rotate_scale_ms": 1.4182129821129121,
+        "hash_dirty_ms": 0.45239426076020123,
+        "prepare_ms": 1.8777217691447736,
+        "publish_attempt_ms": 0.030299721476137628,
+        "capture_callback_ms": 9.68103451810585,
+        "encode_send_ms": 10.382075251677852,
+        "request_gap_ms": 16.77953562639821,
+        "finish_to_request_ms": 1.5607548098434003,
+        "request_to_send_ms": 4.836337100111857,
+        "finish_to_send_ms": 6.397089678411633,
+        "update_socket_write_ms": 0.22741953299776285,
+        "encode_send_except_update_writes_ms": 10.154674731543626,
+        "publication_queue_ms": 5.077042253914989,
+        "latest_prepared_age_at_publish_ms": 0.03977921649426894
+      },
+      "publication_capacity_busy": 26,
+      "publication_client_lock_busy": 0,
+      "pending_preparations_replaced": 0
+    },
+    {
+      "start_seconds": 120,
+      "ios_thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.75,
+        "display_changed": 59.6,
+        "display_unchanged": 0.15,
+        "prepare_success": 59.583333333333336,
+        "publications": 48.85,
+        "send_finishes": 48.8,
+        "source_dirty_counter_advances": 60.0
+      },
+      "weighted_mean_ms": {
+        "cad_gap_ms": 16.66475,
+        "capture_gap_ms": 16.738458214783822,
+        "capture_late_ms": 0.0717611779637378,
+        "timer_wake_late_ms": 0.1209943398989899,
+        "update_display_ms": 9.216408962343097,
+        "render_display_ms": 4.112968232662193,
+        "surface_transfer_ms": 4.870260892058166,
+        "sample_wrap_ms": 0.047023750279642056,
+        "pixel_buffer_access_ms": 0.007075251068232663,
+        "copy_rotate_scale_ms": 1.624516481118881,
+        "hash_dirty_ms": 0.6189299211188811,
+        "prepare_ms": 2.2516225986013985,
+        "publish_attempt_ms": 0.022694846577055332,
+        "capture_callback_ms": 11.553540541294643,
+        "encode_send_ms": 15.554074112021857,
+        "request_gap_ms": 20.491205396174863,
+        "finish_to_request_ms": 1.06015787568306,
+        "request_to_send_ms": 3.8763497062841528,
+        "finish_to_send_ms": 4.936507069672131,
+        "update_socket_write_ms": 0.3732186793032787,
+        "encode_send_except_update_writes_ms": 15.180874043715846,
+        "publication_queue_ms": 3.15504837431694,
+        "latest_prepared_age_at_publish_ms": 1.1619915305356534
+      },
+      "publication_capacity_busy": 3461,
+      "publication_client_lock_busy": 5,
+      "pending_preparations_replaced": 643
+    },
+    {
+      "start_seconds": 180,
+      "ios_thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.68333333333333,
+        "display_changed": 59.483333333333334,
+        "display_unchanged": 0.18333333333333332,
+        "prepare_success": 59.5,
+        "publications": 30.733333333333334,
+        "send_finishes": 30.75,
+        "source_dirty_counter_advances": 60.0
+      },
+      "weighted_mean_ms": {
+        "cad_gap_ms": 16.667924944444447,
+        "capture_gap_ms": 16.756583552080425,
+        "capture_late_ms": 0.0899256717397375,
+        "timer_wake_late_ms": 0.15248620721476508,
+        "update_display_ms": 9.923041120111732,
+        "render_display_ms": 4.749766378151261,
+        "surface_transfer_ms": 4.927431283272626,
+        "sample_wrap_ms": 0.06748074771644719,
+        "pixel_buffer_access_ms": 0.009803306550854582,
+        "copy_rotate_scale_ms": 1.9441005966386553,
+        "hash_dirty_ms": 0.8768029397759104,
+        "prepare_ms": 2.8326190616246496,
+        "publish_attempt_ms": 0.022695627178836747,
+        "capture_callback_ms": 12.875782044121753,
+        "encode_send_ms": 21.91138303523035,
+        "request_gap_ms": 32.52393338753388,
+        "finish_to_request_ms": 0.9876029956639567,
+        "request_to_send_ms": 9.629472624728852,
+        "finish_to_send_ms": 10.616812798264641,
+        "update_socket_write_ms": 0.6276938520325203,
+        "encode_send_except_update_writes_ms": 21.28370726287263,
+        "publication_queue_ms": 9.332046030368764,
+        "latest_prepared_age_at_publish_ms": 0.3587079262472885
+      },
+      "publication_capacity_busy": 3674,
+      "publication_client_lock_busy": 1,
+      "pending_preparations_replaced": 1725
+    },
+    {
+      "start_seconds": 240,
+      "ios_thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.65,
+        "display_changed": 59.6,
+        "display_unchanged": 0.06666666666666667,
+        "prepare_success": 59.6,
+        "publications": 29.966666666666665,
+        "send_finishes": 29.933333333333334,
+        "source_dirty_counter_advances": 59.983333333333334
+      },
+      "weighted_mean_ms": {
+        "cad_gap_ms": 16.667903555555554,
+        "capture_gap_ms": 16.76096702989662,
+        "capture_late_ms": 0.09432061296451523,
+        "timer_wake_late_ms": 0.1692864623413258,
+        "update_display_ms": 10.208604363128492,
+        "render_display_ms": 5.126870386013986,
+        "surface_transfer_ms": 4.814090103467562,
+        "sample_wrap_ms": 0.07671735506152126,
+        "pixel_buffer_access_ms": 0.011092004390380312,
+        "copy_rotate_scale_ms": 2.1523975950782996,
+        "hash_dirty_ms": 0.9855778453579418,
+        "prepare_ms": 3.1513062667785237,
+        "publish_attempt_ms": 0.02206217198588148,
+        "capture_callback_ms": 13.499919888268156,
+        "encode_send_ms": 22.50949170378619,
+        "request_gap_ms": 33.400687138084635,
+        "finish_to_request_ms": 1.01606875389755,
+        "request_to_send_ms": 9.874919254312742,
+        "finish_to_send_ms": 10.89125570395103,
+        "update_socket_write_ms": 0.6909755985523385,
+        "encode_send_except_update_writes_ms": 21.818519265033405,
+        "publication_queue_ms": 9.658204618809126,
+        "latest_prepared_age_at_publish_ms": 0.11542363120133481
+      },
+      "publication_capacity_busy": 3584,
+      "publication_client_lock_busy": 1,
+      "pending_preparations_replaced": 1779
+    }
+  ],
+  "limits": [
+    "Stage durations are elapsed wall time; values outside socket writes are not encoder CPU time.",
+    "Nested stage durations overlap; do not add update/callback/preparation totals to their components.",
+    "Source dirty count is the CARenderServer display counter, not the Safari animation sequence.",
+    "Thermal state is categorical and sampled once per ten-second window, not a temperature measurement.",
+    "Weighted means combine the rounded means in the source report; percentiles are not averaged."
+  ],
+  "raw_sha256": {
+    "timing.json": "d3338eba463a2c03207502ba0da39e60b2d4141aa7db801f2b60ac20b3156928",
+    "sink.json": "f5c2f22a6854ba7e7163d37fc80941945ec795ba87832d399fea96c93f3d2e12",
+    "run.json": "2cff1751efa1867459d76ae7b0362c51b6fba3b39e3346548b53078281e4249f",
+    "stage-summary.json": "8173d1399376b48dd7c87826407f9721a59cc1af1409d4d230136bf0998ccb30"
+  },
+  "interpretation": "Capture and preparation remain near60Hz throughout. Encode/send elapsed time grows above16.67ms, with update socket writes below1ms. Publication attempts mostly fail because encoding remains active; after completion, main-queue publication scheduling adds delay. Serious thermal state coincides with growing costs, but CPU time, effective core frequency and scheduler attribution were not measured. Native rendering is absent from this run."
+}

@@ -24,9 +24,14 @@ def verify_daemon_source(tree):
         "case 0x1008ff18UL: // XF86HomePage\n        if (down)\n            [gen menuPress];",
         "case 0x1008ff7fUL: // XF86TaskPane\n        if (down)\n            [gen menuDoublePress];",
         "gScreen->deferUpdateTime = 1;",
-        "gFrameUpdates.finished(gMaxInflightUpdates)",
-        "gFrameUpdates.takeRetryIfReady(gMaxInflightUpdates)",
-        "if (usedSparseHash)",
+        "gFrameUpdates.finished();",
+        "gFrameUpdates.takePublication(generation)",
+        "setFramePublicationHandler:^{",
+        "setCaptureLifecycleHandler:^(BOOL active)",
+        "gPreparedFrame.prepared(",
+        "gPreparedFrame.published();",
+        "rfbNewFramebufferWithFormat(gScreen",
+        "requestCaptureLifecycleReconcile();",
         "TVClientSendLocks clientLocks(gScreen)",
     )
     for fragment in required:
@@ -35,6 +40,13 @@ def verify_daemon_source(tree):
     capture = (tree / "src/ScreenCapturer.mm").read_text()
     if "sForceFrameUpdate.exchange(false)" not in capture or "sForceFrameUpdate.store(true)" not in capture:
         raise RuntimeError("Required atomic capture invalidation is absent from compiled source")
+    if "mCaptureSchedule.beginCapture(" not in capture or "mCaptureSchedule.takeWake(generation)" not in capture:
+        raise RuntimeError("Required bounded capture scheduling is absent from compiled source")
+    if "if (mFramePublicationHandler) mFramePublicationHandler();" not in capture:
+        raise RuntimeError("Required final-frame publication retry is absent from compiled source")
+    locks = (tree / "src/ClientSendLocks.h").read_text()
+    if "rfbGetClientSnapshot(screen, &clients_, &count_)" not in locks or "rfbReleaseClientSnapshot(clients_, count_)" not in locks:
+        raise RuntimeError("Required retained reader snapshot is absent from compiled source")
 
 
 def verify_build_provenance(build, project, source_lock, root):
@@ -148,7 +160,10 @@ JPEG, PNG, LZO and zlib encodings remain enabled. OpenSSL/GnuTLS/Gcrypt and SASL
 are disabled: this product transports loopback VNC inside its SSH tunnel.
 The LibVNCServer patch guards GNU endian macros that Darwin's endian.h does not
 define; without it the library mistakes little-endian iOS for big-endian and
-writes invalid RFB headers. The recipe checks the effective iOS preprocessor
+writes invalid RFB headers. It also retains the exact client snapshot across
+framebuffer publication and resize, and applies the final pixel format before
+rebuilding client translation tables while reader locks remain held.
+The recipe checks the effective iOS preprocessor
 byte order and verifies every patch independently of enclosing Git checkouts.
 The generated `build-manifest.json` identifies the release artifact, source pins,
 and toolchain. Rebuilding on a different toolchain need not produce identical bytes.

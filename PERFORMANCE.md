@@ -4,12 +4,30 @@ The follow-up [renderer memory investigation](docs/renderer-memory-2026-09-09.md
 identifies WebKit's retained image-load URL history and describes the bounded
 decoding-document repair. An earlier candidate completed 22 minutes and
 950,716 image rectangles in a windowless memory test, with WebContent at
-178–207 MiB. The current candidate draws native HTML images directly and is
-awaiting completion of visible physical-phone qualification on the second monitor. A
+178–207 MiB. The current candidate draws native HTML images directly. Visible
+physical-phone tests support bounded memory, but still reproduce a cadence
+decline after the capture retry change. A
 zero-size canvas invalidated earlier synthetic visible-speed comparisons;
 their allocation measurements retain their recorded scope. The long-session
-speed decline remains unresolved pending the physical-phone tests. Work was
-paused at the user's request on 2026-09-10; no benchmark is running.
+speed decline remains unresolved. Phone stage timing on 2026-09-10 showed
+capture and encoding running serially while each stage remained below one
+60 Hz frame interval. The bounded capture/encoding overlap candidate held
+59.54 updates/s for five minutes in an initial phone-only sink, but its subsequent
+native run fell from 55.27 to 33.89 visible fps with bounded memory. A warmed-phone
+sink then also fell to 29–30 updates/s with the viewer disconnected. Native
+rendering is therefore not required to reproduce the remaining slowdown.
+The subsequent source probe kept capture/preparation near 60 fps while encode/send
+time grew from 7.8 to 22.5 ms, with socket writes below 1 ms. Publication scheduling
+added roughly 11 ms before the next send. The subsequent paired CPU probe
+measured output-thread CPU rising from 7.5 to 21.0 ms per update, accounting for
+94% of the final 22.3 ms send interval. Capture still ran near 60 fps, while
+delivery ended near 30 fps. Requested output-thread QoS remained default and
+the phone reported elevated thermal state; neither observation establishes
+the active CPU core or frequency. A later exact JPEG probe measured compression
+at 89% of warmed output-thread CPU: 18.3 ms per update out of 20.4 ms. Palette
+analysis took 1.0 ms and other output work 1.2 ms. A checked interactive-QoS
+trial still fell to 31 fps and was rejected. Parallel encoding remains an
+unqualified experiment; see the [JPEG attribution](docs/jpeg-stage-timing-2026-09-10.json).
 
 # Frame delivery repair — 2026-09-09
 

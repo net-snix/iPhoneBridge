@@ -1,11 +1,104 @@
+diff --git a/src/CaptureSchedule.h b/src/CaptureSchedule.h
+new file mode 100644
+index 0000000..dc246eb
+--- /dev/null
++++ b/src/CaptureSchedule.h
+@@ -0,0 +1,87 @@
++/*
++ * iPhoneBridge bounded capture scheduling, 2026-09-10.
++ * Copyright (c) 2026 iPhoneBridge contributors.
++ * SPDX-License-Identifier: GPL-2.0-only
++ */
++#ifndef TV_CAPTURE_SCHEDULE_H
++#define TV_CAPTURE_SCHEDULE_H
++
++#include <algorithm>
++#include <cstdint>
++#include <mutex>
++
++// Methods hold this mutex only while updating scalar state. No callbacks,
++// dispatch operations, capture work, or client locks execute under this mutex.
++class TVCaptureSchedule {
++public:
++    struct Plan { uint64_t generation; double delay; };
++
++    void start(double maximumFps) {
++        std::lock_guard<std::mutex> lock(mutex_);
++        ++generation_;
++        active_ = true;
++        requested_ = wakeQueued_ = captured_ = false;
++        interval_ = 1.0 / std::max(1.0, maximumFps);
++    }
++
++    void stop() {
++        std::lock_guard<std::mutex> lock(mutex_);
++        active_ = requested_ = wakeQueued_ = false;
++        ++generation_;
++    }
++
++    void setMaximumFps(double maximumFps) {
++        std::lock_guard<std::mutex> lock(mutex_);
++        interval_ = 1.0 / std::max(1.0, maximumFps);
++    }
++
++    double period() {
++        std::lock_guard<std::mutex> lock(mutex_);
++        return interval_;
++    }
++
++    uint64_t request() {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!active_) return 0;
++        requested_ = true;
++        return generation_;
++    }
++
++    Plan plan(double now) {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!active_ || !requested_) return {0, 0};
++        return {generation_, captured_ ? std::max(0.0, lastStart_ + interval_ - now) : 0.0};
++    }
++
++    bool claimWake(uint64_t generation) {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!active_ || generation != generation_ || !requested_ || wakeQueued_) return false;
++        wakeQueued_ = true;
++        return true;
++    }
++
++    bool takeWake(uint64_t generation) {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!active_ || generation != generation_) return false;
++        wakeQueued_ = false;
++        return requested_;
++    }
++
++    bool beginCapture(uint64_t generation, double now) {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!active_ || generation != generation_ || !requested_ ||
++            (captured_ && now < lastStart_ + interval_)) return false;
++        requested_ = false;
++        captured_ = true;
++        lastStart_ = now;
++        return true;
++    }
++
++private:
++    std::mutex mutex_;
++    uint64_t generation_ = 0;
++    bool active_ = false, requested_ = false, wakeQueued_ = false, captured_ = false;
++    double interval_ = 1.0 / 60.0, lastStart_ = 0;
++};
++
++#endif
 diff --git a/src/ClientSendLocks.h b/src/ClientSendLocks.h
 new file mode 100644
-index 0000000..2528646
+index 0000000..db56e2d
 --- /dev/null
 +++ b/src/ClientSendLocks.h
-@@ -0,0 +1,56 @@
+@@ -0,0 +1,51 @@
 +/*
-+ * iPhoneBridge framebuffer client locks, 2026-09-09.
++ * iPhoneBridge framebuffer client locks, 2026-09-10.
 + * Copyright (c) 2026 iPhoneBridge contributors.
 + * SPDX-License-Identifier: GPL-2.0-only
 + */
@@ -14,60 +107,55 @@ index 0000000..2528646
 +
 +#include <pthread.h>
 +#include <rfb/rfb.h>
-+#include <vector>
 +
-+// Keep the exact acquired clients alive until their send locks are released.
-+// A second iterator would omit clients that disconnected and could include new
-+// clients whose locks this capture never acquired.
++// Never block the capture thread. The pinned LibVNC snapshot acquires every
++// client reference under its list mutex; its ordinary iterator cannot do this.
++// The caller separately serializes new-client acceptance with publication.
 +class TVClientSendLocks {
 +public:
 +    explicit TVClientSendLocks(rfbScreenInfoPtr screen) {
-+        rfbClientIteratorPtr iterator = rfbGetClientIterator(screen);
-+        try {
-+            rfbClientPtr client;
-+            while ((client = rfbClientIteratorNext(iterator))) {
-+                // The iterator owns a temporary ref. Retain our own before it
-+                // advances; LibVNC removes closed clients before waiting for
-+                // their refs to reach zero and freeing their mutexes.
-+                clients_.push_back(client);
-+                rfbIncrClientRef(client);
-+                pthread_mutex_lock(&client->sendMutex);
++        if (!rfbGetClientSnapshot(screen, &clients_, &count_)) return;
++        for (; locked_ < count_; ++locked_) {
++            if (pthread_mutex_trylock(&clients_[locked_]->sendMutex) != 0) {
++                unlock();
++                return;
 +            }
-+        } catch (...) {
-+            rfbReleaseClientIterator(iterator);
-+            unlock();
-+            throw;
 +        }
-+        rfbReleaseClientIterator(iterator);
++        acquired_ = true;
 +    }
 +
 +    TVClientSendLocks(const TVClientSendLocks &) = delete;
 +    TVClientSendLocks &operator=(const TVClientSendLocks &) = delete;
 +    ~TVClientSendLocks() { unlock(); }
 +
++    bool acquired() const { return acquired_; }
++    size_t count() const { return count_; }
++
 +    void unlock() {
-+        // Release all send locks before allowing any client teardown to run.
-+        // Keep acquisition/release order identical to the original traversal.
-+        for (rfbClientPtr client : clients_)
-+            pthread_mutex_unlock(&client->sendMutex);
-+        for (rfbClientPtr client : clients_)
-+            rfbDecrClientRef(client);
-+        clients_.clear();
++        // Unlock all clients before any reference drop can allow teardown.
++        for (size_t i = 0; i < locked_; ++i)
++            pthread_mutex_unlock(&clients_[i]->sendMutex);
++        rfbReleaseClientSnapshot(clients_, count_);
++        clients_ = nullptr;
++        count_ = locked_ = 0;
++        acquired_ = false;
 +    }
 +
 +private:
-+    std::vector<rfbClientPtr> clients_;
++    rfbClientPtr *clients_ = nullptr;
++    size_t count_ = 0, locked_ = 0;
++    bool acquired_ = false;
 +};
 +
 +#endif
 diff --git a/src/FrameUpdateRetry.h b/src/FrameUpdateRetry.h
 new file mode 100644
-index 0000000..9137bfa
+index 0000000..767a652
 --- /dev/null
 +++ b/src/FrameUpdateRetry.h
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,76 @@
 +/*
-+ * iPhoneBridge capture retry state, 2026-09-09.
++ * iPhoneBridge bounded publication state, 2026-09-10.
 + * Copyright (c) 2026 iPhoneBridge contributors.
 + * SPDX-License-Identifier: GPL-2.0-only
 + */
@@ -75,54 +163,335 @@ index 0000000..9137bfa
 +#define TV_FRAME_UPDATE_RETRY_H
 +
 +#include <atomic>
++#include <cstdint>
++#include <mutex>
 +
-+// One pending resnapshot, never a queue of old frames. The capture thread calls
-+// deferCapture() then takeRetryIfReady(); client output threads call started()
-+// and finished(). A true return requests a capture on the next display tick.
++// Encoding completion requests one main-queue publication try, never a capture.
++// Main owns start/stop; a queued old-generation wake cannot publish a new session.
++// No callbacks, dispatch, frame work, or client locks run under this mutex.
 +class TVFrameUpdateRetry {
 +public:
 +    void started() { inflight_.fetch_add(1); }
-+
-+    bool finished(int limit) {
-+        inflight_.fetch_sub(1);
-+        return takeRetryIfReady(limit);
-+    }
-+
-+    bool deferCapture(int limit) {
-+        if (limit <= 0 || inflight_.load() < limit)
-+            return false;
-+        pending_.store(true);
-+        return true;
-+    }
-+
-+    bool takeRetryIfReady(int limit) {
-+        // The capture-side recheck covers completion between the busy check
-+        // and pending.store(). Sequential consistency ensures either this
-+        // recheck or the completing client observes the retry obligation.
-+        return (limit <= 0 || inflight_.load() < limit) && pending_.exchange(false);
-+    }
-+
++    void finished() { inflight_.fetch_sub(1); }
 +    int inflight() const { return inflight_.load(); }
++    bool capacityAvailable(int limit) const { return limit <= 0 || inflight() < limit; }
++
++    void start() {
++        std::lock_guard<std::mutex> lock(mutex_);
++        ++generation_;
++        active_ = true;
++    }
++    void stop() {
++        std::lock_guard<std::mutex> lock(mutex_);
++        ++generation_;
++        active_ = false;
++    }
++    bool active() {
++        std::lock_guard<std::mutex> lock(mutex_);
++        return active_;
++    }
++    uint64_t queuePublication() {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!active_ || queuedGeneration_) return 0;
++        queuedGeneration_ = generation_;
++        return queuedGeneration_;
++    }
++    bool takePublication(uint64_t generation) {
++        std::lock_guard<std::mutex> lock(mutex_);
++        if (!generation || generation != queuedGeneration_) return false;
++        queuedGeneration_ = 0;
++        return active_ && generation == generation_;
++    }
 +
 +private:
 +    std::atomic<int> inflight_{0};
-+    std::atomic<bool> pending_{false};
++    std::mutex mutex_;
++    uint64_t generation_ = 0, queuedGeneration_ = 0;
++    bool active_ = false;
++};
++
++// Main-thread-only metadata for the existing back buffer. There is no frame
++// queue, client ownership, sample-buffer retention, or additional pixel storage.
++struct TVPreparedFrame {
++    bool valid = false;
++    bool forceFull = true;
++    bool fullHashes = false;
++    int rotation = 0;
++
++    void reset() { valid = false; forceFull = true; fullHashes = false; rotation = 0; }
++    void beginOverwrite() { valid = false; fullHashes = false; }
++    void prepared(int rotQ, bool force, bool hashed) {
++        rotation = rotQ;
++        forceFull = forceFull || force;
++        fullHashes = hashed;
++        valid = true;
++    }
++    void published() { valid = false; forceFull = false; fullHashes = false; }
 +};
 +
 +#endif
+diff --git a/src/ScreenCapturer.h b/src/ScreenCapturer.h
+index d56330a..d14d643 100644
+--- a/src/ScreenCapturer.h
++++ b/src/ScreenCapturer.h
+@@ -25,83 +25,89 @@
+ NS_ASSUME_NONNULL_BEGIN
+ 
+ /**
+  ScreenCapturer
+  ----------------
+  A singleton that captures the device screen into an IOSurface and produces
+  CMSampleBufferRef frames on a CADisplayLink-driven cadence. Intended for use
+  by encoders/streamers that require CVPixelBuffer-backed sample buffers.
+ 
+  Threading & lifetime:
+  - startCapture/endCapture must be called on the main thread (internally uses CADisplayLink on main run loop).
+  - The provided frame handler is invoked on the main thread.
+  - ARC only.
+ 
+  Performance & format:
+  - Uses IOSurface + CoreAnimation render server to copy screen contents.
+  - Zero-copy wrapping via CVPixelBufferCreateWithIOSurface.
+  - Pixel format is ARGB as defined by sharedRenderProperties.
+ 
+  Debug stats (DEBUG builds only):
+  - Average FPS is periodically logged over a configurable window.
+  - Instantaneous FPS is computed from CADisplayLink.duration and can be smoothed with EMA.
+  */
+ @interface ScreenCapturer : NSObject
+ 
+ /** Returns the shared singleton instance. */
+ + (instancetype)sharedCapturer;
+ 
+ + (instancetype)new NS_UNAVAILABLE;
+ - (instancetype)init NS_UNAVAILABLE;
+ 
+ /**
+  Returns the IOSurface property dictionary used to create screen-sized surfaces
+  compatible with the current device configuration (size/orientation/format).
+  Consumers can use this to allocate compatible IOSurfaces.
+  */
+ @property(nonatomic, strong, readonly) NSDictionary *renderProperties;
+ 
+ /**
+  Start screen capture. The frame handler will be called on the main thread for
+  each captured frame with a CMSampleBufferRef referencing a CVPixelBuffer backed
+  by the current IOSurface.
+ 
+  If capture is already active, this replaces the frame handler for subsequent frames
+  without restarting the underlying CADisplayLink.
+  */
+ - (void)startCaptureWithFrameHandler:(void (^)(CMSampleBufferRef sampleBuffer))frameHandler;
+ 
+ /**
+  Stop screen capture and release internal resources (CADisplayLink, IOSurface).
+  Safe to call multiple times.
+  */
+ - (void)endCapture;
+ 
+ /**
+  Set preferred frame rate range for the CADisplayLink driving capture.
+  Pass 0 to any of the arguments to leave it unspecified (system default).
+  On iOS 15+, preferredFrameRateRange will be used; on iOS 14, preferredFramesPerSecond uses maxFps.
+  */
+ - (void)setPreferredFrameRateWithMin:(NSInteger)minFps preferred:(NSInteger)preferredFps max:(NSInteger)maxFps;
+ 
+ /**
+  Configure the logging window used for average capture FPS reporting (DEBUG only).
+  Defaults to 5.0 seconds. Values <= 0 disable periodic FPS logging.
+  */
+ - (void)setStatsLogWindowSeconds:(NSTimeInterval)seconds;
+ 
+ /**
+  Configure smoothing factor (alpha) for instantaneous FPS based on CADisplayLink.duration (DEBUG only).
+  Uses exponential moving average: ema = alpha * current + (1 - alpha) * ema.
+  Defaults to 0.2; valid range [0.0, 1.0]. Out-of-range values are clamped.
+  */
+ - (void)setInstantFpsSmoothingFactor:(double)alpha;
+ 
+ /**
+  Force the next frame to be treated as dirty, causing it to be captured and sent
+  to the frame handler even if no screen changes are detected.
+  */
+ - (void)forceNextFrameUpdate;
+ 
++/** Try publication after every CAD callback, including unchanged/early frames; call on main. */
++- (void)setFramePublicationHandler:(void (^)(void))handler;
++
++/** Notify actual capture start/stop on main so pending publications can be invalidated. */
++- (void)setCaptureLifecycleHandler:(void (^)(BOOL active))handler;
++
+ @end
+ 
+ NS_ASSUME_NONNULL_END
 diff --git a/src/ScreenCapturer.mm b/src/ScreenCapturer.mm
-index afc7ea7..f4df755 100644
+index afc7ea7..164fd76 100644
 --- a/src/ScreenCapturer.mm
 +++ b/src/ScreenCapturer.mm
-@@ -24,6 +24,7 @@
+@@ -1,35 +1,39 @@
+ /*
+  This file is part of TrollVNC
+  Copyright (c) 2025 82Flex <82flex@gmail.com> and contributors
+ 
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License version 2
+  as published by the Free Software Foundation.
+ 
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+ 
+  You should have received a copy of the GNU General Public License
+  along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+ 
+ #if !__has_feature(objc_arc)
+ #warning This file must be compiled with ARC. Use -fobjc-arc flag.
+ #endif
+ 
+ #import <UIKit/UIDevice.h>
+ #import <UIKit/UIGeometry.h>
  #import <UIKit/UIImage.h>
  #import <UIKit/UIScreen.h>
  #import <mach/mach.h>
 +#include <atomic>
++#include <cmath>
++#include <time.h>
  
++#include "CaptureSchedule.h"
  #import "Control.h"
  #import "IOKitSPI.h"
-@@ -158,6 +159,10 @@ void CARenderServerRenderDisplay(kern_return_t a, CFStringRef b, IOSurfaceRef su
+ #import "IOSurfaceSPI.h"
+ #import "Logging.h"
+ #import "ScreenCapturer.h"
+ #import "UIScreen+Private.h"
+ 
+ #ifdef __cplusplus
+@@ -40,401 +44,484 @@ CFIndex CARenderServerGetDirtyFrameCount(void *);
+ void CARenderServerRenderDisplay(kern_return_t a, CFStringRef b, IOSurfaceRef surface, int x, int y);
+ 
+ #ifdef __cplusplus
+ }
+ #endif
+ 
+ @implementation ScreenCapturer {
+     NSDictionary *mRenderProperties;
+     IOSurfaceRef mScreenSurface;
+     CADisplayLink *mDisplayLink;
+     void (^mFrameHandler)(CMSampleBufferRef sampleBuffer);
++    void (^mFramePublicationHandler)(void);
++    void (^mCaptureLifecycleHandler)(BOOL active);
++    TVCaptureSchedule mCaptureSchedule;
++    dispatch_source_t mCaptureWakeTimer;
++    uint64_t mCaptureWakeTimerSerial;
+     NSInteger mMinFps;
+     NSInteger mPreferredFps;
+     NSInteger mMaxFps;
+     // Stats configuration (effective in DEBUG only)
+     NSTimeInterval mStatsWindowSeconds; // average FPS logging window
+     double mInstFpsAlpha;               // EMA smoothing factor for instantaneous FPS
+ }
+ 
+ + (instancetype)sharedCapturer {
+     static ScreenCapturer *_inst = nil;
+     static dispatch_once_t onceToken;
+     dispatch_once(&onceToken, ^{
+         _inst = [[self alloc] init];
+         // Defaults for stats logging
+ #if DEBUG
+         [_inst setStatsLogWindowSeconds:5.0];
+         [_inst setInstantFpsSmoothingFactor:0.2];
+ #endif
+     });
+     return _inst;
+ }
+ 
+ - (instancetype)init {
+     self = [super init];
+     if (!self)
+         return nil;
+ 
+     int width, height;
+     CGSize screenSize = [[UIScreen mainScreen] _unjailedReferenceBoundsInPixels].size;
+ 
+ #if !TARGET_IPHONE_SIMULATOR
+     if (gOrientationFixQuad % 2 != 0) {
+         // Odd quadrant (90° or 270°) — swap width and height
+         width = (int)round(screenSize.height);
+         height = (int)round(screenSize.width);
+     } else {
+ #endif
+         width = (int)round(screenSize.width);
+         height = (int)round(screenSize.height);
+ #if !TARGET_IPHONE_SIMULATOR
+     }
+ #endif
+ 
+     // Pixel format for Alpha, Red, Green and Blue
+     unsigned pixelFormat = 0x42475241; // 'ARGB'
+ 
+     // 1 or 2 bytes per component
+     int bytesPerComponent = sizeof(uint8_t);
+ 
+     // 8 bytes per pixel
+     int bytesPerElement = bytesPerComponent * 4;
+ 
+     // Bytes per row (must be aligned)
+     int bytesPerRow = (int)IOSurfaceAlignProperty(kIOSurfaceBytesPerRow, bytesPerElement * width);
+ 
+     // Properties included:
+     // BytesPerElement, BytesPerRow, Width, Height, PixelFormat, AllocSize
+     CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
+ 
+     CFPropertyListRef colorSpacePropertyList = CGColorSpaceCopyPropertyList(colorSpace);
+     CGColorSpaceRelease(colorSpace);
+ 
+     mRenderProperties = @{
+         (__bridge NSString *)kIOSurfaceBytesPerElement : @(bytesPerElement),
+         (__bridge NSString *)kIOSurfaceBytesPerRow : @(bytesPerRow),
+         (__bridge NSString *)kIOSurfaceWidth : @(width),
+         (__bridge NSString *)kIOSurfaceHeight : @(height),
+         (__bridge NSString *)kIOSurfacePixelFormat : @(pixelFormat),
+         (__bridge NSString *)kIOSurfaceAllocSize : @(bytesPerRow * height),
+         (__bridge NSString *)kIOSurfaceColorSpace : CFBridgingRelease(colorSpacePropertyList),
+     };
+ 
+ #if DEBUG
+     TVLog(@"render properties %@", mRenderProperties);
+ #endif
+ 
+     mScreenSurface = IOSurfaceCreate((__bridge CFDictionaryRef)mRenderProperties);
+     mDisplayLink = nil;
+     mFrameHandler = NULL;
+     mMinFps = 0;
+     mPreferredFps = 0;
+     mMaxFps = 0;
+     mStatsWindowSeconds = 0.0;
+     mInstFpsAlpha = 0.0;
+ 
+     return self;
+ }
+ 
+ #pragma mark - Testing
+ 
+ + (unsigned long)__getMemoryUsedInBytes {
+     struct task_basic_info info;
+     mach_msg_type_number_t size = sizeof(info);
+     kern_return_t kerr = task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&info, &size);
+     if (kerr == KERN_SUCCESS) {
+         return info.resident_size;
+     } else {
+         return 0;
+     }
+ }
+ 
+ // Human-readable memory usage description based on __getMemoryUsedInBytes
+ + (NSString *)_getMemoryUsageDescription {
+     long long bytes = (long long)[self __getMemoryUsedInBytes];
+     return [NSByteCountFormatter stringFromByteCount:bytes countStyle:NSByteCountFormatterCountStyleBinary];
+ }
+ 
  #pragma mark - Rendering
  
  static CFIndex sDirtyFrameCount = 0;
@@ -133,7 +502,21 @@ index afc7ea7..f4df755 100644
  
  - (BOOL)renderDisplayToScreenSurface:(IOSurfaceRef)dstSurface {
  #if TARGET_OS_SIMULATOR
-@@ -179,8 +184,9 @@ static CFIndex sDirtyFrameCount = 0;
+     CARenderServerRenderDisplay(0, CFSTR("LCD"), dstSurface, 0, 0);
+     return YES; // Assume always changed: dirty detection does not work for simulator
+ #else
+     CFRunLoopRef runLoop = CFRunLoopGetMain();
+ 
+     static IOSurfaceRef srcSurface;
+     static IOSurfaceAcceleratorRef accelerator;
+     static dispatch_once_t onceToken;
+     dispatch_once(&onceToken, ^{
+         @autoreleasepool {
+             srcSurface = IOSurfaceCreate((__bridge CFDictionaryRef)mRenderProperties);
+             IOSurfaceAcceleratorCreate(kCFAllocatorDefault, nil, &accelerator);
+ 
+             CFRunLoopSourceRef runLoopSource = IOSurfaceAcceleratorGetRunLoopSource(accelerator);
+             CFRunLoopAddSource(runLoop, runLoopSource, kCFRunLoopDefaultMode);
          }
      });
  
@@ -144,16 +527,303 @@ index afc7ea7..f4df755 100644
          return NO; // No change
      }
  
-@@ -383,7 +389,7 @@ static CFIndex sDirtyFrameCount = 0;
+     // Fast ~20ms, sRGB, while the image is GOOD. Recommended.
+     CARenderServerRenderDisplay(0 /* Main Display */, CFSTR("LCD"), srcSurface, 0, 0);
+     IOSurfaceAcceleratorTransferSurface(accelerator, srcSurface, dstSurface, NULL, NULL, NULL, NULL);
+ 
+     sDirtyFrameCount = dirtyFrameCount;
+     return YES;
+ #endif
+ }
+ 
+ - (BOOL)updateDisplay:(CADisplayLink *)displayLink {
+ #if DEBUG
+     __uint64_t beginAt = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+ #endif
+ 
+     BOOL surfaceChanged = [self renderDisplayToScreenSurface:mScreenSurface];
+ 
+ #if DEBUG
+     __uint64_t endAt = clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+     static double sLastLogAtMs = 0.0;
+     static __uint64_t sFpsWindowStartNs = 0;  // FPS window start (ns)
+     static unsigned long long sFpsFrames = 0; // Accumulated frames in window
+     static double sInstFpsEma = 0.0;          // Smoothed instantaneous FPS (EMA)
+ 
+     // Accumulate frame count
+     if (surfaceChanged) {
+         sFpsFrames++;
+     }
+     if (sFpsWindowStartNs == 0) {
+         sFpsWindowStartNs = endAt;
+     }
+ 
+     // Instantaneous FPS sourced from CADisplayLink.duration; fallback to inter-frame delta if needed
+     double instFps = 0.0;
+     CFTimeInterval duration = displayLink.duration;
+     if (duration > 0.0) {
+         instFps = 1.0 / duration;
+     }
+ 
+     double nowMs = (double)endAt / NSEC_PER_MSEC;
+ 
+     // EMA smoothing for instantaneous FPS
+     if (instFps > 0.0) {
+         double alpha = mInstFpsAlpha;
+         sInstFpsEma = (sInstFpsEma == 0.0) ? instFps : (alpha * instFps + (1.0 - alpha) * sInstFpsEma);
+     }
+ 
+     // Periodic logging based on configurable window
+     double windowMs = (mStatsWindowSeconds > 0.0) ? (mStatsWindowSeconds * 1000.0) : 0.0;
+     if (windowMs > 0.0 && (nowMs - sLastLogAtMs >= windowMs)) {
+         double used = (double)(endAt - beginAt) / NSEC_PER_MSEC;
+         double windowSec = (double)(endAt - sFpsWindowStartNs) / 1e9; // ns -> s
+         double fps = (windowSec > 0.0) ? (sFpsFrames / windowSec) : 0.0;
+         double instOut = (sInstFpsEma > 0.0) ? sInstFpsEma : instFps;
+ 
+         TVLog(@"elapsed %.2fms, real fps %.2f (frames=%llu, window=%.2fs), inst fps %.2f, memory used %@", used, fps,
+               sFpsFrames, windowSec, instOut, [ScreenCapturer _getMemoryUsageDescription]);
+ 
+         sLastLogAtMs = nowMs;
+ 
+         // Reset FPS window
+         sFpsWindowStartNs = endAt;
+         sFpsFrames = 0;
+         sInstFpsEma = 0.0;
+     }
+ #endif
+ 
+     return surfaceChanged;
+ }
+ 
+ #pragma mark - Public Methods
+ 
+ - (NSDictionary *)renderProperties {
+     return mRenderProperties;
+ }
+ 
+ - (void)startCaptureWithFrameHandler:(void (^)(CMSampleBufferRef _Nonnull))frameHandler {
+-    // Store/replace handler
+-    mFrameHandler = [frameHandler copy];
+-
+-    if (mDisplayLink) {
+-        // Already running; nothing else to do
+-        return;
+-    }
+-
+     // Create display link on main run loop
+     void (^startBlock)(void) = ^{
++        mFrameHandler = [frameHandler copy];
++        if (mDisplayLink) return;
++        [self forceNextFrameUpdate];
++        if (mCaptureLifecycleHandler) mCaptureLifecycleHandler(YES);
+         mDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(onDisplayLink:)];
++        mCaptureSchedule.start(mMaxFps > 0 ? mMaxFps : [UIScreen mainScreen].maximumFramesPerSecond);
+ 
+ #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000
+         if (@available(iOS 15, *)) {
+             if ([mDisplayLink respondsToSelector:@selector(setPreferredFrameRateRange:)]) {
+                 CAFrameRateRange range;
+                 range.minimum = (mMinFps > 0) ? mMinFps : 0.0;
+                 range.maximum = (mMaxFps > 0) ? mMaxFps : 0.0;
+                 range.preferred = (mPreferredFps > 0) ? mPreferredFps : 0.0;
+                 mDisplayLink.preferredFrameRateRange = range;
+             } else {
+                 NSInteger setFps = (mMaxFps > 0) ? mMaxFps : mPreferredFps;
+                 if ([mDisplayLink respondsToSelector:@selector(setPreferredFramesPerSecond:)])
+                     mDisplayLink.preferredFramesPerSecond = (int)setFps; // 0 uses native/system default
+             }
+         } else {
+ #endif
+             // iOS 14 fallback: use preferredFramesPerSecond; choose max in the provided range
+             NSInteger setFps = (mMaxFps > 0) ? mMaxFps : mPreferredFps;
+             if ([mDisplayLink respondsToSelector:@selector(setPreferredFramesPerSecond:)])
+                 mDisplayLink.preferredFramesPerSecond = (int)setFps; // 0 uses native/system default
+ #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000
+         }
+ #endif
+ 
+         [mDisplayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+     };
+ 
+     if ([NSThread isMainThread]) {
+         startBlock();
+     } else {
+         dispatch_async(dispatch_get_main_queue(), startBlock);
+     }
+ }
+ 
+ - (void)endCapture {
+     void (^stopBlock)(void) = ^{
++        mCaptureSchedule.stop(); // Invalidate queued wakes before releasing their capture session.
++        [self cancelCaptureWakeTimer];
+         if (mDisplayLink) {
++            if (mCaptureLifecycleHandler) mCaptureLifecycleHandler(NO);
+             [mDisplayLink invalidate];
+             mDisplayLink = nil;
+         }
+         mFrameHandler = nil;
+     };
+ 
+     if ([NSThread isMainThread]) {
+         stopBlock();
+     } else {
+         dispatch_async(dispatch_get_main_queue(), stopBlock);
+     }
+ }
+ 
++- (void)dealloc {
++    if (mCaptureWakeTimer) dispatch_source_cancel(mCaptureWakeTimer);
++}
++
+ - (void)setPreferredFrameRateWithMin:(NSInteger)minFps preferred:(NSInteger)preferredFps max:(NSInteger)maxFps {
+     // Normalize: if preferred is 0, but max/min provided, pick a reasonable default
+     mMinFps = MAX(0, minFps);
+     mMaxFps = MAX(0, maxFps);
+     mPreferredFps = MAX(0, preferredFps);
+ 
+     if (mPreferredFps == 0) {
+         if (mMaxFps > 0)
+             mPreferredFps = mMaxFps;
+         else if (mMinFps > 0)
+             mPreferredFps = mMinFps;
+         else
+             mPreferredFps = 0;
+     }
+ 
+     // If display link is already running, update it on main thread
+     if (mDisplayLink) {
+         void (^applyBlock)(void) = ^{
++            mCaptureSchedule.setMaximumFps(mMaxFps > 0 ? mMaxFps : [UIScreen mainScreen].maximumFramesPerSecond);
+ #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000
+             if (@available(iOS 15, *)) {
+                 if ([mDisplayLink respondsToSelector:@selector(setPreferredFrameRateRange:)]) {
+                     CAFrameRateRange range;
+                     range.minimum = (mMinFps > 0) ? mMinFps : 0.0;
+                     range.maximum = (mMaxFps > 0) ? mMaxFps : 0.0;
+                     range.preferred = (mPreferredFps > 0) ? mPreferredFps : 0.0;
+                     mDisplayLink.preferredFrameRateRange = range;
+                 } else {
+                     NSInteger setFps = (mMaxFps > 0) ? mMaxFps : mPreferredFps;
+                     if ([mDisplayLink respondsToSelector:@selector(setPreferredFramesPerSecond:)])
+                         mDisplayLink.preferredFramesPerSecond = (int)setFps; // 0 means system default
+                 }
+             } else {
+ #endif
+                 // iOS 14 path: only preferredFramesPerSecond is available, use max/preferred
+                 NSInteger setFps = (mMaxFps > 0) ? mMaxFps : mPreferredFps;
+                 if ([mDisplayLink respondsToSelector:@selector(setPreferredFramesPerSecond:)])
+                     mDisplayLink.preferredFramesPerSecond = (int)setFps; // 0 means system default
+ #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 150000
+             }
+ #endif
+         };
+ 
+         if ([NSThread isMainThread])
+             applyBlock();
+         else
+             dispatch_async(dispatch_get_main_queue(), applyBlock);
+     }
+ }
+ 
+ - (void)setStatsLogWindowSeconds:(NSTimeInterval)seconds {
+     mStatsWindowSeconds = seconds;
+ }
+ 
+ - (void)setInstantFpsSmoothingFactor:(double)alpha {
+     if (alpha < 0.0)
+         alpha = 0.0;
+     if (alpha > 1.0)
+         alpha = 1.0;
+     mInstFpsAlpha = alpha;
  }
  
  - (void)forceNextFrameUpdate {
 -    sDirtyFrameCount = 0; // Force next frame to be treated as dirty
 +    sForceFrameUpdate.store(true);
++}
++
++- (void)setFramePublicationHandler:(void (^)(void))handler {
++    mFramePublicationHandler = [handler copy];
++}
++
++- (void)setCaptureLifecycleHandler:(void (^)(BOOL))handler {
++    mCaptureLifecycleHandler = [handler copy];
++}
++
++- (void)cancelCaptureWakeTimer {
++    // Timer ownership and this serial are confined to main, except final deallocation.
++    ++mCaptureWakeTimerSerial;
++    dispatch_source_t timer = mCaptureWakeTimer;
++    mCaptureWakeTimer = nil;
++    if (timer) dispatch_source_cancel(timer);
++}
++
++- (void)queueCaptureWake:(uint64_t)generation after:(double)delay {
++    if (!mCaptureSchedule.claimWake(generation)) return;
++    __weak ScreenCapturer *weakSelf = self;
++    if (delay <= 0) {
++        // A zero-delay cap wake still never captures inline.
++        dispatch_async(dispatch_get_main_queue(), ^{
++            ScreenCapturer *capturer = weakSelf;
++            if (capturer && capturer->mCaptureSchedule.takeWake(generation)) [capturer attemptCapture];
++        });
++        return;
++    }
++    // Positive delays originate only from attemptCapture on main. Keep exactly
++    // one timer, without dispatch_after's built-in coalescing allowance.
++    [self cancelCaptureWakeTimer];
++    uint64_t serial = mCaptureWakeTimerSerial;
++    dispatch_source_t timer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0,
++                                                     DISPATCH_TIMER_STRICT, dispatch_get_main_queue());
++    mCaptureWakeTimer = timer;
++    dispatch_source_set_event_handler(timer, ^{
++        ScreenCapturer *capturer = weakSelf;
++        if (!capturer || capturer->mCaptureWakeTimerSerial != serial) return;
++        // Clear the old timer before attemptCapture can arm its replacement.
++        [capturer cancelCaptureWakeTimer];
++        if (capturer->mCaptureSchedule.takeWake(generation)) [capturer attemptCapture];
++    });
++    int64_t nanoseconds = (int64_t)std::ceil(delay * NSEC_PER_SEC);
++    dispatch_source_set_timer(timer, dispatch_time(DISPATCH_TIME_NOW, nanoseconds), DISPATCH_TIME_FOREVER, 0);
++    dispatch_activate(timer);
  }
  
  #pragma mark - Private Methods
-@@ -404,6 +410,7 @@ static CFIndex sDirtyFrameCount = 0;
+ 
+ - (void)onDisplayLink:(CADisplayLink *)link {
+-    if (!mFrameHandler)
++    (void)link;
++    mCaptureSchedule.request();
++    [self attemptCapture];
++    // A failed completion try may have run before LibVNC released sendMutex.
++    // Retrying even when capture reports no change preserves the final frame.
++    if (mFramePublicationHandler) mFramePublicationHandler();
++}
++
++- (void)attemptCapture {
++    if (!mFrameHandler || !mDisplayLink) return;
++    double captureTime = (double)clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / NSEC_PER_SEC;
++    TVCaptureSchedule::Plan plan = mCaptureSchedule.plan(captureTime);
++    if (!plan.generation) return;
++    if (plan.delay > 0) {
++        // A slightly early display tick gets a deadline wake, never a skipped tick.
++        [self queueCaptureWake:plan.generation after:plan.delay];
+         return;
++    }
++    captureTime = (double)clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / NSEC_PER_SEC;
++    if (!mCaptureSchedule.beginCapture(plan.generation, captureTime)) return;
+ 
+     // Update the screen contents into our IOSurface
+-    BOOL displayChanged = [self updateDisplay:link];
++    BOOL displayChanged = [self updateDisplay:mDisplayLink];
+     if (!displayChanged) {
+         return; // No change, nothing to do
+     }
+ 
+     // Wrap IOSurface in a CVPixelBuffer (zero-copy)
+     CVPixelBufferRef pixelBuffer = NULL;
+     NSDictionary *attrs = @{(NSString *)kCVPixelBufferIOSurfacePropertiesKey : @{}};
      CVReturn cvret = CVPixelBufferCreateWithIOSurface(kCFAllocatorDefault, mScreenSurface,
                                                        (__bridge CFDictionaryRef)attrs, &pixelBuffer);
      if (cvret != kCVReturnSuccess || !pixelBuffer) {
@@ -161,7 +831,8 @@ index afc7ea7..f4df755 100644
          return;
      }
  
-@@ -412,6 +419,7 @@ static CFIndex sDirtyFrameCount = 0;
+     // Create format description from the pixel buffer
+     CMVideoFormatDescriptionRef formatDesc = NULL;
      OSStatus status = CMVideoFormatDescriptionCreateForImageBuffer(kCFAllocatorDefault, pixelBuffer, &formatDesc);
      if (status != noErr || !formatDesc) {
          CVPixelBufferRelease(pixelBuffer);
@@ -169,7 +840,20 @@ index afc7ea7..f4df755 100644
          return;
      }
  
-@@ -429,6 +437,8 @@ static CFIndex sDirtyFrameCount = 0;
+-    // Build timing from CADisplayLink
++    // Cap deadline wakes may fall between display ticks; timestamp the actual attempt.
+     int32_t timescale = 1000000000; // 1 ns
+     CMSampleTimingInfo timing;
+-    timing.duration = CMTimeMakeWithSeconds(link.duration, timescale);
+-    timing.presentationTimeStamp = CMTimeMakeWithSeconds(link.timestamp, timescale);
++    timing.duration = CMTimeMakeWithSeconds(mCaptureSchedule.period(), timescale);
++    timing.presentationTimeStamp = CMTimeMakeWithSeconds(captureTime, timescale);
+     timing.decodeTimeStamp = kCMTimeInvalid;
+ 
+     CMSampleBufferRef sampleBuffer = NULL;
+     status = CMSampleBufferCreateForImageBuffer(kCFAllocatorDefault, pixelBuffer, true, NULL, NULL, formatDesc, &timing,
+                                                 &sampleBuffer);
+ 
      if (status == noErr && sampleBuffer) {
          mFrameHandler(sampleBuffer);
          CFRelease(sampleBuffer);
@@ -178,11 +862,61 @@ index afc7ea7..f4df755 100644
      }
  
      if (formatDesc)
+         CFRelease(formatDesc);
+     if (pixelBuffer)
+         CVPixelBufferRelease(pixelBuffer);
+ }
+ 
+ @end
 diff --git a/src/trollvncserver.mm b/src/trollvncserver.mm
-index be6cce3..629bd35 100644
+index be6cce3..72ae244 100644
 --- a/src/trollvncserver.mm
 +++ b/src/trollvncserver.mm
-@@ -44,8 +44,10 @@
+@@ -1,63 +1,66 @@
+ /*
+  This file is part of TrollVNC
+  Copyright (c) 2025 82Flex <82flex@gmail.com> and contributors
+ 
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License version 2
+  as published by the Free Software Foundation.
+ 
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+ 
+  You should have received a copy of the GNU General Public License
+  along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+ 
+ #if !__has_feature(objc_arc)
+ #warning This file must be compiled with ARC. Use -fobjc-arc flag.
+ #endif
+ 
+ #import <Accelerate/Accelerate.h>
+ #import <Foundation/Foundation.h>
+ 
+ #import <arpa/inet.h>
+ #import <atomic>
+ #import <climits>
+ #import <cstdio>
+ #import <cstdlib>
+ #import <cstring>
+ #import <errno.h>
+ #import <fcntl.h>
+ #import <mach-o/dyld.h>
+ #import <netinet/in.h>
+ #import <netinet/tcp.h>
+ #import <pthread.h>
+ #import <rfb/keysym.h>
+ #import <rfb/rfb.h>
+ #import <string>
+ #import <sys/socket.h>
+ #import <sys/sysctl.h>
++#include <time.h>
+ #import <unistd.h>
+ #import <vector>
  
  #import "BulletinManager.h"
  #import "ClipboardManager.h"
@@ -193,12 +927,1471 @@ index be6cce3..629bd35 100644
  #import "IOKitSPI.h"
  #import "Logging.h"
  #import "PSAssistiveTouchSettingsDetail.h"
-@@ -1969,18 +1971,19 @@ NS_INLINE void copyRectsFromBackToFront(DirtyRect *rects, int rectCount) {
+ #import "STHIDEventGenerator.h"
+ #import "ScreenCapturer.h"
  
+ #define LocalizedString(key, comment, bundle, table)                                                                   \
+     (NSLocalizedStringFromTableInBundle((key), (table), (bundle), (comment)) ?: (key))
+ 
+ #define TVPrintError(fmt, ...)                                                                                         \
+     do {                                                                                                               \
+         fprintf(stderr, fmt "\r\n", ##__VA_ARGS__);                                                                    \
+     } while (0)
+ 
+ #pragma mark - Options
+@@ -80,11 +83,10 @@ static int gFpsMin = 0;
+ static int gFpsPref = 0;
+ static int gFpsMax = 0;
+ static double gDeferWindowSec = 0.015;      // Coalescing window; 0 disables deferral
+-static int gMaxInflightUpdates = 2;         // Max concurrent client encodes; drop frames if >= this
++static int gMaxInflightUpdates = 2;         // Defer publication while this many encodes are active
+ static int gTileSize = 32;                  // Tile size for dirty detection (pixels)
+ static int gFullscreenThresholdPercent = 0; // If changed tiles exceed this %, update full screen
+ static int gMaxRectsLimit = 256;            // Max rects before falling back to bbox/fullscreen
+-static BOOL gAsyncSwapEnabled = NO;         // Enable non-blocking swap (may cause tearing)
+ 
+ // Wheel scroll coalescing state (async, non-blocking)
+ static double gWheelStepPx = 48.0;        // base pixels per wheel tick (lower = slower)
+@@ -293,81 +295,81 @@ static NSBundle *tvLocalizationBundle(void) {
+ static void printUsageAndExit(const char *prog) {
+     // Compact, grouped usage for quick reference. See README for detailed explanations.
+     static const char *sPackageScheme = MYSTRINGIFY(THEOS_PACKAGE_SCHEME);
+     static const char *sPackageVersion = MYSTRINGIFY(PACKAGE_VERSION);
+ 
+     fprintf(stderr, "TrollVNC (%s) v%s\n", sPackageScheme, sPackageVersion);
+     fprintf(stderr, "Usage: %s [-p port] [-n name] [options]\n\n", prog);
+ 
+     fprintf(stderr, "Basic:\n");
+     fprintf(stderr, "  -b host    Bind host address (IPv4/IPv6 literal, default to all)\n");
+     fprintf(stderr, "  -p port    VNC TCP port (default: %d)\n", gPort);
+     fprintf(stderr, "  -c port    Client management TCP port (0=off, default: 0)\n");
+     fprintf(stderr, "  -n name    Desktop name (default: %s)\n", [gDesktopName UTF8String]);
+     fprintf(stderr, "  -v         View-only (ignore input)\n");
+     fprintf(stderr, "  -A sec     Keep-alive interval to prevent sleep; only when clients > 0 (15..86400, 0=off)\n\n");
+ 
+     fprintf(stderr, "Display/Perf:\n");
+     fprintf(stderr, "  -s scale   Output scale 0<s<=1 (default: %.2f)\n", gScale);
+     fprintf(stderr, "  -F spec    Frame rate: fps | min-max | min:pref:max\n");
+     fprintf(stderr, "  -d sec     Defer window (0..0.5, default: %.3f)\n", gDeferWindowSec);
+-    fprintf(stderr, "  -Q n       Max in-flight encodes (0=never drop, default: %d)\n\n", gMaxInflightUpdates);
++    fprintf(stderr, "  -Q n       Publication capacity limit (0=ignore count; send locks always required, default: %d)\n\n", gMaxInflightUpdates);
+ 
+     fprintf(stderr, "Dirty detection:\n");
+     fprintf(stderr, "  -t size    Tile size (8..128, default: %d)\n", gTileSize);
+     fprintf(stderr, "  -P pct     Fullscreen fallback threshold (0..100; 0=disable dirty detection, default: %d)\n",
+             gFullscreenThresholdPercent);
+-    fprintf(stderr, "  -R max     Max dirty rects before bbox (default: %d)\n", gMaxRectsLimit);
+-    fprintf(stderr, "  -a         Non-blocking swap (may cause tearing)\n\n");
++    fprintf(stderr, "  -R max     Max dirty rects before fullscreen (default: %d)\n", gMaxRectsLimit);
++    fprintf(stderr, "  -a         Compatibility flag; safe non-blocking publication is always enabled\n\n");
+ 
+     fprintf(stderr, "Scroll/Input:\n");
+     fprintf(stderr, "  -W px      Wheel step in pixels (0=disable, default: %.0f)\n", gWheelStepPx);
+     fprintf(stderr,
+             "  -w k=v,.. Wheel tuning keys: step,coalesce,max,clamp,amp,cap,minratio,durbase,durk,durmin,durmax\n");
+     fprintf(stderr, "  -N         Natural scroll direction (invert wheel)\n");
+     fprintf(stderr, "  -M scheme  Modifier mapping: std|altcmd (default: std)\n");
+     fprintf(stderr, "  -K         Log keyboard events to stderr\n\n");
+ 
+     fprintf(stderr, "HTTP/WebSockets:\n");
+     fprintf(stderr, "  -H port    Enable built-in HTTP server on port (0=off, default: 0)\n");
+     fprintf(stderr, "  -D path    Absolute path for HTTP document root\n");
+     fprintf(stderr, "  -e file    Path to SSL certificate file\n");
+     fprintf(stderr, "  -k file    Path to SSL private key file\n\n");
+ 
+     fprintf(stderr, "Bonjour/mDNS:\n");
+     fprintf(stderr, "  -B on|off  Advertise on local network via Bonjour (_rfb._tcp, _http._tcp) (default: on)\n\n");
+ 
+     fprintf(stderr, "Accessibility:\n");
+     fprintf(stderr, "  -O on|off  Observe iOS interface orientation and sync (default: on)\n");
+     fprintf(stderr, "  -E on|off  Enable AssistiveTouch auto-activation (default: off)\n");
+     fprintf(stderr, "  -U on|off  Enable server-side cursor X (default: off)\n\n");
+ 
+     fprintf(stderr, "Notifications:\n");
+     fprintf(stderr, "  -i on|off  Single notification when first client connects (default: on)\n");
+     fprintf(stderr, "  -I on|off  User notifications for client connect/disconnect (default: on)\n\n");
+ 
+     fprintf(stderr, "Extensions:\n");
+     fprintf(stderr, "  -C on|off  Clipboard sync (default: on)\n");
+     fprintf(stderr, "  -T on|off  File transfer (default: off)\n\n");
+ 
+ #if DEBUG
+     fprintf(stderr, "Logging:\n");
+     fprintf(stderr, "  -V         Enable verbose logging\n\n");
+ #endif
+ 
+     fprintf(stderr, "Help:\n");
+     fprintf(stderr, "  -h         Show this help message\n\n");
+ 
+     fprintf(stderr, "Reverse Connection:\n");
+     fprintf(stderr, "  %s -reverse host:port [options]\n", prog);
+     fprintf(stderr, "  %s -repeater id host:port [options]\n\n", prog);
+ 
+     fprintf(stderr, "Environment:\n");
+     fprintf(
+         stderr,
+         "  TROLLVNC_PASSWORD                 Classic VNC password (enables VNC auth when set; first 8 chars used)\n");
+     fprintf(stderr,
+             "  TROLLVNC_VIEWONLY_PASSWORD        View-only password; passwords stored as [full..., view-only...]\n");
+     fprintf(stderr, "  TROLLVNC_REPEATER_RETRY_INTERVAL  Repeater retry interval (default: 0)\n\n");
+ 
+     exit(EXIT_SUCCESS);
+ }
+@@ -442,491 +444,490 @@ static void parseWheelOptions(const char *spec) {
+ static void parseDaemonOptions(void) {
+     NSDictionary *prefs = nil;
+ 
+     if (!prefs) {
+         NSBundle *resBundle = tvResourceBundle();
+         NSString *presetPath = [resBundle pathForResource:@"Managed" ofType:@"plist"];
+         if (presetPath) {
+             prefs = [NSDictionary dictionaryWithContentsOfFile:presetPath];
+         }
+     }
+ 
+     if (!prefs) {
+         prefs = [[NSUserDefaults standardUserDefaults] persistentDomainForName:@"com.82flex.trollvnc"];
+     }
+ 
+ #if TARGET_IPHONE_SIMULATOR
+     if (!prefs) {
+         const char *sandboxPath = getenv("TROLLVNC_SANDBOX_PATH");
+         if (sandboxPath && sandboxPath[0] != '\0') {
+             NSString *sandbox = [NSString stringWithUTF8String:sandboxPath];
+             NSString *plistPath =
+                 [sandbox stringByAppendingPathComponent:@"Library/Preferences/com.82flex.trollvnc.plist"];
+             prefs = [NSDictionary dictionaryWithContentsOfFile:plistPath];
+             if (prefs) {
+                 TVLog(@"-daemon: loaded simulator preferences from %@", plistPath);
+             }
+         }
+     }
+ #endif
+ 
+     if (!prefs) {
+         TVLog(@"-daemon: no preferences found for domain com.82flex.trollvnc");
+         return;
+     }
+ 
+     // Strings
+     NSString *desktopName = [prefs objectForKey:@"DesktopName"];
+     if ([desktopName isKindOfClass:[NSString class]] && desktopName.length > 0) {
+         gDesktopName = desktopName;
+     } else if (desktopName) {
+         TVLog(@"-daemon: DesktopName is empty; using default '%@'", gDesktopName);
+     }
+ 
+     NSString *bindHost = [prefs objectForKey:@"BindHost"];
+     if ([bindHost isKindOfClass:[NSString class]]) {
+         if (bindHost.length > 0) {
+             gBindHost = bindHost;
+             TVLog(@"-daemon: BindHost=%@", gBindHost);
+         } else {
+             gBindHost = nil;
+             TVLog(@"-daemon: BindHost empty; cleared to default (any)");
+         }
+     }
+ 
+     // Numbers
+     NSNumber *portN = [prefs objectForKey:@"Port"];
+     if ([portN isKindOfClass:[NSNumber class]] || [portN isKindOfClass:[NSString class]]) {
+         int v = portN.intValue;
+         if (v < 1024 || v > 65535) {
+             // Privileged or invalid -> fallback to default 5901
+             TVLog(@"-daemon: invalid TCP Port=%d; using default 5901", v);
+             gPort = 5901;
+         } else {
+             gPort = v;
+         }
+     }
+ 
+     NSNumber *keepAliveN = [prefs objectForKey:@"KeepAliveSec"];
+     if ([keepAliveN isKindOfClass:[NSNumber class]]) {
+         double v = keepAliveN.doubleValue;
+         if (v < 0.0) {
+             TVLog(@"-daemon: KeepAliveSec < 0; set to 0");
+             v = 0.0;
+         } else if (v > 0.0 && v < 15.0) {
+             TVLog(@"-daemon: KeepAliveSec < 15; treated as 0 (off)");
+             v = 0.0;
+         } else if (v > 300.0) {
+             TVLog(@"-daemon: KeepAliveSec > 300; clamped to 300");
+             v = 300.0;
+         }
+         gKeepAliveSec = v;
+     }
+ 
+     NSNumber *scaleN = [prefs objectForKey:@"Scale"];
+     if ([scaleN isKindOfClass:[NSNumber class]]) {
+         double v = scaleN.doubleValue;
+         if (v <= 0.0 || v > 1.0) {
+             TVLog(@"-daemon: invalid Scale=%.3f; clamped to [0.1..1.0]", v);
+         }
+         if (v < 0.1)
+             v = 0.1;
+         if (v > 1.0)
+             v = 1.0;
+         gScale = v;
+     }
+ 
+     NSNumber *deferN = [prefs objectForKey:@"DeferWindowSec"];
+     if ([deferN isKindOfClass:[NSNumber class]]) {
+         double v = deferN.doubleValue;
+         if (v < 0.0) {
+             TVLog(@"-daemon: DeferWindowSec < 0; set to 0");
+             v = 0.0;
+         }
+         if (v > 0.5) {
+             TVLog(@"-daemon: DeferWindowSec > 0.5; clamped to 0.5");
+             v = 0.5;
+         }
+         gDeferWindowSec = v;
+     }
+ 
+     NSNumber *maxInflightN = [prefs objectForKey:@"MaxInflight"];
+     if ([maxInflightN isKindOfClass:[NSNumber class]]) {
+         int v = maxInflightN.intValue;
+         if (v < 0) {
+             TVLog(@"-daemon: MaxInflight < 0; set to 0");
+             v = 0;
+         }
+         if (v > 8) {
+             TVLog(@"-daemon: MaxInflight > 8; clamped to 8");
+             v = 8;
+         }
+         gMaxInflightUpdates = v;
+     }
+ 
+     NSNumber *tileSizeN = [prefs objectForKey:@"TileSize"];
+     if ([tileSizeN isKindOfClass:[NSNumber class]]) {
+         int v = tileSizeN.intValue;
+         if (v < 8) {
+             TVLog(@"-daemon: TileSize < 8; set to 8");
+             v = 8;
+         }
+         if (v > 128) {
+             TVLog(@"-daemon: TileSize > 128; clamped to 128");
+             v = 128;
+         }
+         gTileSize = v;
+     }
+ 
+     NSNumber *fullThreshN = [prefs objectForKey:@"FullscreenThresholdPercent"];
+     if ([fullThreshN isKindOfClass:[NSNumber class]]) {
+         int v = fullThreshN.intValue;
+         if (v < 0) {
+             TVLog(@"-daemon: FullscreenThresholdPercent < 0; set to 0");
+             v = 0;
+         }
+         if (v > 100) {
+             TVLog(@"-daemon: FullscreenThresholdPercent > 100; clamped to 100");
+             v = 100;
+         }
+         gFullscreenThresholdPercent = v;
+     }
+ 
+     NSNumber *maxRectsN = [prefs objectForKey:@"MaxRects"];
+     if ([maxRectsN isKindOfClass:[NSNumber class]]) {
+         int v = maxRectsN.intValue;
+         if (v < 1) {
+             TVLog(@"-daemon: MaxRects < 1; set to 1");
+             v = 1;
+         }
+         if (v > 4096) {
+             TVLog(@"-daemon: MaxRects > 4096; clamped to 4096");
+             v = 4096;
+         }
+         gMaxRectsLimit = v;
+     }
+ 
+     NSNumber *wheelPxN = [prefs objectForKey:@"WheelStepPx"];
+     if ([wheelPxN isKindOfClass:[NSNumber class]]) {
+         double v = wheelPxN.doubleValue;
+         if (v == 0.0) {
+             gWheelStepPx = 0.0;
+             gWheelMaxStepPx = 0.0;
+             TVLog(@"-daemon: Wheel emulation disabled (step=0)");
+         } else {
+             if (v <= 4.0) {
+                 TVLog(@"-daemon: WheelStepPx <= 4; raised to 5");
+                 v = 5.0;
+             }
+             if (v > 1000.0) {
+                 TVLog(@"-daemon: WheelStepPx > 1000; clamped to 1000");
+                 v = 1000.0;
+             }
+             gWheelStepPx = v;
+             gWheelMaxStepPx = fmax(2.0 * gWheelStepPx, 96.0) * 1.0;
+         }
+     }
+ 
+     NSNumber *httpPortN = [prefs objectForKey:@"HttpPort"];
+     if ([httpPortN isKindOfClass:[NSNumber class]] || [httpPortN isKindOfClass:[NSString class]]) {
+         int v = httpPortN.intValue;
+         if (v == 0) {
+             gHttpPort = 0; // disabled
+         } else if (v < 0 || v > 65535 || v < 1024) {
+             TVLog(@"-daemon: invalid HTTP Port=%d; using default 0 (disabled)", v);
+             gHttpPort = 0;
+         } else {
+             gHttpPort = v;
+         }
+     }
+ 
+     // Booleans
+     NSNumber *enableN = [prefs objectForKey:@"Enabled"];
+     if ([enableN isKindOfClass:[NSNumber class]])
+         gEnabled = enableN.boolValue;
+     NSNumber *clipN = [prefs objectForKey:@"ClipboardEnabled"];
+     if ([clipN isKindOfClass:[NSNumber class]])
+         gClipboardEnabled = clipN.boolValue;
+     NSNumber *viewOnlyN = [prefs objectForKey:@"ViewOnly"];
+     if ([viewOnlyN isKindOfClass:[NSNumber class]])
+         gViewOnly = viewOnlyN.boolValue;
+     NSNumber *orientN = [prefs objectForKey:@"OrientationSync"];
+     if ([orientN isKindOfClass:[NSNumber class]])
+         gOrientationSyncEnabled = orientN.boolValue;
+     NSNumber *orientFixN = [prefs objectForKey:@"OrientationPadFix"];
+     if ([orientFixN isKindOfClass:[NSNumber class]]) {
+         int v = orientFixN.intValue;
+         gOrientationFixQuad = (v >= 0 && v <= 3) ? v : 0;
+     }
+     NSNumber *naturalN = [prefs objectForKey:@"NaturalScroll"];
+     if ([naturalN isKindOfClass:[NSNumber class]])
+         gWheelNaturalDir = naturalN.boolValue;
+     NSNumber *cursorN = [prefs objectForKey:@"ServerCursor"];
+     if ([cursorN isKindOfClass:[NSNumber class]])
+         gCursorEnabled = cursorN.boolValue;
+-    NSNumber *asyncSwapN = [prefs objectForKey:@"AsyncSwap"];
+-    if ([asyncSwapN isKindOfClass:[NSNumber class]])
+-        gAsyncSwapEnabled = asyncSwapN.boolValue;
++    // Legacy AsyncSwap preferences no longer select an unlocked copy fallback.
++    // All profiles use the same safe non-blocking latest-frame publication.
+     NSNumber *keyLogN = [prefs objectForKey:@"KeyLogging"];
+     if ([keyLogN isKindOfClass:[NSNumber class]])
+         gKeyEventLogging = keyLogN.boolValue;
+     NSNumber *assistN = [prefs objectForKey:@"AutoAssistEnabled"];
+     if ([assistN isKindOfClass:[NSNumber class]])
+         gAutoAssistEnabled = assistN.boolValue;
+     NSNumber *bonjourN = [prefs objectForKey:@"BonjourEnabled"];
+     if ([bonjourN isKindOfClass:[NSNumber class]])
+         gBonjourEnabled = bonjourN.boolValue;
+     NSNumber *fileN = [prefs objectForKey:@"FileTransferEnabled"];
+     if ([fileN isKindOfClass:[NSNumber class]])
+         gFileTransferEnabled = fileN.boolValue;
+     NSNumber *singleNotifN = [prefs objectForKey:@"SingleNotifEnabled"];
+     if ([singleNotifN isKindOfClass:[NSNumber class]])
+         gUserSingleNotifsEnabled = singleNotifN.boolValue;
+     NSNumber *clientNotifsN = [prefs objectForKey:@"ClientNotifsEnabled"];
+     if ([clientNotifsN isKindOfClass:[NSNumber class]])
+         gUserClientNotifsEnabled = clientNotifsN.boolValue;
+ 
+     // Modifier mapping
+     NSString *modMap = [prefs objectForKey:@"ModifierMap"];
+     if ([modMap isKindOfClass:[NSString class]]) {
+         if ([modMap isEqualToString:@"altcmd"])
+             gModMapScheme = 1;
+         else
+             gModMapScheme = 0;
+     }
+ 
+     // Frame rate spec (validate and normalize)
+     NSString *fpsSpec = [prefs objectForKey:@"FrameRateSpec"];
+     if ([fpsSpec isKindOfClass:[NSString class]] && fpsSpec.length > 0) {
+         const char *spec = fpsSpec.UTF8String ?: "";
+         int minV = 0, prefV = 0, maxV = 0;
+         const char *colon1 = strchr(spec, ':');
+         const char *dash = strchr(spec, '-');
+         if (colon1) {
+             long a = strtol(spec, NULL, 10);
+             const char *p2 = colon1 + 1;
+             const char *colon2 = strchr(p2, ':');
+             if (colon2) {
+                 long b = strtol(p2, NULL, 10);
+                 long c = strtol(colon2 + 1, NULL, 10);
+                 minV = (int)a;
+                 prefV = (int)b;
+                 maxV = (int)c;
+             }
+         } else if (dash) {
+             long a = strtol(spec, NULL, 10);
+             long b = strtol(dash + 1, NULL, 10);
+             minV = (int)a;
+             prefV = (int)b;
+             maxV = (int)b;
+         } else {
+             long v = strtol(spec, NULL, 10);
+             minV = (int)v;
+             prefV = (int)v;
+             maxV = (int)v;
+         }
+         // Normalize & validate: allow 0..240 (0 = unspecified)
+         if (minV < 0)
+             minV = 0;
+         if (minV > 240)
+             minV = 240;
+         if (prefV < 0)
+             prefV = 0;
+         if (prefV > 240)
+             prefV = 240;
+         if (maxV < 0)
+             maxV = 0;
+         if (maxV > 240)
+             maxV = 240;
+         if (minV > 0 && maxV > 0 && minV > maxV) {
+             int tmp = minV;
+             minV = maxV;
+             maxV = tmp;
+         }
+         if (prefV > 0) {
+             if (minV > 0 && prefV < minV)
+                 prefV = minV;
+             if (maxV > 0 && prefV > maxV)
+                 prefV = maxV;
+         }
+         gFpsMin = minV;
+         gFpsPref = prefV;
+         gFpsMax = maxV;
+     }
+ 
+     // Wheel tuning (advanced)
+     NSString *wheelTuning = [prefs objectForKey:@"WheelTuning"];
+     if ([wheelTuning isKindOfClass:[NSString class]] && wheelTuning.length > 0) {
+         parseWheelOptions(wheelTuning.UTF8String);
+     }
+ 
+     // HTTP dir override and SSL (require absolute paths)
+     NSString *httpDir = [prefs objectForKey:@"HttpDir"];
+     if ([httpDir isKindOfClass:[NSString class]] && httpDir.length > 0) {
+         if (![httpDir hasPrefix:@"/"]) {
+             TVLog(@"-daemon: HttpDir must be absolute: %@ (ignored)", httpDir);
+         } else {
+             gHttpDirOverride = strdup(httpDir.fileSystemRepresentation);
+         }
+     }
+     NSString *sslCert = [prefs objectForKey:@"SslCertFile"];
+     if ([sslCert isKindOfClass:[NSString class]] && sslCert.length > 0) {
+         if (![sslCert hasPrefix:@"/"]) {
+             TVLog(@"-daemon: SslCertFile must be absolute: %@ (ignored)", sslCert);
+         } else {
+             gSslCertPath = strdup(sslCert.fileSystemRepresentation);
+         }
+     }
+     NSString *sslKey = [prefs objectForKey:@"SslKeyFile"];
+     if ([sslKey isKindOfClass:[NSString class]] && sslKey.length > 0) {
+         if (![sslKey hasPrefix:@"/"]) {
+             TVLog(@"-daemon: SslKeyFile must be absolute: %@ (ignored)", sslKey);
+         } else {
+             gSslKeyPath = strdup(sslKey.fileSystemRepresentation);
+         }
+     }
+ 
+     // Reverse Connection (26.1) from preferences
+     // Expected keys (per Root.plist):
+     //  - ReverseMode: "viewer" (default) | "repeater"
+     //  - ReverseSocket: "host:port" or "[ipv6]:port"
+     //  - ReverseRepeaterID: number id (only used when mode=repeater)
+     NSString *revMode = [prefs objectForKey:@"ReverseMode"];
+     if ([revMode isKindOfClass:[NSString class]]) {
+         if ([revMode caseInsensitiveCompare:@"repeater"] == NSOrderedSame) {
+             gRepeaterMode = 2;
+         } else if ([revMode caseInsensitiveCompare:@"viewer"] == NSOrderedSame) {
+             gRepeaterMode = 1;
+         } else {
+             gRepeaterMode = 0;
+         }
+     }
+     NSString *revSock = [prefs objectForKey:@"ReverseSocket"];
+     if ([revSock isKindOfClass:[NSString class]] && revSock.length > 0) {
+         const char *hp = revSock.UTF8String;
+         const char *hostBegin = hp;
+         const char *hostEnd = NULL;
+         const char *portStr = NULL;
+         if (hp[0] == '[') {
+             const char *rb = strchr(hp, ']');
+             if (rb && rb[1] == ':') {
+                 hostBegin = hp + 1;
+                 hostEnd = rb;
+                 portStr = rb + 2;
+             }
+         } else {
+             const char *colon = strrchr(hp, ':');
+             if (colon && colon != hp && *(colon + 1) != '\0') {
+                 hostBegin = hp;
+                 hostEnd = colon;
+                 portStr = colon + 1;
+             }
+         }
+         if (hostEnd && portStr) {
+             long pv = strtol(portStr, NULL, 10);
+             if (pv > 0 && pv <= 65535) {
+                 size_t hostLen = (size_t)(hostEnd - hostBegin);
+                 if (hostLen > 0) {
+                     char *hostDup = (char *)malloc(hostLen + 1);
+                     if (hostDup) {
+                         memcpy(hostDup, hostBegin, hostLen);
+                         hostDup[hostLen] = '\0';
+                         if (gRepeaterHost) {
+                             free(gRepeaterHost);
+                             gRepeaterHost = NULL;
+                         }
+                         gRepeaterHost = hostDup;
+                         gRepeaterPort = (int)pv;
+                     }
+                 }
+             } else {
+                 TVLog(@"-daemon: ReverseSocket port invalid: %ld (ignored)", pv);
+             }
+         } else {
+             TVLog(@"-daemon: ReverseSocket invalid: %@ (expected host:port or [ipv6]:port)", revSock);
+         }
+     } else {
+         // Backward-compat: accept separate ReverseHost/ReversePort if present
+         NSString *revHost = [prefs objectForKey:@"ReverseHost"];
+         if ([revHost isKindOfClass:[NSString class]] && revHost.length > 0) {
+             gRepeaterHost = strdup(revHost.UTF8String);
+         }
+         NSNumber *revPortN = [prefs objectForKey:@"ReversePort"];
+         if ([revPortN isKindOfClass:[NSNumber class]] || [revPortN isKindOfClass:[NSString class]]) {
+             int v = revPortN.intValue;
+             if (v > 0 && v <= 65535) {
+                 gRepeaterPort = v;
+             }
+         }
+     }
+     NSNumber *revIdN = [prefs objectForKey:@"ReverseRepeaterID"];
+     if ([revIdN isKindOfClass:[NSNumber class]] || [revIdN isKindOfClass:[NSString class]]) {
+         gRepeaterId = revIdN.intValue;
+     }
+ 
+     // If reverse connection is configured, override mutually exclusive options here in daemon mode
+     if (isRepeaterEnabled()) {
+         gPort = -1;    // disable local listening
+         gHttpPort = 0; // disable HTTP server
+         if (gHttpDirOverride) {
+             free(gHttpDirOverride);
+             gHttpDirOverride = NULL;
+         }
+         gBonjourEnabled = NO; // disable Bonjour advertisement
+         TVLog(@"-daemon: Reverse enabled -> overriding: port=-1, http=0, bonjour=off");
+     }
+ 
+     // Passwords via environment (leveraging existing setupRfbClassicAuthentication).
+     // Classic VNC authentication uses only first 8 chars; truncate here for clarity.
+     NSString *fullPwd = [prefs objectForKey:@"FullPassword"];
+     BOOL hasFullPwd = NO, hasViewPwd = NO;
+     if ([fullPwd isKindOfClass:[NSString class]]) {
+         NSString *trunc = (fullPwd.length > 8) ? [fullPwd substringToIndex:8] : fullPwd;
+         setenv("TROLLVNC_PASSWORD", trunc.UTF8String ?: "", 1);
+         hasFullPwd = (trunc.length > 0);
+     }
+     NSString *viewPwd = [prefs objectForKey:@"ViewOnlyPassword"];
+     if ([viewPwd isKindOfClass:[NSString class]]) {
+         NSString *trunc = (viewPwd.length > 8) ? [viewPwd substringToIndex:8] : viewPwd;
+         setenv("TROLLVNC_VIEWONLY_PASSWORD", trunc.UTF8String ?: "", 1);
+         hasViewPwd = (trunc.length > 0);
+     }
+ 
+     // Single-line summary using NSMutableString; include reverse-connection fields and new options
+     NSMutableString *cfg = [NSMutableString stringWithFormat:@"-daemon: cfg "];
+     [cfg appendFormat:@"name='%@' ", gDesktopName];
+     [cfg appendFormat:@"bindHost='%@' ", gBindHost];
+     [cfg appendFormat:@"port=%d http=%d ", gPort, gHttpPort];
+ 
+     // Reverse connection summary
+     const char *revModeStr = isRepeaterEnabled() ? (gRepeaterMode == 2 ? "repeater" : "viewer") : "off";
+     NSString *revHostStr = gRepeaterHost ? [NSString stringWithUTF8String:gRepeaterHost] : nil;
+     [cfg appendFormat:@"reverse=%s host=%@ port=%d id=%d ", revModeStr, revHostStr, gRepeaterPort, gRepeaterId];
+ 
+     // Core feature flags
+     [cfg appendFormat:@"viewOnly=%@ clip=%@ keepAlive=%.0fs ", gViewOnly ? @"YES" : @"NO",
+                       gClipboardEnabled ? @"YES" : @"NO", gKeepAliveSec];
+     [cfg appendFormat:@"scale=%.2f fps=%d:%d:%d defer=%.3f ", gScale, gFpsMin, gFpsPref, gFpsMax, gDeferWindowSec];
+     [cfg appendFormat:@"inflight=%d tile=%d full%%=%d rects=%d ", gMaxInflightUpdates, gTileSize,
+                       gFullscreenThresholdPercent, gMaxRectsLimit];
+-    [cfg appendFormat:@"async=%@ cursor=%@ orient=%@ orientFix=%d keylog=%@ ", gAsyncSwapEnabled ? @"YES" : @"NO",
++    [cfg appendFormat:@"publish=latest-safe cursor=%@ orient=%@ orientFix=%d keylog=%@ ",
+                       gCursorEnabled ? @"YES" : @"NO", gOrientationSyncEnabled ? @"YES" : @"NO",
+                       gOrientationFixQuad, gKeyEventLogging ? @"YES" : @"NO"];
+ 
+     // Wheel / input tuning
+     [cfg appendFormat:@"wheel=%.1f natural=%@ mod=%s ", gWheelStepPx, gWheelNaturalDir ? @"YES" : @"NO",
+                       (gModMapScheme == 1) ? "altcmd" : "std"];
+ 
+     // Networking / discovery
+     [cfg appendFormat:@"bonjour=%@ ", gBonjourEnabled ? @"on" : @"off"];
+     [cfg appendFormat:@"fileXfer=%@ ", gFileTransferEnabled ? @"on" : @"off"];
+ 
+     // Auth and paths
+     [cfg appendFormat:@"auth(full=%@,view=%@,8char) ", hasFullPwd ? @"on" : @"off", hasViewPwd ? @"on" : @"off"];
+     NSString *dirStr = gHttpDirOverride ? [NSString stringWithUTF8String:gHttpDirOverride] : nil;
+     NSString *certStr = gSslCertPath ? [NSString stringWithUTF8String:gSslCertPath] : nil;
+     NSString *keyStr = gSslKeyPath ? [NSString stringWithUTF8String:gSslKeyPath] : nil;
+     [cfg appendFormat:@"dir=%@ cert=%@ key=%@", dirStr, certStr, keyStr];
+ 
+     TVLog(@"%@", cfg);
+     TVLog(@"-daemon: preferences applied (domain=com.82flex.trollvnc)");
+ }
+@@ -934,616 +935,615 @@ static void parseDaemonOptions(void) {
+ static void parseCLI(int argc, const char *argv[]) {
+     // Special mode: -daemon reads configuration from NSUserDefaults domain
+     // com.82flex.trollvnc and initializes runtime options accordingly.
+     BOOL isDaemon = NO;
+     for (int i = 1; i < argc; i++) {
+         if (strcmp(argv[i], "-daemon") == 0) {
+             isDaemon = YES;
+             break;
+         }
+     }
+     if (isDaemon) {
+         gIsDaemonMode = YES;
+         gTvCtlPort = kTvDefaultCtlPort;
+         parseDaemonOptions();
+         return;
+     }
+ 
+     // Pre-scan for Reverse Connection long options (-reverse, -repeater)
+     // Build a filtered argv without these options for getopt handling of the rest.
+     std::vector<const char *> __filtered;
+     __filtered.reserve((size_t)argc);
+     __filtered.push_back(argv[0]);
+ 
+     BOOL __reverseEnabled = NO;
+     for (int i = 1; i < argc; ++i) {
+         const char *arg = argv[i];
+         if (strcmp(arg, "-reverse") == 0) {
+             if (i + 1 >= argc) {
+                 TVPrintError("-reverse requires host:port");
+                 exit(EXIT_FAILURE);
+             }
+ 
+             const char *hp = argv[++i];
+             const char *hostBegin = hp;
+             const char *hostEnd = NULL;
+             const char *portStr = NULL;
+ 
+             if (hp[0] == '[') {
+                 const char *rb = strchr(hp, ']');
+                 if (!rb || rb[1] != ':') {
+                     TVPrintError("Invalid -reverse target: %s (expected [host]:port)", hp);
+                     exit(EXIT_FAILURE);
+                 }
+ 
+                 hostBegin = hp + 1;
+                 hostEnd = rb;
+                 portStr = rb + 2;
+             } else {
+                 const char *colon = strrchr(hp, ':');
+                 if (!colon || colon == hp || *(colon + 1) == '\0') {
+                     TVPrintError("Invalid -reverse target: %s (expected host:port)", hp);
+                     exit(EXIT_FAILURE);
+                 }
+ 
+                 hostBegin = hp;
+                 hostEnd = colon;
+                 portStr = colon + 1;
+             }
+ 
+             int port = (int)strtol(portStr, NULL, 10);
+             if (port <= 0 || port > 65535) {
+                 TVPrintError("Invalid -reverse port: %s", portStr);
+                 exit(EXIT_FAILURE);
+             }
+ 
+             size_t hostLen = (size_t)(hostEnd - hostBegin);
+             if (hostLen == 0) {
+                 TVPrintError("Invalid -reverse host (empty)");
+                 exit(EXIT_FAILURE);
+             }
+ 
+             char *hostDup = (char *)malloc(hostLen + 1);
+             if (!hostDup) {
+                 TVPrintError("Out of memory");
+                 exit(EXIT_FAILURE);
+             }
+ 
+             memcpy(hostDup, hostBegin, hostLen);
+             hostDup[hostLen] = '\0';
+ 
+             if (gRepeaterHost) {
+                 free(gRepeaterHost);
+                 gRepeaterHost = NULL;
+             }
+ 
+             gRepeaterMode = 1;
+             gRepeaterHost = hostDup;
+             gRepeaterPort = port;
+ 
+             TVLog(@"CLI: Reverse connection to %@:%d", [NSString stringWithUTF8String:gRepeaterHost], gRepeaterPort);
+ 
+             __reverseEnabled = YES;
+             continue; // skip adding this arg
+         }
+         if (strcmp(arg, "-repeater") == 0) {
+             if (i + 2 >= argc) {
+                 TVPrintError("-repeater requires: id host:port");
+                 exit(EXIT_FAILURE);
+             }
+ 
+             const char *idStr = argv[++i];
+             long repId = strtol(idStr, NULL, 10);
+             if (repId < 0 || repId > INT_MAX) {
+                 TVPrintError("Invalid repeater id: %s", idStr);
+                 exit(EXIT_FAILURE);
+             }
+ 
+             const char *hp = argv[++i];
+             const char *hostBegin = hp;
+             const char *hostEnd = NULL;
+             const char *portStr = NULL;
+ 
+             if (hp[0] == '[') {
+                 const char *rb = strchr(hp, ']');
+                 if (!rb || rb[1] != ':') {
+                     TVPrintError("Invalid -repeater target: %s (expected [host]:port)", hp);
+                     exit(EXIT_FAILURE);
+                 }
+ 
+                 hostBegin = hp + 1;
+                 hostEnd = rb;
+                 portStr = rb + 2;
+             } else {
+                 const char *colon = strrchr(hp, ':');
+                 if (!colon || colon == hp || *(colon + 1) == '\0') {
+                     TVPrintError("Invalid -repeater target: %s (expected host:port)", hp);
+                     exit(EXIT_FAILURE);
+                 }
+ 
+                 hostBegin = hp;
+                 hostEnd = colon;
+                 portStr = colon + 1;
+             }
+ 
+             int port = (int)strtol(portStr, NULL, 10);
+             if (port <= 0 || port > 65535) {
+                 TVPrintError("Invalid -repeater port: %s", portStr);
+                 exit(EXIT_FAILURE);
+             }
+ 
+             size_t hostLen = (size_t)(hostEnd - hostBegin);
+             if (hostLen == 0) {
+                 TVPrintError("Invalid -repeater host (empty)");
+                 exit(EXIT_FAILURE);
+             }
+ 
+             char *hostDup = (char *)malloc(hostLen + 1);
+             if (!hostDup) {
+                 TVPrintError("Out of memory");
+                 exit(EXIT_FAILURE);
+             }
+ 
+             memcpy(hostDup, hostBegin, hostLen);
+             hostDup[hostLen] = '\0';
+ 
+             if (gRepeaterHost) {
+                 free(gRepeaterHost);
+                 gRepeaterHost = NULL;
+             }
+ 
+             gRepeaterMode = 2;
+             gRepeaterId = (int)repId;
+             gRepeaterHost = hostDup;
+             gRepeaterPort = port;
+ 
+             TVLog(@"CLI: Repeater mode id=%d target=%@:%d", gRepeaterId, [NSString stringWithUTF8String:gRepeaterHost],
+                   gRepeaterPort);
+ 
+             __reverseEnabled = YES;
+             continue; // skip adding this arg
+         }
+ 
+         __filtered.push_back(arg);
+     }
+ 
+     // Prepare argv for getopt from filtered vector
+     int __argc2 = (int)__filtered.size();
+     std::vector<char *> __argv2;
+     __argv2.reserve(__filtered.size());
+ #pragma clang diagnostic push
+ #pragma clang diagnostic ignored "-Wc++11-extensions"
+     for (const char *s : __filtered)
+         __argv2.push_back(const_cast<char *>(s));
+ #pragma clang diagnostic pop
+ 
+     int opt;
+     const char *optstr = "p:b:n:vA:c:C:s:F:d:Q:t:P:R:aW:w:NM:KU:O:o:I:i:H:D:e:k:B:T:Vh";
+     optind = 1;
+     while ((opt = getopt(__argc2, __argv2.data(), optstr)) != -1) {
+         switch (opt) {
+         case 'b': {
+             if (!optarg || !*optarg) {
+                 TVPrintError("-b requires a non-empty host name or address");
+                 exit(EXIT_FAILURE);
+             }
+             gBindHost = [NSString stringWithUTF8String:optarg];
+             TVLog(@"CLI: Bind host set to '%@'", gBindHost);
+             break;
+         }
+         case 'p': {
+             long port = strtol(optarg, NULL, 10);
+             if (port <= 0 || port > 65535) {
+                 TVPrintError("Invalid port: %s", optarg);
+                 exit(EXIT_FAILURE);
+             }
+             gPort = (int)port;
+             TVLog(@"CLI: Port set to %d", gPort);
+             break;
+         }
+         case 'n': {
+             gDesktopName = [NSString stringWithUTF8String:optarg ?: "TrollVNC"];
+             TVLog(@"CLI: Desktop name set to '%@'", gDesktopName);
+             break;
+         }
+         case 'v': {
+             gViewOnly = YES;
+             TVLog(@"CLI: View-only mode enabled (-v)");
+             break;
+         }
+         case 'A': {
+             double sec = strtod(optarg ? optarg : "0", NULL);
+             if (sec < 15.0 || sec > 24 * 3600.0) {
+                 TVPrintError("Invalid keep-alive seconds: %s (expected 15..86400)", optarg);
+                 exit(EXIT_FAILURE);
+             }
+             gKeepAliveSec = sec;
+             TVLog(@"CLI: KeepAlive interval set to %.3f sec (-A)", gKeepAliveSec);
+             break;
+         }
+         case 'c': {
+             long port = strtol(optarg, NULL, 10);
+             if (port <= 0 || port > 65535) {
+                 TVPrintError("Invalid port: %s", optarg);
+                 exit(EXIT_FAILURE);
+             }
+             gTvCtlPort = (int)port;
+             TVLog(@"CLI: Mgmt port set to %d", gTvCtlPort);
+             break;
+         }
+         case 'C': {
+             const char *val = optarg ? optarg : "on";
+             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
+                 gClipboardEnabled = YES;
+                 TVLog(@"CLI: Clipboard sync enabled (-C %s)", [@(val) UTF8String]);
+             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
+                 gClipboardEnabled = NO;
+                 TVLog(@"CLI: Clipboard sync disabled (-C %s)", [@(val) UTF8String]);
+             } else {
+                 TVPrintError("Invalid -C value: %s (expected on|off|1|0|true|false)", val);
+                 exit(EXIT_FAILURE);
+             }
+             break;
+         }
+         case 's': {
+             double sc = strtod(optarg, NULL);
+             if (!(sc > 0.0 && sc <= 1.0)) {
+                 TVPrintError("Invalid scale: %s (expected 0 < s <= 1)", optarg);
+                 exit(EXIT_FAILURE);
+             }
+             gScale = sc;
+             TVLog(@"CLI: Output scale factor set to %.3f", gScale);
+             break;
+         }
+         case 'F': {
+             // Accept formats: "fps", "min-max", "min:pref:max"
+             const char *spec = optarg ? optarg : "";
+             int minV = 0, prefV = 0, maxV = 0;
+             if (spec[0] == '\0') {
+                 break; // ignore empty
+             }
+             const char *colon1 = strchr(spec, ':');
+             const char *dash = strchr(spec, '-');
+             if (colon1) {
+                 // min:pref:max
+                 long a = strtol(spec, NULL, 10);
+                 const char *p2 = colon1 + 1;
+                 const char *colon2 = strchr(p2, ':');
+                 if (!colon2) {
+                     TVPrintError("Invalid -F spec: %s (expected min:pref:max)", spec);
+                     exit(EXIT_FAILURE);
+                 }
+                 long b = strtol(p2, NULL, 10);
+                 long c = strtol(colon2 + 1, NULL, 10);
+                 minV = (int)a;
+                 prefV = (int)b;
+                 maxV = (int)c;
+             } else if (dash) {
+                 // min-max (preferred defaults to max)
+                 long a = strtol(spec, NULL, 10);
+                 long b = strtol(dash + 1, NULL, 10);
+                 minV = (int)a;
+                 prefV = (int)b;
+                 maxV = (int)b;
+             } else {
+                 // single fps
+                 long v = strtol(spec, NULL, 10);
+                 minV = (int)v;
+                 prefV = (int)v;
+                 maxV = (int)v;
+             }
+             // Normalize & validate: allow 0..240 (0 = unspecified)
+             if (minV < 0)
+                 minV = 0;
+             if (minV > 240)
+                 minV = 240;
+             if (prefV < 0)
+                 prefV = 0;
+             if (prefV > 240)
+                 prefV = 240;
+             if (maxV < 0)
+                 maxV = 0;
+             if (maxV > 240)
+                 maxV = 240;
+             if (minV > 0 && maxV > 0 && minV > maxV) {
+                 int tmp = minV;
+                 minV = maxV;
+                 maxV = tmp;
+             }
+             if (prefV > 0) {
+                 if (minV > 0 && prefV < minV)
+                     prefV = minV;
+                 if (maxV > 0 && prefV > maxV)
+                     prefV = maxV;
+             }
+             gFpsMin = minV;
+             gFpsPref = prefV;
+             gFpsMax = maxV;
+             TVLog(@"CLI: FPS preference set to min=%d pref=%d max=%d", gFpsMin, gFpsPref, gFpsMax);
+             break;
+         }
+         case 'd': {
+             double s = strtod(optarg, NULL);
+             if (s < 0.0 || s > 0.5) {
+                 TVPrintError("Invalid defer window seconds: %s (expected 0..0.5)", optarg);
+                 exit(EXIT_FAILURE);
+             }
+             gDeferWindowSec = s;
+             TVLog(@"CLI: Defer window set to %.3f sec", gDeferWindowSec);
+             break;
+         }
+         case 'Q': {
+             long q = strtol(optarg, NULL, 10);
+             if (q < 0 || q > 8) {
+                 TVPrintError("Invalid max in-flight: %s (expected 0..8)", optarg);
+                 exit(EXIT_FAILURE);
+             }
+             gMaxInflightUpdates = (int)q;
+             TVLog(@"CLI: Max in-flight updates set to %d", gMaxInflightUpdates);
+             break;
+         }
+         case 't': {
+             long ts = strtol(optarg, NULL, 10);
+             if (ts < 8 || ts > 128) {
+                 TVPrintError("Invalid tile size: %s (expected 8..128)", optarg);
+                 exit(EXIT_FAILURE);
+             }
+             gTileSize = (int)ts;
+             TVLog(@"CLI: Tile size set to %d", gTileSize);
+             break;
+         }
+         case 'P': {
+             long p = strtol(optarg, NULL, 10);
+             if (p < 0 || p > 100) {
+                 TVPrintError("Invalid threshold percent: %s (expected 0..100; 0 disables dirty detection)", optarg);
+                 exit(EXIT_FAILURE);
+             }
+             gFullscreenThresholdPercent = (int)p;
+             TVLog(@"CLI: Fullscreen threshold percent set to %d", gFullscreenThresholdPercent);
+             break;
+         }
+         case 'R': {
+             long m = strtol(optarg, NULL, 10);
+             if (m < 1 || m > 4096) {
+                 TVPrintError("Invalid max rects: %s (expected 1..4096)", optarg);
+                 exit(EXIT_FAILURE);
+             }
+             gMaxRectsLimit = (int)m;
+             TVLog(@"CLI: Max rects limit set to %d", gMaxRectsLimit);
+             break;
+         }
+         case 'a': {
+-            gAsyncSwapEnabled = YES;
+-            TVLog(@"CLI: Non-blocking swap enabled (-a)");
++            TVLog(@"CLI: -a accepted; safe non-blocking publication is always enabled");
+             break;
+         }
+         case 'W': {
+             double px = strtod(optarg, NULL);
+             if (px == 0.0) {
+                 // 0 disables wheel emulation
+                 gWheelStepPx = 0.0;
+                 gWheelMaxStepPx = 0.0;
+                 TVLog(@"CLI: Wheel emulation disabled (-W 0)");
+                 break;
+             }
+             if (!(px > 4.0 && px <= 1000.0)) {
+                 TVPrintError("Invalid wheel step px: %s (expected 0 or >4..<=1000)", optarg);
+                 exit(EXIT_FAILURE);
+             }
+             gWheelStepPx = px;
+             // Scale max step roughly 4x and adjust duration slope mildly
+             gWheelMaxStepPx = fmax(2.0 * gWheelStepPx, 96.0) * 1.0;
+             TVLog(@"CLI: Wheel step set to %.1f px (max=%.1f)", gWheelStepPx, gWheelMaxStepPx);
+             break;
+         }
+         case 'w': {
+             parseWheelOptions(optarg);
+             break;
+         }
+         case 'N': {
+             gWheelNaturalDir = YES;
+             TVLog(@"CLI: Natural scroll direction enabled (-N)");
+             break;
+         }
+         case 'M': {
+             const char *val = optarg ? optarg : "std";
+             if (strcmp(val, "std") == 0)
+                 gModMapScheme = 0;
+             else if (strcmp(val, "altcmd") == 0)
+                 gModMapScheme = 1;
+             else {
+                 TVPrintError("Invalid -M scheme: %s (expected std|altcmd)", val);
+                 exit(EXIT_FAILURE);
+             }
+             TVLog(@"CLI: Modifier mapping set to %s", gModMapScheme == 0 ? "std" : "altcmd");
+             break;
+         }
+         case 'K': {
+             gKeyEventLogging = YES;
+             TVLog(@"CLI: Keyboard event logging enabled (-K)");
+             break;
+         }
+         case 'E': {
+             const char *val = optarg ? optarg : "off";
+             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
+                 gAutoAssistEnabled = YES;
+                 TVLog(@"CLI: AssistiveTouch auto-activation enabled (-E %s)", [@(val) UTF8String]);
+             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
+                 gAutoAssistEnabled = NO;
+                 TVLog(@"CLI: AssistiveTouch auto-activation disabled (-E %s)", [@(val) UTF8String]);
+             } else {
+                 TVPrintError("Invalid -E value: %s (expected on|off|1|0|true|false)", val);
+                 exit(EXIT_FAILURE);
+             }
+             break;
+         }
+         case 'U': {
+             const char *val = optarg ? optarg : "off";
+             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
+                 gCursorEnabled = YES;
+                 TVLog(@"CLI: Cursor enabled (-U %s)", [@(val) UTF8String]);
+             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
+                 gCursorEnabled = NO;
+                 TVLog(@"CLI: Cursor disabled (-U %s)", [@(val) UTF8String]);
+             } else {
+                 TVPrintError("Invalid -U value: %s (expected on|off|1|0|true|false)", val);
+                 exit(EXIT_FAILURE);
+             }
+             break;
+         }
+         case 'O': {
+             const char *val = optarg ? optarg : "off";
+             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
+                 gOrientationSyncEnabled = YES;
+                 TVLog(@"CLI: Orientation observer enabled (-O %s)", [@(val) UTF8String]);
+             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
+                 gOrientationSyncEnabled = NO;
+                 TVLog(@"CLI: Orientation observer disabled (-O %s)", [@(val) UTF8String]);
+             } else {
+                 TVPrintError("Invalid -O value: %s (expected on|off|1|0|true|false)", val);
+                 exit(EXIT_FAILURE);
+             }
+             break;
+         }
+         case 'o': {
+             const char *val = optarg ? optarg : "0";
+             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
+                 gOrientationFixQuad = 3; // legacy: "on" means 270° (original behavior)
+                 TVLog(@"CLI: Orientation fix quad=3 (-o %s)", [@(val) UTF8String]);
+             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
+                 gOrientationFixQuad = 0;
+                 TVLog(@"CLI: Orientation fix quad=0 (-o %s)", [@(val) UTF8String]);
+             } else {
+                 long v = strtol(val, NULL, 10);
+                 if (v >= 0 && v <= 3) {
+                     gOrientationFixQuad = (int)v;
+                     TVLog(@"CLI: Orientation fix quad=%d (-o %s)", gOrientationFixQuad, [@(val) UTF8String]);
+                 } else {
+                     TVPrintError("Invalid -o value: %s (expected 0..3 or on|off)", val);
+                     exit(EXIT_FAILURE);
+                 }
+             }
+             break;
+         }
+         case 'I': {
+             const char *val = optarg ? optarg : "off";
+             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
+                 gUserClientNotifsEnabled = YES;
+                 TVLog(@"CLI: Client user notifications enabled (-I %s)", [@(val) UTF8String]);
+             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
+                 gUserClientNotifsEnabled = NO;
+                 TVLog(@"CLI: Client user notifications disabled (-I %s)", [@(val) UTF8String]);
+             } else {
+                 TVPrintError("Invalid -I value: %s (expected on|off|1|0|true|false)", val);
+                 exit(EXIT_FAILURE);
+             }
+             break;
+         }
+         case 'i': {
+             const char *val = optarg ? optarg : "off";
+             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
+                 gUserSingleNotifsEnabled = YES;
+                 TVLog(@"CLI: Single user notifications enabled (-i %s)", [@(val) UTF8String]);
+             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
+                 gUserSingleNotifsEnabled = NO;
+                 TVLog(@"CLI: Single user notifications disabled (-i %s)", [@(val) UTF8String]);
+             } else {
+                 TVPrintError("Invalid -i value: %s (expected on|off|1|0|true|false)", val);
+                 exit(EXIT_FAILURE);
+             }
+             break;
+         }
+         case 'H': {
+             long hp = strtol(optarg ? optarg : "0", NULL, 10);
+             if (hp < 0 || hp > 65535) {
+                 TVPrintError("Invalid HTTP port: %s (expected 0..65535)", optarg);
+                 exit(EXIT_FAILURE);
+             }
+             gHttpPort = (int)hp;
+             TVLog(@"CLI: HTTP port set to %d (-H)", gHttpPort);
+             break;
+         }
+         case 'D': {
+             const char *path = optarg ? optarg : "";
+             if (!path || path[0] != '/') {
+                 TVPrintError("Invalid httpDir path for -D: %s (must be absolute)", path);
+                 exit(EXIT_FAILURE);
+             }
+             gHttpDirOverride = strdup(path);
+             TVLog(@"CLI: HTTP dir override set to %s (-D)", path);
+             break;
+         }
+         case 'e': {
+             const char *path = optarg ? optarg : "";
+             if (!path || !*path) {
+                 TVPrintError("Invalid value for -e (sslcertfile)");
+                 exit(EXIT_FAILURE);
+             }
+             gSslCertPath = strdup(path);
+             TVLog(@"CLI: SSL cert file set (-e %s)", path);
+             break;
+         }
+         case 'k': {
+             const char *path = optarg ? optarg : "";
+             if (!path || !*path) {
+                 TVPrintError("Invalid value for -k (sslkeyfile)");
+                 exit(EXIT_FAILURE);
+             }
+             gSslKeyPath = strdup(path);
+             TVLog(@"CLI: SSL key file set (-k %s)", path);
+             break;
+         }
+         case 'B': {
+             const char *val = optarg ? optarg : "on";
+             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
+                 gBonjourEnabled = YES;
+                 TVLog(@"CLI: Bonjour advertisement enabled (-B %s)", [@(val) UTF8String]);
+             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
+                 gBonjourEnabled = NO;
+                 TVLog(@"CLI: Bonjour advertisement disabled (-B %s)", [@(val) UTF8String]);
+             } else {
+                 TVPrintError("Invalid -B value: %s (expected on|off|1|0|true|false)", val);
+                 exit(EXIT_FAILURE);
+             }
+             break;
+         }
+         case 'T': {
+             const char *val = optarg ? optarg : "off";
+             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
+                 gFileTransferEnabled = YES;
+                 TVLog(@"CLI: TightVNC 1.x file transfer extension enabled (-T %s)", [@(val) UTF8String]);
+             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
+                 gFileTransferEnabled = NO;
+                 TVLog(@"CLI: TightVNC 1.x file transfer extension disabled (-T %s)", [@(val) UTF8String]);
+             } else {
+                 TVPrintError("Invalid -T value: %s (expected on|off|1|0|true|false)", val);
+                 exit(EXIT_FAILURE);
+             }
+             break;
+         }
+         case 'V': {
+             tvncVerboseLoggingEnabled = YES;
+             TVLog(@"CLI: Verbose logging enabled (-V)");
+             break;
+         }
+         case 'h':
+         default: {
+             printUsageAndExit(argv[0]);
+             break;
+         }
+         }
+     }
+ 
+     // Reverse connection active -> override conflicting settings
+     if (__reverseEnabled) {
+         gPort = -1;    // disable listening port
+         gHttpPort = 0; // disable HTTP server
+         if (gHttpDirOverride) {
+             free(gHttpDirOverride);
+             gHttpDirOverride = NULL;
+         }
+         gBonjourEnabled = NO; // disable Bonjour when reverse is used
+         TVLog(@"CLI: Reverse enabled -> port=-1, http=0, bonjour=off");
+     }
+ }
+ 
+ #pragma mark - Display
+@@ -1646,6 +1646,13 @@ static uint64_t *gPrevHash = NULL;
+ static uint64_t *gCurrHash = NULL;
+ static uint8_t *gPendingDirty = NULL; // per-tile pending dirty mask
+ static BOOL gHasPending = NO;
++static double gPendingSince = 0;
++static TVPreparedFrame gPreparedFrame;
++static int gPublishedRotation = -1;
++static BOOL gPublishedHashesValid = NO;
++// Publisher/resize hold this only after capture preparation. New-client hooks
++// cross it before acceptance so no encoder can escape the acquired snapshot.
++static std::mutex gPublicationAdmissionMutex;
+ 
+ static void initializeTilingOrReset(void) {
+     int tilesX = (gWidth + gTileSize - 1) / gTileSize;
+@@ -1734,60 +1741,6 @@ NS_INLINE void hashTiledFromBuffer(const uint8_t *buf, int width, int height, si
+ }
+ 
+ // Sparse sampling hash: sample a subset of pixels per tile to reduce bandwidth.
+-NS_INLINE void hashTiledFromBufferSparse(const uint8_t *buf, int width, int height, size_t bpr, int sx, int sy) {
+-    if (sx < 1)
+-        sx = 1;
+-    if (sy < 1)
+-        sy = 1;
+-    resetCurrTileHashes();
+-    for (int y = 0; y < height; y += sy) {
+-        int ty = y / gTileSize;
+-        for (int tx = 0; tx < gTilesX; ++tx) {
+-            int startX = tx * gTileSize;
+-            if (startX >= width)
+-                break;
+-            int endX = startX + gTileSize;
+-            if (endX > width)
+-                endX = width;
+-            size_t tileIndex = (size_t)ty * (size_t)gTilesX + (size_t)tx;
+-            for (int x = startX; x < endX; x += sx) {
+-                const uint8_t *p = buf + (size_t)y * bpr + (size_t)x * (size_t)gBytesPerPixel;
+-                gCurrHash[tileIndex] = hash_update(gCurrHash[tileIndex], p, (size_t)gBytesPerPixel);
+-            }
+-            // Ensure last column contributes even if not aligned to stride
+-            int lastX = endX - 1;
+-            if (lastX >= startX && ((endX - startX - 1) % sx) != 0) {
+-                const uint8_t *p = buf + (size_t)y * bpr + (size_t)lastX * (size_t)gBytesPerPixel;
+-                gCurrHash[tileIndex] = hash_update(gCurrHash[tileIndex], p, (size_t)gBytesPerPixel);
+-            }
+-        }
+-    }
+-    // Also sample the last row if height-1 isn't covered by the stride
+-    int lastY = height - 1;
+-    if (lastY >= 0 && ((height - 1) % sy) != 0) {
+-        int ty = lastY / gTileSize;
+-        for (int tx = 0; tx < gTilesX; ++tx) {
+-            int startX = tx * gTileSize;
+-            if (startX >= width)
+-                break;
+-            int endX = startX + gTileSize;
+-            if (endX > width)
+-                endX = width;
+-            size_t tileIndex = (size_t)ty * (size_t)gTilesX + (size_t)tx;
+-            for (int x = startX; x < endX; x += sx) {
+-                const uint8_t *p = buf + (size_t)lastY * bpr + (size_t)x * (size_t)gBytesPerPixel;
+-                gCurrHash[tileIndex] = hash_update(gCurrHash[tileIndex], p, (size_t)gBytesPerPixel);
+-            }
+-            int lastX = endX - 1;
+-            if (lastX >= startX && ((endX - startX - 1) % sx) != 0) {
+-                const uint8_t *p = buf + (size_t)lastY * bpr + (size_t)lastX * (size_t)gBytesPerPixel;
+-                gCurrHash[tileIndex] = hash_update(gCurrHash[tileIndex], p, (size_t)gBytesPerPixel);
+-            }
+-        }
+-    }
+-}
+-
+-// Parallel full hash over tiles: split by tile rows to reduce wall clock at flush.
+ NS_INLINE void hashTiledFromBufferParallel(const uint8_t *buf, int width, int height, size_t bpr, int threads) {
+     if (threads <= 1) {
+         hashTiledFromBuffer(buf, width, height, bpr);
+@@ -1834,176 +1787,162 @@ NS_INLINE void hashTiledFromBufferParallel(const uint8_t *buf, int width, int he
+ }
+ 
+ // Build dirty rectangles from tile hash diffs. Returns number of rects written, up to maxRects.
+-static int buildDirtyRects(DirtyRect *rects, int maxRects, int *outChangedTiles) {
++static int buildDirtyRects(DirtyRect *rects, int maxRects, int *outChangedTiles, BOOL *overflow) {
+     int rectCount = 0;
+     int changedTiles = 0;
++    *overflow = NO;
+ 
+     // First pass: horizontal merge per tile row
+     for (int ty = 0; ty < gTilesY; ++ty) {
+         int tx = 0;
+         while (tx < gTilesX) {
+             size_t idx = (size_t)ty * (size_t)gTilesX + (size_t)tx;
+-            int changed = (gCurrHash[idx] != gPrevHash[idx]);
++            int changed = gPendingDirty && gPendingDirty[idx];
+             if (!changed) {
+                 tx++;
+                 continue;
+             }
+ 
+             // Start of a run
+             int runStart = tx;
+             changedTiles++;
+             tx++;
+             while (tx < gTilesX) {
+                 size_t idx2 = (size_t)ty * (size_t)gTilesX + (size_t)tx;
+-                if (gCurrHash[idx2] != gPrevHash[idx2]) {
++                if (gPendingDirty && gPendingDirty[idx2]) {
+                     changedTiles++;
+                     tx++;
+                 } else
+                     break;
+             }
+ 
+             // Emit rect for this horizontal run
+             if (rectCount < maxRects) {
+                 int x = runStart * gTileSize;
+                 int w = (tx - runStart) * gTileSize;
+                 int y = ty * gTileSize;
+                 int h = gTileSize;
+                 // Clip to screen bounds
+                 if (x + w > gWidth)
+                     w = gWidth - x;
+                 if (y + h > gHeight)
+                     h = gHeight - y;
+                 rects[rectCount++] = (DirtyRect){x, y, w, h};
+             } else {
+-                // Too many rects; caller may fallback to fullscreen
++                // A bounding box of the emitted prefix could omit later tiles.
++                // The caller must send the full screen when the buffer fills.
++                *overflow = YES;
+                 if (outChangedTiles)
+                     *outChangedTiles = changedTiles;
+                 return rectCount;
+             }
+         }
+     }
+ 
+     // Optional vertical merge: merge rects with same x,w and contiguous vertically
+     // Simple O(n^2) merge for small rect counts
+     for (int i = 0; i < rectCount; ++i) {
+         for (int j = i + 1; j < rectCount; ++j) {
+             if (rects[j].w == 0 || rects[j].h == 0)
+                 continue;
+             if (rects[i].x == rects[j].x && rects[i].w == rects[j].w) {
+                 if (rects[i].y + rects[i].h == rects[j].y) {
+                     rects[i].h += rects[j].h;
+                     rects[j].w = rects[j].h = 0; // mark removed
+                 } else if (rects[j].y + rects[j].h == rects[i].y) {
+                     rects[j].h += rects[i].h;
+                     rects[i].w = rects[i].h = 0;
+                 }
+             }
+         }
+     }
+ 
+     // Compact removed entries
+     int k = 0;
+     for (int i = 0; i < rectCount; ++i) {
+         if (rects[i].w > 0 && rects[i].h > 0)
+             rects[k++] = rects[i];
+     }
+ 
+     rectCount = k;
+     if (outChangedTiles)
+         *outChangedTiles = changedTiles;
+     return rectCount;
+ }
+ 
+-// Build rects from pending mask by temporarily mapping to hashes
+-static int buildRectsFromPending(DirtyRect *rects, int maxRects) {
+-    if (!gPendingDirty)
+-        return 0;
+-
+-    // Temporarily mark curr!=prev for pending tiles
+-    // Save originals
+-    // For efficiency, we only synthesize gCurrHash markers without touching buffers
+-    size_t changed = 0;
+-    for (size_t i = 0; i < gTileCount; ++i) {
+-        if (gPendingDirty[i]) {
+-            if (gCurrHash[i] == gPrevHash[i])
+-                gCurrHash[i] ^= 0x1ULL;
+-            changed++;
+-        }
+-    }
+-
+-    int dummyTiles = 0;
+-    int cnt = buildDirtyRects(rects, maxRects, &dummyTiles);
+-
+-    // Restore hashes for tiles we toggled
+-    for (size_t i = 0; i < gTileCount; ++i) {
+-        if (gPendingDirty[i]) {
+-            if (gCurrHash[i] == gPrevHash[i])
+-                gCurrHash[i] ^= 0x1ULL; // unlikely path
+-            else if ((gCurrHash[i] ^ 0x1ULL) == gPrevHash[i])
+-                gCurrHash[i] ^= 0x1ULL;
+-        }
+-    }
+-
+-    (void)changed;
+-    return cnt;
+-}
+-
+ NS_INLINE void markRectsModified(DirtyRect *rects, int rectCount) {
+     for (int i = 0; i < rectCount; ++i) {
+         rfbMarkRectAsModified(gScreen, rects[i].x, rects[i].y, rects[i].x + rects[i].w, rects[i].y + rects[i].h);
+     }
+ }
+ 
+-NS_INLINE void copyRectsFromBackToFront(DirtyRect *rects, int rectCount) {
+-    size_t fbBPR = (size_t)gWidth * (size_t)gBytesPerPixel;
+-    for (int i = 0; i < rectCount; ++i) {
+-        int x = rects[i].x, y = rects[i].y, w = rects[i].w, h = rects[i].h;
+-        size_t rowBytes = (size_t)w * (size_t)gBytesPerPixel;
+-        for (int r = 0; r < h; ++r) {
+-            uint8_t *dst = (uint8_t *)gFrontBuffer + (size_t)(y + r) * fbBPR + (size_t)x * gBytesPerPixel;
+-            uint8_t *src = (uint8_t *)gBackBuffer + (size_t)(y + r) * fbBPR + (size_t)x * gBytesPerPixel;
+-            memcpy(dst, src, rowBytes);
+-        }
+-    }
+-}
+-
  #pragma mark - Display Hooks
  
 -static std::atomic<int> gInflight(0);
 +static TVFrameUpdateRetry gFrameUpdates;
++static void tryPublishPreparedFrame(void);
++
++static void resetPreparedFrameSession(BOOL active) {
++    if (active) gFrameUpdates.start(); else gFrameUpdates.stop();
++    gPreparedFrame.reset();
++    gPublishedRotation = -1;
++    gPublishedHashesValid = NO;
++    gHasPending = NO;
++    gPendingSince = 0;
++    if (gPendingDirty) memset(gPendingDirty, 0, gTileCount);
++}
++
++static void requestPreparedFramePublication(void) {
++    uint64_t generation = gFrameUpdates.queuePublication();
++    if (!generation) return;
++    dispatch_async(dispatch_get_main_queue(), ^{
++        if (gFrameUpdates.takePublication(generation)) tryPublishPreparedFrame();
++    });
++}
  
  // Track encode life-cycle to provide backpressure via inflight counter
  static void displayHook(rfbClientPtr cl) {
@@ -211,19 +2404,38 @@ index be6cce3..629bd35 100644
      (void)cl;
      (void)result;
 -    gInflight.fetch_sub(1, std::memory_order_relaxed);
-+    if (gFrameUpdates.finished(gMaxInflightUpdates))
-+        [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
++    gFrameUpdates.finished();
++    // LibVNC still owns sendMutex. Only enqueue a publication try; the CAD
++    // callback keeps retrying the prepared frame if this runs before unlock.
++    requestPreparedFramePublication();
  }
  
  static int setDesktopSizeHook(int width, int height, int numScreens, rfbExtDesktopScreen *extDesktopScreens,
-@@ -2005,6 +2008,20 @@ static const int cNoScalePadThresholdPx = 8; // if both |dW| and |dH| <= this, d
- // Flush-time hashing optimization
- static const BOOL cParallelHashOnFlush = YES; // use parallel hashing at flush to reduce wall time
+                               rfbClientPtr cl) {
+     (void)cl;
+     (void)numScreens;
+     (void)extDesktopScreens;
+     [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
+     // We do not support client-initiated resizing
+     return rfbExtDesktopSize_ResizeProhibited;
+ }
  
-+// Full hashes are identical before dirty accumulation and at flush. Keep the
-+// parallel path for the immediate profile; only sparse hashes need replacing.
+ #pragma mark - Display Tiling Constants
+ 
+-// Hashing performance controls
+-static const int cHashStrideX = 4;              // sparse sampling stride X (>=1; 1 = full scan)
+-static const int cHashStrideY = 4;              // sparse sampling stride Y (>=1; 1 = full scan)
+-static const BOOL cSparseHashDuringDefer = YES; // use sparse hashing while within defer window
+ // Skip vImage scaling when src/dst size difference is small; copy with pad/crop instead
+ static const int cNoScalePadThresholdPx = 8; // if both |dW| and |dH| <= this, do pad/crop copy
+ 
+-// Flush-time hashing optimization
+-static const BOOL cParallelHashOnFlush = YES; // use parallel hashing at flush to reduce wall time
++// Hash each prepared frame exactly while the encoder reads the other buffer.
++static const BOOL cParallelFullHash = YES;
++
 +static void hashFullBackBuffer(void) {
-+    if (cParallelHashOnFlush) {
++    if (cParallelFullHash) {
 +        int threads = (int)[[NSProcessInfo processInfo] processorCount];
 +        threads = MAX(2, MIN(8, threads));
 +        hashTiledFromBufferParallel((const uint8_t *)gBackBuffer, gWidth, gHeight,
@@ -233,14 +2445,223 @@ index be6cce3..629bd35 100644
 +                            (size_t)gWidth * (size_t)gBytesPerPixel);
 +    }
 +}
-+
+ 
  #pragma mark - Frame Handlers
  
- static std::atomic<int> gRotationQuad(0); // 0=0°, 1=90°, 2=180°, 3=270° (clockwise)
-@@ -2231,25 +2248,6 @@ static int tryLockAllClients(pthread_mutex_t **locked, size_t *lockedCount, size
-     return 1;
+@@ -2030,85 +1969,95 @@ NS_INLINE void alignDimensions(int rawW, int rawH, int *alignedW, int *alignedH)
  }
  
+ // Resize framebuffer according to rotation (0/180 keep WxH from src, 90/270 swap), then apply scale
+-NS_INLINE void maybeResizeFramebufferForRotation(int rotQ) {
++NS_INLINE BOOL maybeResizeFramebufferForRotation(int rotQ) {
+     // Source capture size (portrait-orientated)
+     int srcW = gSrcWidth;
+     int srcH = gSrcHeight;
+     if (srcW <= 0 || srcH <= 0)
+-        return;
++        return NO;
+ 
+     // Rotate at source dimension stage
+     int rotW = (rotQ % 2 == 0) ? srcW : srcH;
+     int rotH = (rotQ % 2 == 0) ? srcH : srcW;
+ 
+     // Apply output scaling then align width to multiple of 4 (adjust height to preserve aspect)
+     int outWraw = (gScale > 0.0 && gScale < 1.0) ? MAX(1, (int)floor((double)rotW * gScale)) : rotW;
+     int outHraw = (gScale > 0.0 && gScale < 1.0) ? MAX(1, (int)floor((double)rotH * gScale)) : rotH;
+     int outW = 0, outH = 0;
+     alignDimensions(outWraw, outHraw, &outW, &outH);
+ 
+     if (outW == gWidth && outH == gHeight)
+-        return; // no change
++        return YES; // no change
++
++    // Geometry changes remain a serialized boundary. The format-aware LibVNC
++    // call owns retained send locks internally; never call it under our lock set.
++    std::unique_lock<std::mutex> admission(gPublicationAdmissionMutex, std::try_to_lock);
++    if (!admission.owns_lock() || !gScreen) return NO;
+ 
+     // Allocate new double buffers
+     size_t newFBSize = (size_t)outW * (size_t)outH * (size_t)gBytesPerPixel;
+     void *newFront = calloc(1, newFBSize);
+     void *newBack = calloc(1, newFBSize);
+     if (!newFront || !newBack) {
+-        TVPrintError("Failed to allocate required frame buffers");
+-        exit(EXIT_FAILURE);
++        free(newFront);
++        free(newBack);
++        return NO;
+     }
+ 
+-    // Swap buffers into screen & notify clients
++    // Commit the final BGRA format before client translations and reader unlock.
++    // Failure leaves screen and old buffer ownership completely unchanged.
++    rfbPixelFormat format = gScreen->serverFormat;
++    format.redShift = 16;
++    format.greenShift = 8;
++    format.blueShift = 0;
++    if (!rfbNewFramebufferWithFormat(gScreen, (char *)newFront, outW, outH,
++                                     8, 3, gBytesPerPixel, &format)) {
++        free(newFront);
++        free(newBack);
++        return NO;
++    }
++    if (gScreen->frameBuffer != newFront || gScreen->width != outW || gScreen->height != outH) {
++        TVPrintError("Framebuffer resize reported success without adopting its complete geometry");
++        exit(EXIT_FAILURE);
++    }
+     gWidth = outW;
+     gHeight = outH;
+     gFBSize = newFBSize;
+ 
+-    if (gScreen) {
+-        // Update server with new framebuffer
+-        rfbNewFramebuffer(gScreen, (char *)newFront, gWidth, gHeight, 8, 3, gBytesPerPixel);
+-        // Restore BGRA little-endian channel layout (R shift=16, G=8, B=0)
+-        int bps = 8;
+-        gScreen->serverFormat.redShift = bps * 2;   // 16
+-        gScreen->serverFormat.greenShift = bps * 1; // 8
+-        gScreen->serverFormat.blueShift = 0;        // 0
+-        gScreen->paddedWidthInBytes = gWidth * gBytesPerPixel;
+-    }
+-
+     // Free old buffers and store new pointers
+     if (gFrontBuffer)
+         free(gFrontBuffer);
+     if (gBackBuffer)
+         free(gBackBuffer);
+     gFrontBuffer = newFront;
+     gBackBuffer = newBack;
+ 
+-    // Keep gScreen->frameBuffer in sync (rfbNewFramebuffer already did, but ensure local)
+-    if (gScreen)
+-        gScreen->frameBuffer = (char *)gFrontBuffer;
+-
+     // Re-init tiling/hash state for new geometry
+     initializeTilingOrReset();
+     // Clear pending dirty flags to avoid carrying over old-geometry state into the new geometry
+     if (gPendingDirty)
+         memset(gPendingDirty, 0, gTileCount);
+ 
+     gHasPending = NO;
++    gPendingSince = 0;
++    gPreparedFrame.reset();
++    gPublishedHashesValid = NO;
+     TVLog(@"Resize: framebuffer changed to %dx%d (rotQ=%d, scale=%.3f)", gWidth, gHeight, rotQ, gScale);
++    return YES;
+ }
+ 
+ // Ensure scratch buffer for rotation is available and large enough
+ NS_INLINE int ensureRotateScratch(size_t w, size_t h) {
+     size_t need = w * h * (size_t)gBytesPerPixel;
+     if (need == 0)
+         return -1;
+     if (gRotateScratchSize >= need && gRotateScratch)
+         return 0;
+     void *nbuf = realloc(gRotateScratch, need);
+-    memset(nbuf, 0, need);
+     if (!nbuf)
+         return -1;
++    memset(nbuf, 0, need);
+     gRotateScratch = nbuf;
+     gRotateScratchSize = need;
+     return 0;
+ }
+@@ -2116,27 +2065,27 @@ NS_INLINE int ensureRotateScratch(size_t w, size_t h) {
+ NS_INLINE int ensureScaleTemp(size_t srcW, size_t srcH, size_t dstW, size_t dstH, vImage_Flags flags) {
+     vImage_Buffer s = {.data = NULL,
+                        .height = (vImagePixelCount)srcH,
+                        .width = (vImagePixelCount)srcW,
+                        .rowBytes = srcW * (size_t)gBytesPerPixel};
+     vImage_Buffer d = {.data = NULL,
+                        .height = (vImagePixelCount)dstH,
+                        .width = (vImagePixelCount)dstW,
+                        .rowBytes = dstW * (size_t)gBytesPerPixel};
+     vImage_Error need = vImageScale_ARGB8888(&s, &d, NULL, flags | kvImageGetTempBufferSize);
+     if (need < 0)
+         return -1;
+     size_t nbytes = (size_t)need;
+     if (nbytes == 0)
+         return 0;
+     if (gScaleTempSize >= nbytes && gScaleTemp)
+         return 0;
+     void *nbuf = realloc(gScaleTemp, nbytes);
+-    memset(nbuf, 0, nbytes);
+     if (!nbuf)
+         return -1;
++    memset(nbuf, 0, nbytes);
+     gScaleTemp = nbuf;
+     gScaleTempSize = nbytes;
+     return 0;
+ }
+ 
+ // Row-by-row copy to convert a possibly-strided captured buffer into a tightly packed VNC buffer.
+@@ -2190,675 +2139,322 @@ NS_INLINE void copyPadOrCropToTight(uint8_t *dstTight, int dstW, int dstH, const
+ NS_INLINE void swapBuffers(void) {
+     void *tmp = gFrontBuffer;
+     gFrontBuffer = gBackBuffer;
+     gBackBuffer = tmp;
+     gScreen->frameBuffer = (char *)gFrontBuffer;
+ }
+ 
+-// Try to acquire all clients' sendMutex without blocking.
+-// Returns 1 on success and fills locked[] with acquired mutexes (count in *lockedCount),
+-// otherwise returns 0 and releases any partial locks.
+-static int tryLockAllClients(pthread_mutex_t **locked, size_t *lockedCount, size_t capacity) {
+-    *lockedCount = 0;
+-    rfbClientIteratorPtr it = rfbGetClientIterator(gScreen);
+-    rfbClientPtr cl;
+-
+-    int ok = 1;
+-    while ((cl = rfbClientIteratorNext(it))) {
+-        if (*lockedCount >= capacity) {
+-            ok = 0;
+-            break;
+-        }
+-        pthread_mutex_t *m = &cl->sendMutex;
+-        if (pthread_mutex_trylock(m) == 0) {
+-            locked[(*lockedCount)++] = m;
+-        } else {
+-            ok = 0;
+-            break;
+-        }
++static void tryPublishPreparedFrame(void) {
++    if (!gFrameUpdates.active() || !gScreen || !gPreparedFrame.valid) return;
++    int desiredRotation = (gOrientationSyncEnabled ? gRotationQuad.load(std::memory_order_relaxed) : 0) & 3;
++    if (gPreparedFrame.rotation != desiredRotation) {
++        // Retain old-geometry ownership on a failed resize, but never publish it
++        // as the newly requested orientation. The next capture retries fresh.
++        gPreparedFrame.forceFull = true;
++        [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
++        return;
+     }
+-
+-    rfbReleaseClientIterator(it);
+-
+-    if (!ok) {
+-        // release any that were acquired
+-        for (size_t i = 0; i < *lockedCount; ++i) {
+-            pthread_mutex_unlock(locked[i]);
+-        }
+-        *lockedCount = 0;
+-        return 0;
++    double now = (double)clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / NSEC_PER_SEC;
++    if (gDeferWindowSec > 0 && gHasPending && now - gPendingSince < gDeferWindowSec) return;
++    BOOL anyDirty = NO;
++    for (size_t i = 0; i < gTileCount && !anyDirty; ++i)
++        anyDirty = gPendingDirty && gPendingDirty[i];
++    if (!gPreparedFrame.forceFull && !anyDirty) {
++        // Source dirty counters can advance while output pixels/hash tiles stay
++        // identical. Complete this obligation without publishing or encoding.
++        gHasPending = NO;
++        gPendingSince = 0;
++        gPreparedFrame.published();
++        return;
+     }
++    if (!gFrameUpdates.capacityAvailable(gMaxInflightUpdates)) return;
+ 
+-    return 1;
+-}
+-
 -// Blocking lock helpers (original behavior): lock all clients, then unlock all.
 -NS_INLINE void lockAllClientsBlocking(void) {
 -    rfbClientIteratorPtr it = rfbGetClientIterator(gScreen);
@@ -250,7 +2671,11 @@ index be6cce3..629bd35 100644
 -    }
 -    rfbReleaseClientIterator(it);
 -}
--
++    std::unique_lock<std::mutex> admission(gPublicationAdmissionMutex, std::try_to_lock);
++    if (!admission.owns_lock()) return;
++    TVClientSendLocks clientLocks(gScreen);
++    if (!clientLocks.acquired() || !clientLocks.count()) return;
+ 
 -NS_INLINE void unlockAllClientsBlocking(void) {
 -    rfbClientIteratorPtr it = rfbGetClientIterator(gScreen);
 -    rfbClientPtr cl;
@@ -258,83 +2683,497 @@ index be6cce3..629bd35 100644
 -        pthread_mutex_unlock(&cl->sendMutex);
 -    }
 -    rfbReleaseClientIterator(it);
--}
--
++    enum { kRectBuf = 1024 };
++    DirtyRect rects[kRectBuf];
++    int changedTiles = 0;
++    BOOL overflow = NO;
++    int rectCount = buildDirtyRects(rects, MIN(gMaxRectsLimit, kRectBuf), &changedTiles, &overflow);
++    int changedPct = gTileCount ? (int)((size_t)changedTiles * 100 / gTileCount) : 100;
++    BOOL fullScreen = gPreparedFrame.forceFull || overflow || rectCount == 0 ||
++                      changedPct >= gFullscreenThresholdPercent;
++
++    // The transaction holds all retained reader locks until pixels, dirty regions
++    // and the published hash baseline refer to the same frame.
++    swapBuffers();
++    if (fullScreen) rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
++    else markRectsModified(rects, rectCount);
++    if (gPreparedFrame.fullHashes) swapTileHashes();
++    gPublishedHashesValid = gPreparedFrame.fullHashes;
++    gPublishedRotation = gPreparedFrame.rotation;
++    if (gPendingDirty) memset(gPendingDirty, 0, gTileCount);
++    gHasPending = NO;
++    gPendingSince = 0;
++    gPreparedFrame.published();
++    clientLocks.unlock();
+ }
+ 
  static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
++    if (!gFrameUpdates.active() || !gScreen) return;
  
  #if DEBUG
-@@ -2264,9 +2262,14 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
-     }
+     // Perf: overall start timestamp
+     CFAbsoluteTime __tv_tStart = CFAbsoluteTimeGetCurrent();
+ #endif
  
-     // Busy-drop: if encoders are busy and limit reached, skip this frame (disabled when -Q 0)
+     CVPixelBufferRef pb = CMSampleBufferGetImageBuffer(sampleBuffer);
+     if (!pb) {
+         TVLogVerbose(@"sampleBuffer has no image buffer (skip)");
+-        return;
+-    }
+-
+-    // Busy-drop: if encoders are busy and limit reached, skip this frame (disabled when -Q 0)
 -    if (gMaxInflightUpdates > 0 && gInflight.load(std::memory_order_relaxed) >= gMaxInflightUpdates) {
-+    if (gFrameUpdates.deferCapture(gMaxInflightUpdates)) {
-+        // Rendering already consumed this dirty counter. Arrange one fresh
-+        // resnapshot after capacity returns, even if the screen stops changing.
-+        // Recheck here in case completion raced the pending retry publication.
-+        if (gFrameUpdates.takeRetryIfReady(gMaxInflightUpdates))
-+            [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
-         // When busy dropping, skip all hashing/dirty work.
+-        // When busy dropping, skip all hashing/dirty work.
 -        TVLogVerbose(@"drop frame due to inflight=%d >= limit=%d", gInflight.load(std::memory_order_relaxed),
-+        TVLogVerbose(@"drop frame due to inflight=%d >= limit=%d", gFrameUpdates.inflight(),
-                      gMaxInflightUpdates);
+-                     gMaxInflightUpdates);
++        [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
          return;
      }
-@@ -2520,10 +2523,10 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
- #endif
-             }
-         } else {
--            lockAllClientsBlocking();
-+            TVClientSendLocks clientLocks(gScreen);
-             swapBuffers();
-             rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
--            unlockAllClientsBlocking();
-+            clientLocks.unlock();
  
  #if DEBUG
-             CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
-@@ -2586,10 +2589,10 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
-             }
-         } else {
-             // Blocking swap to avoid tearing
--            lockAllClientsBlocking();
-+            TVClientSendLocks clientLocks(gScreen);
-             swapBuffers();
-             rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
--            unlockAllClientsBlocking();
-+            clientLocks.unlock();
- 
- #if DEBUG
-             CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
-@@ -2615,12 +2618,12 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
-     CFAbsoluteTime __tv_tHash0 = CFAbsoluteTimeGetCurrent();
+     CFAbsoluteTime __tv_tLock0 = CFAbsoluteTimeGetCurrent();
  #endif
  
--    if (cSparseHashDuringDefer && gDeferWindowSec > 0) {
-+    BOOL usedSparseHash = cSparseHashDuringDefer && gDeferWindowSec > 0;
-+    if (usedSparseHash) {
-         hashTiledFromBufferSparse((const uint8_t *)gBackBuffer, gWidth, gHeight,
-                                   (size_t)gWidth * (size_t)gBytesPerPixel, cHashStrideX, cHashStrideY);
+-    CVPixelBufferLockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
++    if (CVPixelBufferLockBaseAddress(pb, kCVPixelBufferLock_ReadOnly) != kCVReturnSuccess) {
++        [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
++        return;
++    }
+ 
+ #if DEBUG
+     CFAbsoluteTime __tv_tLock1 = CFAbsoluteTimeGetCurrent();
+     CFTimeInterval __tv_msLock = (__tv_tLock1 - __tv_tLock0) * 1000.0;
+     TVLogVerbose(@"lock pixel buffer took %.3f ms", __tv_msLock);
+ #endif
+ 
+     uint8_t *base = (uint8_t *)CVPixelBufferGetBaseAddress(pb);
+     const size_t srcBPR = (size_t)CVPixelBufferGetBytesPerRow(pb);
+     const size_t width = (size_t)CVPixelBufferGetWidth(pb);
+     const size_t height = (size_t)CVPixelBufferGetHeight(pb);
++    if (!base || !width || !height || srcBPR < width * (size_t)gBytesPerPixel) {
++        CVPixelBufferUnlockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
++        [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
++        return;
++    }
+ 
+     // Determine rotation and resize framebuffer if orientation implies new dimensions.
+     int rotQ = (gOrientationSyncEnabled ? gRotationQuad.load(std::memory_order_relaxed) : 0) & 3;
+ 
+ #if DEBUG
+     CFAbsoluteTime __tv_tResize0 = CFAbsoluteTimeGetCurrent();
+ #endif
+ 
+-    maybeResizeFramebufferForRotation(rotQ);
++    if (!maybeResizeFramebufferForRotation(rotQ)) {
++        CVPixelBufferUnlockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
++        [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
++        return;
++    }
+ 
+ #if DEBUG
+     CFAbsoluteTime __tv_tResize1 = CFAbsoluteTimeGetCurrent();
+     CFTimeInterval __tv_msResize = (__tv_tResize1 - __tv_tResize0) * 1000.0;
+     TVLogVerbose(@"maybeResize(rotQ=%d) took %.3f ms (server=%dx%d, src=%zux%zu)", rotQ, __tv_msResize, gWidth, gHeight,
+                  width, height);
+ #endif
+ 
+     if ((int)width != gWidth || (int)height != gHeight) {
+         // With scaling enabled, this is expected; log once for info. Without scaling, warn once.
+         static BOOL sLoggedSizeInfoOnce = NO;
+         if (!sLoggedSizeInfoOnce) {
+             sLoggedSizeInfoOnce = YES;
+             if (gScale != 1.0) {
+                 TVLogVerbose(@"Scaling source %zux%zu -> output %dx%d (scale=%.3f)", width, height, gWidth, gHeight,
+                              gScale);
+             } else {
+                 TVLogVerbose(@"Captured frame size %zux%zu differs from server %dx%d; cropping/copying minimum region.",
+                              width, height, gWidth, gHeight);
+             }
+         }
+     }
+ 
+     // Copy/Rotate/Scale into back buffer. ScreenCapturer is always portrait-oriented.
+     // We rotate by UI orientation then scale to server size.
+     BOOL dirtyDisabled = (gFullscreenThresholdPercent == 0);
+ 
+-    static int sLastRotQ = -1;
+-    bool rotationChanged = (sLastRotQ == -1) ? false : ((rotQ & 3) != (sLastRotQ & 3));
++    bool rotationChanged = (gPublishedRotation < 0) || (rotQ != gPublishedRotation);
++    gPreparedFrame.beginOverwrite();
+     bool needsRotate = (rotQ != 0);
+ 
+     vImage_Buffer srcBuf = {
+         .data = base, .height = (vImagePixelCount)height, .width = (vImagePixelCount)width, .rowBytes = srcBPR};
+ 
+     vImage_Buffer stage = srcBuf; // after rotation
+     vImage_Buffer rotBuf = {0};
+ 
+ #if DEBUG
+     CFTimeInterval __tv_msRotate = 0.0;
+     CFTimeInterval __tv_msScaleOrCopy = 0.0;
+ #endif
+ 
+     if (needsRotate) {
+ 
+ #if DEBUG
+         CFAbsoluteTime __tv_tRot0 = CFAbsoluteTimeGetCurrent();
+ #endif
+ 
+         size_t rotW = (rotQ % 2 == 0) ? (size_t)width : (size_t)height;
+         size_t rotH = (rotQ % 2 == 0) ? (size_t)height : (size_t)width;
+         if (ensureRotateScratch(rotW, rotH) != 0) {
+             CVPixelBufferUnlockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
++            [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
+             return;
+         }
+ 
+         rotBuf.data = gRotateScratch;
+         rotBuf.width = (vImagePixelCount)rotW;
+         rotBuf.height = (vImagePixelCount)rotH;
+         rotBuf.rowBytes = rotW * (size_t)gBytesPerPixel;
+ 
+         uint8_t rotConst = kRotate0DegreesClockwise;
+         switch (rotQ) {
+         case 1:
+             rotConst = kRotate90DegreesClockwise;
+             break;
+         case 2:
+             rotConst = kRotate180DegreesClockwise;
+             break;
+         case 3:
+             rotConst = kRotate270DegreesClockwise;
+             break;
+         default:
+             rotConst = kRotate0DegreesClockwise;
+             break;
+         }
+ 
+         uint8_t bg[4] = {0, 0, 0, 0};
+         vImage_Error rerr = vImageRotate90_ARGB8888(&srcBuf, &rotBuf, rotConst, bg, kvImageNoFlags);
+         if (rerr != kvImageNoError) {
+             static BOOL sLoggedRotErrOnce = NO;
+             if (!sLoggedRotErrOnce) {
+                 sLoggedRotErrOnce = YES;
+                 TVLog(@"vImageRotate90_ARGB8888 failed: %ld", (long)rerr);
+             }
+ 
+             CVPixelBufferUnlockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
++            [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
+             return;
+         }
+ 
+         stage = rotBuf;
+ 
+ #if DEBUG
+         CFAbsoluteTime __tv_tRot1 = CFAbsoluteTimeGetCurrent();
+         __tv_msRotate = (__tv_tRot1 - __tv_tRot0) * 1000.0;
+         TVLogVerbose(@"rotate %d*90 took %.3f ms (rotW=%zu, rotH=%zu)", rotQ, __tv_msRotate, (size_t)rotBuf.width,
+                      (size_t)rotBuf.height);
+ #endif
+     }
+ 
+     // Scale stage to back buffer (tightly packed)
+     vImage_Buffer dstBuf = {.data = gBackBuffer,
+                             .height = (vImagePixelCount)gHeight,
+                             .width = (vImagePixelCount)gWidth,
+                             .rowBytes = (size_t)gWidth * (size_t)gBytesPerPixel};
+     if (stage.width == dstBuf.width && stage.height == dstBuf.height && gScale == 1.0) {
+ 
+ #if DEBUG
+         CFAbsoluteTime __tv_tCopy0 = CFAbsoluteTimeGetCurrent();
+ #endif
+ 
+         copyWithStrideTight((uint8_t *)dstBuf.data, (const uint8_t *)stage.data, gWidth, gHeight, stage.rowBytes);
+ 
+ #if DEBUG
+         CFAbsoluteTime __tv_tCopy1 = CFAbsoluteTimeGetCurrent();
+         __tv_msScaleOrCopy = (__tv_tCopy1 - __tv_tCopy0) * 1000.0;
+         TVLogVerbose(@"copy stage->back (tight) took %.3f ms", __tv_msScaleOrCopy);
+ #endif
+ 
      } else {
+ 
+         // Small-diff pad/crop fast path to avoid vImageScale when sizes are close
+         int dW = (int)dstBuf.width - (int)stage.width;
+         int dH = (int)dstBuf.height - (int)stage.height;
+         if (cNoScalePadThresholdPx > 0 && dW <= cNoScalePadThresholdPx && dW >= -cNoScalePadThresholdPx &&
+             dH <= cNoScalePadThresholdPx && dH >= -cNoScalePadThresholdPx) {
+ 
+ #if DEBUG
+             CFAbsoluteTime __tv_tPad0 = CFAbsoluteTimeGetCurrent();
+ #endif
+ 
+             copyPadOrCropToTight((uint8_t *)dstBuf.data, (int)dstBuf.width, (int)dstBuf.height,
+                                  (const uint8_t *)stage.data, (int)stage.width, (int)stage.height, stage.rowBytes);
+ 
+ #if DEBUG
+             CFAbsoluteTime __tv_tPad1 = CFAbsoluteTimeGetCurrent();
+             __tv_msScaleOrCopy = (__tv_tPad1 - __tv_tPad0) * 1000.0;
+             TVLogVerbose(@"pad/crop copy stage->back took %.3f ms (stage=%zux%zu -> dst=%dx%d, thr=%d)",
+                          __tv_msScaleOrCopy, (size_t)stage.width, (size_t)stage.height, gWidth, gHeight,
+                          cNoScalePadThresholdPx);
+ #endif
+ 
+         } else {
+ 
+ #if DEBUG
+             CFAbsoluteTime __tv_tScale0 = CFAbsoluteTimeGetCurrent();
+ #endif
+ 
+             if (ensureScaleTemp(stage.width, stage.height, dstBuf.width, dstBuf.height, kvImageHighQualityResampling) !=
+                 0) {
+                 CVPixelBufferUnlockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
++                [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
+                 return;
+             }
+ 
+             vImage_Error err = vImageScale_ARGB8888(&stage, &dstBuf, gScaleTemp, kvImageHighQualityResampling);
+             if (err != kvImageNoError) {
+                 static BOOL sLoggedVImageErrOnce = NO;
+                 if (!sLoggedVImageErrOnce) {
+                     sLoggedVImageErrOnce = YES;
+                     TVLog(@"vImageScale_ARGB8888 failed: %ld", (long)err);
+                 }
+                 CVPixelBufferUnlockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
++                [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
+                 return;
+             }
+ 
+ #if DEBUG
+             CFAbsoluteTime __tv_tScale1 = CFAbsoluteTimeGetCurrent();
+             __tv_msScaleOrCopy = (__tv_tScale1 - __tv_tScale0) * 1000.0;
+             TVLogVerbose(@"scale stage->back took %.3f ms (stage=%zux%zu -> dst=%dx%d)", __tv_msScaleOrCopy,
+                          (size_t)stage.width, (size_t)stage.height, gWidth, gHeight);
+ #endif
+         }
+     }
+ 
+ #if DEBUG
+     CFAbsoluteTime __tv_tUnlock0 = CFAbsoluteTimeGetCurrent();
+ #endif
+ 
+     CVPixelBufferUnlockBaseAddress(pb, kCVPixelBufferLock_ReadOnly);
+ 
+ #if DEBUG
+     CFAbsoluteTime __tv_tUnlock1 = CFAbsoluteTimeGetCurrent();
+     CFTimeInterval __tv_msUnlock = (__tv_tUnlock1 - __tv_tUnlock0) * 1000.0;
+     TVLogVerbose(@"unlock pixel buffer took %.3f ms", __tv_msUnlock);
+ #endif
+ 
+-    // If rotation just changed, force a full-screen update and reset dirty state
+-    // to avoid mixing hashes/pending dirties from the previous orientation.
+-    if (rotationChanged) {
+-        // Clear pending mask/state
+-        if (gPendingDirty)
+-            memset(gPendingDirty, 0, gTileCount);
+-        gHasPending = NO;
+-
+-#if DEBUG
+-        CFAbsoluteTime __tv_tSwap0 = CFAbsoluteTimeGetCurrent();
+-#endif
+-
+-        if (gAsyncSwapEnabled) {
+-            pthread_mutex_t *locked[64];
+-            size_t lockedCount = 0;
+-            if (tryLockAllClients(locked, &lockedCount, sizeof(locked) / sizeof(locked[0]))) {
+-                swapBuffers();
+-                for (size_t i = 0; i < lockedCount; ++i)
+-                    pthread_mutex_unlock(locked[i]);
+-                rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+-
+-#if DEBUG
+-                CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+-                TVLogVerbose(@"rotationChanged async-swap+mark fullscreen took %.3f ms",
+-                             (__tv_tSwap1 - __tv_tSwap0) * 1000.0);
+-#endif
+-
+-            } else {
+-                copyWithStrideTight((uint8_t *)gFrontBuffer, (uint8_t *)gBackBuffer, gWidth, gHeight,
+-                                    (size_t)gWidth * (size_t)gBytesPerPixel);
+-                rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+-
+-#if DEBUG
+-                CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+-                TVLogVerbose(@"rotationChanged copy(fullscreen)+mark took %.3f ms",
+-                             (__tv_tSwap1 - __tv_tSwap0) * 1000.0);
+-#endif
+-            }
+-        } else {
+-            lockAllClientsBlocking();
+-            swapBuffers();
+-            rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+-            unlockAllClientsBlocking();
+-
+-#if DEBUG
+-            CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+-            TVLogVerbose(@"rotationChanged blocking-swap+mark fullscreen took %.3f ms",
+-                         (__tv_tSwap1 - __tv_tSwap0) * 1000.0);
+-#endif
+-        }
+-
+-        // Skip dirty detection for this frame after rotation; return early
+-        sLastRotQ = rotQ;
+-
+-        // Rotation may not change geometry (0<->180). Maintain hashes here so
+-        // the next frame recomputes curr and swaps to form a clean baseline.
+-        resetCurrTileHashes();
+-        swapTileHashes();
+-
+-#if DEBUG
+-        CFAbsoluteTime __tv_tEnd = CFAbsoluteTimeGetCurrent();
+-        TVLogVerbose(@"rotationChanged summary rotQ=%d lock=%.3fms resize=%.3fms rotate=%.3fms scale/copy=%.3fms "
+-                     @"total=%.3fms",
+-                     rotQ, __tv_msLock, __tv_msResize, __tv_msRotate, __tv_msScaleOrCopy,
+-                     (__tv_tEnd - __tv_tStart) * 1000.0);
+-#endif
+-
+-        return;
+-    }
+-
+-    // If dirty detection is disabled, perform a full-screen update
+-    if (dirtyDisabled) {
+-
+-#if DEBUG
+-        CFAbsoluteTime __tv_tSwap0 = CFAbsoluteTimeGetCurrent();
+-#endif
+-
+-        if (gAsyncSwapEnabled) {
+-            pthread_mutex_t *locked[64];
+-            size_t lockedCount = 0;
+-            if (tryLockAllClients(locked, &lockedCount, sizeof(locked) / sizeof(locked[0]))) {
+-                swapBuffers();
+-                for (size_t i = 0; i < lockedCount; ++i)
+-                    pthread_mutex_unlock(locked[i]);
+-                rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+-
+-#if DEBUG
+-                CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+-                TVLogVerbose(@"dirtyDisabled async-swap+mark fullscreen took %.3f ms",
+-                             (__tv_tSwap1 - __tv_tSwap0) * 1000.0);
+-#endif
+-
+-            } else {
+-                // Whole screen copy fallback (tight -> tight)
+-                copyWithStrideTight((uint8_t *)gFrontBuffer, (uint8_t *)gBackBuffer, gWidth, gHeight,
+-                                    (size_t)gWidth * (size_t)gBytesPerPixel);
+-                rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+-
+-#if DEBUG
+-                CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+-                TVLogVerbose(@"dirtyDisabled copy(fullscreen)+mark took %.3f ms", (__tv_tSwap1 - __tv_tSwap0) * 1000.0);
+-#endif
+-            }
+-        } else {
+-            // Blocking swap to avoid tearing
+-            lockAllClientsBlocking();
+-            swapBuffers();
+-            rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+-            unlockAllClientsBlocking();
+-
+-#if DEBUG
+-            CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+-            TVLogVerbose(@"dirtyDisabled blocking-swap+mark fullscreen took %.3f ms",
+-                         (__tv_tSwap1 - __tv_tSwap0) * 1000.0);
+-#endif
+-        }
+-
+-#if DEBUG
+-        CFAbsoluteTime __tv_tEnd = CFAbsoluteTimeGetCurrent();
+-        TVLogVerbose(
+-            @"dirtyDisabled summary rotQ=%d lock=%.3fms resize=%.3fms rotate=%.3fms scale/copy=%.3fms total=%.3fms",
+-            rotQ, __tv_msLock, __tv_msResize, __tv_msRotate, __tv_msScaleOrCopy, (__tv_tEnd - __tv_tStart) * 1000.0);
+-#endif
+-
+-        return;
+-    }
+-
+-    // Build dirty rectangles with deferred coalescing window (enabled)
+-    // Lightweight hashing to update pending and decide whether to flush.
+-
+-#if DEBUG
+-    CFAbsoluteTime __tv_tHash0 = CFAbsoluteTimeGetCurrent();
+-#endif
+-
+-    if (cSparseHashDuringDefer && gDeferWindowSec > 0) {
+-        hashTiledFromBufferSparse((const uint8_t *)gBackBuffer, gWidth, gHeight,
+-                                  (size_t)gWidth * (size_t)gBytesPerPixel, cHashStrideX, cHashStrideY);
+-    } else {
 -        resetCurrTileHashes();
 -        hashTiledFromBuffer((const uint8_t *)gBackBuffer, gWidth, gHeight, (size_t)gWidth * (size_t)gBytesPerPixel);
+-    }
+-
+-#if DEBUG
+-    CFAbsoluteTime __tv_tHash1 = CFAbsoluteTimeGetCurrent();
+-    CFTimeInterval __tv_msHash = (__tv_tHash1 - __tv_tHash0) * 1000.0;
+-    TVLogVerbose(@"tile hashing took %.3f ms (tiles=%zu, tileSize=%d)%@%@", __tv_msHash, gTileCount, gTileSize,
+-                 (cSparseHashDuringDefer && gDeferWindowSec > 0) ? @" [sparse]" : @"",
+-                 cUseCRC32Hash ? @" [crc32]" : @" [fnv]");
+-#endif
+-
+-    enum { kRectBuf = 1024 };
+-    DirtyRect rects[kRectBuf];
+-    int changedTiles = 0;
+-
+-    // Accumulate pending dirty tiles
+-
+-#if DEBUG
+-    CFAbsoluteTime __tv_tPend0 = CFAbsoluteTimeGetCurrent();
+-#endif
+-
+-    accumulatePendingDirty();
+-
+-#if DEBUG
+-    CFAbsoluteTime __tv_tPend1 = CFAbsoluteTimeGetCurrent();
+-    CFTimeInterval __tv_msPend = (__tv_tPend1 - __tv_tPend0) * 1000.0;
+-    TVLogVerbose(@"accumulate pending took %.3f ms (hasPending=%@)", __tv_msPend, gHasPending ? @"YES" : @"NO");
+-#endif
+-
+-    // Decide whether to flush now
+-    BOOL shouldFlush = YES;
+-    static CFAbsoluteTime sDeferStartTime = 0;
+-    if (gDeferWindowSec > 0) {
+-        if (!gHasPending) {
+-            gHasPending = YES;
+-            sDeferStartTime = CFAbsoluteTimeGetCurrent();
+-            shouldFlush = NO; // start window, wait for more
+-        } else {
+-            CFAbsoluteTime now = CFAbsoluteTimeGetCurrent();
+-            shouldFlush = ((now - sDeferStartTime) >= gDeferWindowSec);
+-            TVLogVerbose(@"defer window elapsed=%.3f ms (threshold=%.3f ms) -> %@", (now - sDeferStartTime) * 1000.0,
+-                         gDeferWindowSec * 1000.0, shouldFlush ? @"FLUSH" : @"WAIT");
+-        }
+-    }
+-
+-    int rectCount = 0;
+-    int changedPct = 0;
+-    BOOL fullScreen = NO;
+-
+-    if (!shouldFlush) {
+-        // Still deferring: do not notify clients yet; keep previous full-hash baseline.
+-
+-#if DEBUG
+-        CFAbsoluteTime __tv_tEnd = CFAbsoluteTimeGetCurrent();
+-        TVLogVerbose(@"deferred (no flush) summary rotQ=%d lock=%.3fms resize=%.3fms rotate=%.3fms scale/copy=%.3fms "
+-                     @"hash=%.3fms total=%.3fms",
+-                     rotQ, __tv_msLock, __tv_msResize, __tv_msRotate, __tv_msScaleOrCopy, __tv_msHash,
+-                     (__tv_tEnd - __tv_tStart) * 1000.0);
+-#endif
+-
+-        return;
++    // The back buffer now holds the newest complete preparation. Keep the
++    // published hash baseline until this exact buffer is successfully published.
++    if (!dirtyDisabled) {
 +        hashFullBackBuffer();
++        accumulatePendingDirty();
      }
- 
- #if DEBUG
-@@ -2683,26 +2686,14 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
-         return;
-     }
- 
+-
 -    // At flush: recompute full hashes for precise rects
 -    {
-+    // Sparse hashes need a precise replacement; full hashes remain valid.
-+    if (usedSparseHash) {
- 
- #if DEBUG
-         CFAbsoluteTime __tv_tHashFull0 = CFAbsoluteTimeGetCurrent();
- #endif
- 
+-
+-#if DEBUG
+-        CFAbsoluteTime __tv_tHashFull0 = CFAbsoluteTimeGetCurrent();
+-#endif
+-
 -        if (cParallelHashOnFlush) {
 -            // Use number of logical CPUs as thread hint (capped)
 -            int threads = (int)[[NSProcessInfo processInfo] processorCount];
@@ -348,37 +3187,180 @@ index be6cce3..629bd35 100644
 -            resetCurrTileHashes();
 -            hashTiledFromBuffer((const uint8_t *)gBackBuffer, gWidth, gHeight, (size_t)gWidth * (size_t)gBytesPerPixel);
 -        }
-+        hashFullBackBuffer();
- 
+-
+-#if DEBUG
+-        CFAbsoluteTime __tv_tHashFull1 = CFAbsoluteTimeGetCurrent();
+-        __tv_msHash = (__tv_tHashFull1 - __tv_tHashFull0) * 1000.0;
+-        TVLogVerbose(@"tile hashing (flush full)%@ took %.3f ms (tiles=%zu, tileSize=%d)%@",
+-                     cParallelHashOnFlush ? @" [parallel]" : @"", __tv_msHash, gTileCount, gTileSize,
+-                     cUseCRC32Hash ? @" [crc32]" : @" [fnv]");
+-#endif
++    if (!gHasPending) {
++        gHasPending = YES;
++        gPendingSince = (double)clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / NSEC_PER_SEC;
+     }
+-
+-// Promote pending tiles into rects
++    gPreparedFrame.prepared(rotQ, dirtyDisabled || rotationChanged || !gPublishedHashesValid,
++                             !dirtyDisabled);
  #if DEBUG
-         CFAbsoluteTime __tv_tHashFull1 = CFAbsoluteTimeGetCurrent();
-@@ -2831,14 +2822,14 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
-         }
-     } else {
-         // Original blocking behavior to avoid tearing.
+-    CFAbsoluteTime __tv_tRects0 = CFAbsoluteTimeGetCurrent();
+-#endif
+-
+-    rectCount = buildRectsFromPending(rects, MIN(gMaxRectsLimit, kRectBuf));
+-
+-    // If anything from this frame is also new dirty not in pending, ensure included
+-    int extraTiles = 0;
+-    if (rectCount == 0) {
+-        rectCount = buildDirtyRects(rects, MIN(gMaxRectsLimit, kRectBuf), &changedTiles);
+-    } else {
+-        // Merge current frame dirties by re-running with hashes, bounded
+-        DirtyRect rectsNow[kRectBuf];
+-        int nowCount = buildDirtyRects(rectsNow, MIN(gMaxRectsLimit, kRectBuf), &extraTiles);
+-
+-        // Simple append then vertical merge will compact later in pipeline
+-        int space = kRectBuf - rectCount;
+-        int take = nowCount < space ? nowCount : space;
+-        if (take > 0)
+-            memcpy(&rects[rectCount], rectsNow, (size_t)take * sizeof(DirtyRect));
+-        rectCount += take;
+-    }
+-
+-    int totalTiles = (int)gTileCount;
+-    int totalChanged = changedTiles + extraTiles;
+-    changedPct = (totalTiles > 0) ? (totalChanged * 100 / totalTiles) : 100;
+-
+-    if (rectCount >= gMaxRectsLimit) {
+-        // Collapse to bounding box
+-        int minX = gWidth, minY = gHeight, maxX = 0, maxY = 0;
+-        for (int i = 0; i < rectCount; ++i) {
+-            if (rects[i].w <= 0 || rects[i].h <= 0)
+-                continue;
+-            if (rects[i].x < minX)
+-                minX = rects[i].x;
+-            if (rects[i].y < minY)
+-                minY = rects[i].y;
+-            if (rects[i].x + rects[i].w > maxX)
+-                maxX = rects[i].x + rects[i].w;
+-            if (rects[i].y + rects[i].h > maxY)
+-                maxY = rects[i].y + rects[i].h;
+-        }
+-
+-        rects[0] = (DirtyRect){minX, minY, maxX - minX, maxY - minY};
+-        rectCount = 1;
+-
+-        TVLogVerbose(@"rects exceeded limit -> collapse to bbox");
+-    }
+-
+-    fullScreen = (changedPct >= gFullscreenThresholdPercent) || rectCount == 0;
+-
+-#if DEBUG
+-    CFAbsoluteTime __tv_tRects1 = CFAbsoluteTimeGetCurrent();
+-    CFTimeInterval __tv_msRects = (__tv_tRects1 - __tv_tRects0) * 1000.0;
+-    TVLogVerbose(@"build rects took %.3f ms (rects=%d, changedTiles=%d, extraTiles=%d, changedPct=%d%%, fsThresh=%d%%, "
+-                 @"fullscreen=%@)",
+-                 __tv_msRects, rectCount, changedTiles, extraTiles, changedPct, gFullscreenThresholdPercent,
+-                 fullScreen ? @"YES" : @"NO");
+-#endif
+-
+-    // Clear pending
+-    if (gPendingDirty)
+-        memset(gPendingDirty, 0, gTileCount);
+-
+-    gHasPending = NO;
+-
+-#if DEBUG
+-    CFAbsoluteTime __tv_tSwap0 = CFAbsoluteTimeGetCurrent();
+-#endif
+-
+-    if (gAsyncSwapEnabled) {
+-        // Try non-blocking swap with fallback to single-buffer copy.
+-        pthread_mutex_t *locked[64];
+-        size_t lockedCount = 0;
+-
+-        if (tryLockAllClients(locked, &lockedCount, sizeof(locked) / sizeof(locked[0]))) {
+-            swapBuffers();
+-            for (size_t i = 0; i < lockedCount; ++i)
+-                pthread_mutex_unlock(locked[i]);
+-            if (fullScreen) {
+-                rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+-            } else {
+-                markRectsModified(rects, rectCount);
+-            }
+-
+-#if DEBUG
+-            CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+-            TVLogVerbose(@"async-swap+mark took %.3f ms (%@)", (__tv_tSwap1 - __tv_tSwap0) * 1000.0,
+-                         fullScreen ? @"fullscreen" : @"partial");
+-#endif
+-
+-        } else {
+-            if (fullScreen) {
+-                // Whole screen copy fallback (tight -> tight)
+-                copyWithStrideTight((uint8_t *)gFrontBuffer, (uint8_t *)gBackBuffer, gWidth, gHeight,
+-                                    (size_t)gWidth * (size_t)gBytesPerPixel);
+-                rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+-
+-#if DEBUG
+-                CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+-                TVLogVerbose(@"async path copy(fullscreen)+mark took %.3f ms", (__tv_tSwap1 - __tv_tSwap0) * 1000.0);
+-#endif
+-
+-            } else {
+-                // Only copy dirty regions from back to front to reduce tearing and bandwidth
+-                copyRectsFromBackToFront(rects, rectCount);
+-                markRectsModified(rects, rectCount);
+-
+-#if DEBUG
+-                CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+-                TVLogVerbose(@"async path copy(dirty %d rects)+mark took %.3f ms", rectCount,
+-                             (__tv_tSwap1 - __tv_tSwap0) * 1000.0);
+-#endif
+-            }
+-        }
+-    } else {
+-        // Original blocking behavior to avoid tearing.
 -        lockAllClientsBlocking();
-+        TVClientSendLocks clientLocks(gScreen);
-         swapBuffers();
-         if (fullScreen) {
-             rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
-         } else {
-             markRectsModified(rects, rectCount);
-         }
+-        swapBuffers();
+-        if (fullScreen) {
+-            rfbMarkRectAsModified(gScreen, 0, 0, gWidth, gHeight);
+-        } else {
+-            markRectsModified(rects, rectCount);
+-        }
 -        unlockAllClientsBlocking();
-+        clientLocks.unlock();
- 
- #if DEBUG
-         CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
-@@ -2857,7 +2848,7 @@ static void handleFramebuffer(CMSampleBufferRef sampleBuffer) {
-                  @"rects=%.3fms total=%.3fms (rectCount=%d, changedPct=%d%%, fullscreen=%@, inflight=%d/%d)",
-                  rotQ, __tv_msLock, __tv_msResize, __tv_msRotate, __tv_msScaleOrCopy, __tv_msHash, __tv_msRects,
-                  (__tv_tEnd - __tv_tStart) * 1000.0, rectCount, changedPct, fullScreen ? @"YES" : @"NO",
+-
+-#if DEBUG
+-        CFAbsoluteTime __tv_tSwap1 = CFAbsoluteTimeGetCurrent();
+-        TVLogVerbose(@"blocking-swap+mark took %.3f ms (%@)", (__tv_tSwap1 - __tv_tSwap0) * 1000.0,
+-                     fullScreen ? @"fullscreen" : @"partial");
+-#endif
+-    }
+-
+-    // Prepare for next frame: current hashes become previous
+-    swapTileHashes();
+-    sLastRotQ = rotQ;
+-
+-#if DEBUG
+-    CFAbsoluteTime __tv_tEnd = CFAbsoluteTimeGetCurrent();
+-    TVLogVerbose(@"frame summary rotQ=%d lock=%.3fms resize=%.3fms rotate=%.3fms scale/copy=%.3fms hash=%.3fms "
+-                 @"rects=%.3fms total=%.3fms (rectCount=%d, changedPct=%d%%, fullscreen=%@, inflight=%d/%d)",
+-                 rotQ, __tv_msLock, __tv_msResize, __tv_msRotate, __tv_msScaleOrCopy, __tv_msHash, __tv_msRects,
+-                 (__tv_tEnd - __tv_tStart) * 1000.0, rectCount, changedPct, fullScreen ? @"YES" : @"NO",
 -                 gInflight.load(std::memory_order_relaxed), gMaxInflightUpdates);
-+                 gFrameUpdates.inflight(), gMaxInflightUpdates);
++    TVLogVerbose(@"latest frame prepared in %.3f ms (rotQ=%d)",
++                 (CFAbsoluteTimeGetCurrent() - __tv_tStart) * 1000.0, rotQ);
  #endif
++    tryPublishPreparedFrame();
  }
  
-@@ -2946,6 +2937,16 @@ static void kbdAddEvent(rfbBool down, rfbKeySym keySym, rfbClientPtr cl) {
+ #pragma mark - Event Handlers
+@@ -2940,79 +2536,89 @@ NS_INLINE NSString *keysymToString(rfbKeySym ks) {
+ static void kbdAddEvent(rfbBool down, rfbKeySym keySym, rfbClientPtr cl) {
+     (void)cl;
+     if (gViewOnly)
+         return;
+ 
+     STHIDEventGenerator *gen = [STHIDEventGenerator sharedGenerator];
  
      // Map common XF86 multimedia/brightness keysyms to iOS HID events
      switch ((unsigned long)keySym) {
@@ -395,7 +3377,576 @@ index be6cce3..629bd35 100644
      // Brightness Up/Down
      case 0x1008ff02UL: // XF86MonBrightnessUp
          if (down)
-@@ -4554,6 +4555,13 @@ static void setupRfbScreen(int argc, const char *argv[]) {
+             [gen displayBrightnessIncrementDown];
+         else
+             [gen displayBrightnessIncrementUp];
+         return;
+     case 0x1008ff03UL: // XF86MonBrightnessDown
+         if (down)
+             [gen displayBrightnessDecrementDown];
+         else
+             [gen displayBrightnessDecrementUp];
+         return;
+     // Volume/Mute
+     case 0x1008ff13UL: // XF86AudioRaiseVolume
+         if (down)
+             [gen volumeIncrementDown];
+         else
+             [gen volumeIncrementUp];
+         return;
+     case 0x1008ff11UL: // XF86AudioLowerVolume
+         if (down)
+             [gen volumeDecrementDown];
+         else
+             [gen volumeDecrementUp];
+         return;
+     case 0x1008ff12UL: // XF86AudioMute
+         if (down)
+             [gen muteDown];
+         else
+             [gen muteUp];
+         return;
+     // Media keys: Previous / Play-Pause / Next (use Consumer usages)
+     case 0x1008ff3eUL: // Map as Previous Track (per user observation)
+         if (down)
+             [gen otherConsumerUsageDown:kHIDUsage_Csmr_ScanPreviousTrack];
+         else
+             [gen otherConsumerUsageUp:kHIDUsage_Csmr_ScanPreviousTrack];
+         return;
+     case 0x1008ff14UL: // XF86AudioPlay (toggle Play/Pause)
+         if (down)
+             [gen otherConsumerUsageDown:kHIDUsage_Csmr_PlayOrPause];
+         else
+             [gen otherConsumerUsageUp:kHIDUsage_Csmr_PlayOrPause];
+         return;
+     case 0x1008ff97UL: // Map as Next Track (per user observation)
+         if (down)
+             [gen otherConsumerUsageDown:kHIDUsage_Csmr_ScanNextTrack];
+         else
+             [gen otherConsumerUsageUp:kHIDUsage_Csmr_ScanNextTrack];
+         return;
+     default:
+         break;
+     }
+ 
+     NSString *keyStr = keysymToString(keySym);
+     if (gKeyEventLogging && tvncLoggingEnabled) {
+         const char *mapped = keyStr ? [keyStr UTF8String] : "(nil)";
+         rfbLog("[key] %s keysym=0x%lx (%lu) mapped=%s\n", down ? "down" : " up ", (unsigned long)keySym,
+                (unsigned long)keySym, mapped);
+     }
+ 
+     if (!keyStr)
+         return;
+ 
+     if (down)
+         [gen keyDown:keyStr];
+     else
+         [gen keyUp:keyStr];
+ }
+@@ -3468,7 +3074,7 @@ static int gTvCtlListenFd = -1;
+ static dispatch_source_t gTvCtlAcceptSource = NULL;
+ 
+ // Number of connected clients
+-static int gClientCount = 0;
++static std::atomic<int> gClientCount(0);
+ 
+ // Subscribers for control change notifications (store as NSNumber wrapping fd)
+ static NSMutableSet<NSNumber *> *gTvCtlSubscribers = nil;
+@@ -3860,83 +3466,83 @@ static BOOL tvDisconnectAllClients(void) {
+ void tvCtlHandleConnection(int cfd, struct sockaddr_in caddr) {
+     // Log peer and set short timeouts
+     char ipbuf[INET_ADDRSTRLEN] = {0};
+     const char *ip = inet_ntop(AF_INET, &caddr.sin_addr, ipbuf, sizeof(ipbuf));
+     TVLog(@"Control socket: connection from %s:%d (fd=%d)", ip ? ip : "?", ntohs(caddr.sin_port), cfd);
+ 
+     struct timeval tv;
+     tv.tv_sec = 2;
+     tv.tv_usec = 0;
+     setsockopt(cfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+     setsockopt(cfd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+ 
+     // Read a single line command
+     uint8_t buf[1024];
+     size_t off = 0;
+     for (;;) {
+         ssize_t n = recv(cfd, buf + off, sizeof(buf) - off, 0);
+         if (n < 0) {
+             if (errno == EINTR)
+                 continue;
+             break;
+         }
+         if (n == 0)
+             break;
+         off += (size_t)n;
+         if (off >= sizeof(buf))
+             break;
+         if (memchr(buf, '\n', off))
+             break;
+     }
+ 
+     // Parse command
+     NSString *cmd = [[NSString alloc] initWithBytes:buf length:off encoding:NSUTF8StringEncoding];
+     if (!cmd)
+         cmd = @"";
+     cmd = [cmd stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+ 
+     NSData *resp = nil;
+     BOOL keepOpen = NO;
+     if (cmd.length == 0) {
+         resp = [@"ERR Empty\n" dataUsingEncoding:NSUTF8StringEncoding];
+     } else if ([cmd isEqualToString:@"count"]) {
+-        NSString *s = [NSString stringWithFormat:@"%d\n", gClientCount];
++        NSString *s = [NSString stringWithFormat:@"%d\n", gClientCount.load()];
+         resp = [s dataUsingEncoding:NSUTF8StringEncoding];
+     } else if ([cmd isEqualToString:@"list"]) {
+         resp = tvCtlTSVForList();
+     } else if ([cmd isEqualToString:@"subscribe on"]) {
+         tvCtlAddSubscriber(cfd);
+         const char *ok = "OK\n";
+         resp = [NSData dataWithBytes:ok length:strlen(ok)];
+         keepOpen = YES; // keep connection open for pushes
+     } else if ([cmd isEqualToString:@"subscribe off"]) {
+         tvCtlRemoveSubscriber(cfd, NO);
+         const char *ok = "OK\n";
+         resp = [NSData dataWithBytes:ok length:strlen(ok)];
+     } else if ([cmd hasPrefix:@"disconnect "] || [cmd hasPrefix:@"kick "] || [cmd hasPrefix:@"block "]) {
+         NSArray *parts = [cmd componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+         NSString *cid = parts.count >= 2 ? parts[1] : @"";
+         if ([cid isEqualToString:@"ALL"]) {
+             tvDisconnectAllClients();
+             resp = [@"OK\n" dataUsingEncoding:NSUTF8StringEncoding];
+         } else if (cid.length != 8) {
+             resp = [@"ERR InvalidID\n" dataUsingEncoding:NSUTF8StringEncoding];
+         } else {
+             BOOL shouldBlock = [cmd hasPrefix:@"block "];
+             resp = tvCtlTextForKick(cid, shouldBlock);
+         }
+     } else {
+         resp = [@"ERR Unknown\n" dataUsingEncoding:NSUTF8StringEncoding];
+     }
+ 
+     if (resp)
+         tvCtlWriteAll(cfd, resp.bytes, resp.length);
+ 
+     if (keepOpen) {
+         // Do not close; subscriber lifecycle managed elsewhere
+         return;
+     }
+ 
+     close(cfd);
+ }
+ 
+ #pragma mark - User Notifications
+@@ -3944,29 +3550,29 @@ void tvCtlHandleConnection(int cfd, struct sockaddr_in caddr) {
+ static void tvPublishUserSingleNotifs(void) {
+     if (!gUserSingleNotifsEnabled || isRepeaterEnabled())
+         return;
+ 
+     BulletinManager *mgr = [BulletinManager sharedManager];
+ 
+-    if (gClientCount == 0) {
++    if (gClientCount.load() == 0) {
+         dispatch_async(dispatch_get_main_queue(), ^(void) {
+             [mgr revokeSingleNotification];
+         });
+         return;
+     }
+ 
+     NSDictionary *userInfo = @{
+-        @"clientCount" : @(gClientCount),
++        @"clientCount" : @(gClientCount.load()),
+     };
+ 
+     NSString *localizedContentTmpl;
+-    localizedContentTmpl = (gClientCount == 1) ? LocalizedString(@"There is %d active VNC client.", @"Localizable",
++    localizedContentTmpl = (gClientCount.load() == 1) ? LocalizedString(@"There is %d active VNC client.", @"Localizable",
+                                                                  tvLocalizationBundle(), @"trollvncserver")
+                                                : LocalizedString(@"There are %d active VNC clients.", @"Localizable",
+                                                                  tvLocalizationBundle(), @"trollvncserver");
+ 
+-    NSString *localizedContent = [NSString stringWithFormat:localizedContentTmpl, gClientCount];
++    NSString *localizedContent = [NSString stringWithFormat:localizedContentTmpl, gClientCount.load()];
+     dispatch_async(dispatch_get_main_queue(), ^(void) {
+-        [mgr updateSingleBannerWithContent:localizedContent badgeCount:gClientCount userInfo:userInfo];
++        [mgr updateSingleBannerWithContent:localizedContent badgeCount:gClientCount.load() userInfo:userInfo];
+     });
+ }
+ 
+@@ -4019,9 +3625,32 @@ static void tvPublishClientDisconnectedNotif(NSString *host) {
+ 
+ #pragma mark - Client Handlers
+ 
+-static BOOL gIsCaptureStarted = NO;
++static BOOL gIsCaptureStarted = NO; // main only
++static BOOL gCaptureShutdown = NO;  // main only
++static std::atomic<bool> gCaptureLifecycleQueued(false);
+ static BOOL gIsClipboardStarted = NO;
+ 
++static void requestCaptureLifecycleReconcile(void) {
++    if (gCaptureLifecycleQueued.exchange(true)) return;
++    dispatch_async(dispatch_get_main_queue(), ^{
++        // Clear before observing population: a later change queues another pass.
++        gCaptureLifecycleQueued.store(false);
++        if (gCaptureShutdown) return;
++        int clients = gClientCount.load();
++        if (clients > 0 && gFrameHandler) {
++            if (!gIsCaptureStarted) {
++                gIsCaptureStarted = YES;
++                [[ScreenCapturer sharedCapturer] startCaptureWithFrameHandler:gFrameHandler];
++                TVLog(@"Screen capture started (clients=%d).", clients);
++            }
++        } else if (gIsCaptureStarted) {
++            gIsCaptureStarted = NO;
++            [[ScreenCapturer sharedCapturer] endCapture];
++            TVLog(@"No clients remaining; screen capture stopped.");
++        }
++    });
++}
++
+ #if !TARGET_OS_SIMULATOR
+ static BOOL gRestoreAssist = NO;
+ #endif
+@@ -4029,73 +3658,67 @@ static BOOL gRestoreAssist = NO;
+ static void clientGoneHook(rfbClientPtr cl) {
+     // Free per-client state
+     TVClientState *st = tvGetClientState(cl);
+     BOOL isRepeaterClient = NO;
+     NSString *removeKey = nil;
+     if (st) {
+         isRepeaterClient = st->isRepeaterClient;
+         if (st->clientId8[0] != '\0') {
+             removeKey = [NSString stringWithUTF8String:st->clientId8];
+         }
+         free(st);
+         cl->clientData = NULL;
+     }
+ 
+     // Remove by cached id (fallback to fd-derived if unavailable)
+     if (!removeKey)
+         removeKey = tvGenerateClientId8(cl->sock);
+     if (removeKey && gClientStates) {
+         @synchronized(gClientStates) {
+             [gClientStates removeObjectForKey:removeKey];
+         }
+     }
+ 
+-    // Decrement client count and stop capture if this was the last client.
+-    if (gClientCount > 0)
+-        gClientCount--;
++    // A concurrent join/leave cannot enqueue an out-of-order capture stop.
++    gClientCount.fetch_sub(1);
++    requestCaptureLifecycleReconcile();
+ 
+     NSString *host = (cl && cl->host) ? [NSString stringWithUTF8String:cl->host] : @"";
+-    TVLog(@"Client %@ disconnected, active clients=%d", host, gClientCount);
+-
+-    if (gIsCaptureStarted && gClientCount == 0) {
+-        [[ScreenCapturer sharedCapturer] endCapture];
+-        gIsCaptureStarted = NO;
+-        TVLog(@"No clients remaining; screen capture stopped.");
+-    }
++    TVLog(@"Client %@ disconnected, active clients=%d", host, gClientCount.load());
+ 
+-    if (gIsClipboardStarted && gClientCount == 0) {
++    if (gIsClipboardStarted && gClientCount.load() == 0) {
+         [[ClipboardManager sharedManager] stop];
+         gIsClipboardStarted = NO;
+         TVLog(@"No clients remaining; clipboard listening stopped.");
+     }
+ 
+ #if !TARGET_OS_SIMULATOR
+     // AutoAssist: disable AssistiveTouch if we enabled it and no clients remain
+-    if (gClientCount == 0 && gRestoreAssist) {
++    if (gClientCount.load() == 0 && gRestoreAssist) {
+         gRestoreAssist = NO;
+         [PSAssistiveTouchSettingsDetail setEnabled:NO];
+     }
+ #endif
+ 
+     // KeepAlive: disable when no clients remain
+-    if (gClientCount == 0) {
++    if (gClientCount.load() == 0) {
+         [[STHIDEventGenerator sharedGenerator] setKeepAliveInterval:0];
+         TVLog(@"No clients remaining; KeepAlive stopped.");
+     }
+ 
+     // Update TXT with possibly changed state (e.g., viewOnly unaffected, but keep consistent)
+     refreshBonjourTXTRecord();
+ 
+     // Notify subscribers after removal (debounced)
+     tvCtlScheduleBroadcastChanged();
+ 
+     // Update user notification
+     tvPublishUserSingleNotifs();
+ 
+     // Notify client disconnected
+     tvPublishClientDisconnectedNotif(host);
+ 
+     // Stop the main run loop if this was a repeater client
+     if (isRepeaterClient) {
+         CFRunLoopStop(CFRunLoopGetMain());
+     }
+ }
+@@ -4103,85 +3726,82 @@ static void clientGoneHook(rfbClientPtr cl) {
+ static enum rfbNewClientAction newClientHook(rfbClientPtr cl) {
+     cl->clientGoneHook = clientGoneHook;
+     if (!cl->viewOnly && gViewOnly)
+         cl->viewOnly = TRUE;
+ 
+     // Allocate per-client state bag
+     TVClientState *st = (TVClientState *)calloc(1, sizeof(TVClientState));
+     if (st) {
+         st->lastButtonMask = 0;
+         st->wheelAccumPx = 0;
+         st->wheelFlushScheduled = NO;
+         st->clientId8[0] = '\0';
+         cl->clientData = st;
+     }
+ 
+-    gClientCount++;
+-    TVLog(@"Client connected, active clients=%d", gClientCount);
++    gClientCount.fetch_add(1);
++    requestCaptureLifecycleReconcile();
++    TVLog(@"Client connected, active clients=%d", gClientCount.load());
+ 
+     // Add to global client states
+     NSString *clientId = tvGenerateClientId8(cl->sock);
+     if (st && clientId.length) {
+         // Cache into fixed buffer
+         const char *u8 = [clientId UTF8String];
+         if (u8) {
+             size_t n = strnlen(u8, 8);
+             memcpy(st->clientId8, u8, n);
+             st->clientId8[n] = '\0';
+         }
+     }
+     NSString *host = (cl && cl->host) ? [NSString stringWithUTF8String:cl->host] : @"";
+     NSDate *now = [NSDate date];
+     NSDictionary *entry = @{
+         @"id" : clientId,
+         @"host" : host,
+         @"viewOnly" : @(cl->viewOnly ? YES : NO),
+         @"connectAt" : now,
+     };
+ 
+     if (!gClientStates)
+         gClientStates = [[NSMutableDictionary alloc] init];
+     gClientStates[clientId] = entry;
+ 
+     // Update TXT (e.g., potential dynamic flags in future)
+     refreshBonjourTXTRecord();
+ 
+     // Notify subscribers (debounced)
+     tvCtlScheduleBroadcastChanged();
+ 
+     // Update user notification
+     tvPublishUserSingleNotifs();
+ 
+     // Notify client connected
+     tvPublishClientConnectedNotif(host);
+ 
+-    if (!gIsCaptureStarted && gClientCount > 0 && gFrameHandler) {
+-        // Start capture when entering non-zero client population.
+-        gIsCaptureStarted = YES;
+-        [[ScreenCapturer sharedCapturer] startCaptureWithFrameHandler:gFrameHandler];
+-        TVLog(@"Screen capture started (clients=%d).", gClientCount);
+-    }
+-
+-    if (gClipboardEnabled && !gIsClipboardStarted && gClientCount > 0) {
++    if (gClipboardEnabled && !gIsClipboardStarted && gClientCount.load() > 0) {
+         gIsClipboardStarted = YES;
+         [[ClipboardManager sharedManager] start];
+-        TVLog(@"Clipboard listening started (clients=%d).", gClientCount);
++        TVLog(@"Clipboard listening started (clients=%d).", gClientCount.load());
+     }
+ 
+ #if !TARGET_OS_SIMULATOR
+     // AutoAssist: enable AssistiveTouch if not already enabled
+-    if (gClientCount > 0 && gAutoAssistEnabled && ![PSAssistiveTouchSettingsDetail isEnabled]) {
++    if (gClientCount.load() > 0 && gAutoAssistEnabled && ![PSAssistiveTouchSettingsDetail isEnabled]) {
+         gRestoreAssist = YES;
+         [PSAssistiveTouchSettingsDetail setEnabled:YES];
+     }
+ #endif
+ 
+     // KeepAlive: enable when at least one client is connected and interval > 0
+-    if (gClientCount > 0 && gKeepAliveSec > 0.0) {
++    if (gClientCount.load() > 0 && gKeepAliveSec > 0.0) {
+         [[STHIDEventGenerator sharedGenerator] setKeepAliveInterval:gKeepAliveSec];
+         TVLog(@"KeepAlive started with interval (%.3f sec)", gKeepAliveSec);
+     }
+ 
++    // The client is already linked, but LibVNC cannot start its input/output
++    // threads until this hook returns. Cross the publication gate before accept.
++    std::lock_guard<std::mutex> admission(gPublicationAdmissionMutex);
+     return RFB_CLIENT_ACCEPT;
+ }
+ 
+ #pragma mark - Clipboard Extension
+@@ -4240,88 +3860,88 @@ static void setXCutTextUTF8(char *str, int len, rfbClientPtr cl) {
+ static void sendClipboardToClients(NSString *_Nullable text) {
+     if (!gScreen) {
+         TVLog(@"Clipboard: screen not initialized; skipping send");
+         return;
+     }
+ 
+     if (!gClipboardEnabled) {
+         TVLog(@"Clipboard: sync disabled; skipping send");
+         return;
+     }
+ 
+-    if (gClientCount <= 0) {
++    if (gClientCount.load() <= 0) {
+         TVLog(@"Clipboard: no connected clients; skipping send");
+         return;
+     }
+ 
+     if (gClipboardSuppressSend.load(std::memory_order_relaxed) > 0) {
+         TVLog(@"Clipboard: send suppressed (local set echo avoidance)");
+         return; // suppressed (likely local set)
+     }
+ 
+     char *utf8 = NULL;
+     int utf8Len = 0;
+     char *latin1 = NULL;
+     int latin1Len = 0;
+ 
+     do {
+         if (!text) {
+             break;
+         }
+ 
+         // Prepare best-effort Latin-1 fallback
+         NSData *latin1Data = [text dataUsingEncoding:NSISOLatin1StringEncoding allowLossyConversion:YES];
+         latin1Len = (int)latin1Data.length;
+         if (!latin1Len)
+             break;
+ 
+         latin1 = (char *)malloc((size_t)latin1Len);
+         if (!latin1) {
+             latin1Len = 0;
+             break;
+         }
+ 
+         memcpy(latin1, [latin1Data bytes], (size_t)latin1Len);
+ 
+     } while (0);
+ 
+     do {
+         if (!text) {
+             break;
+         }
+ 
+         NSData *utf8Data = [text dataUsingEncoding:NSUTF8StringEncoding allowLossyConversion:NO];
+         utf8Len = (int)utf8Data.length;
+         if (!utf8Len)
+             break;
+ 
+         utf8 = (char *)malloc((size_t)utf8Len);
+         if (!utf8) {
+             utf8Len = 0;
+             break;
+         }
+ 
+         memcpy(utf8, [utf8Data bytes], (size_t)utf8Len);
+ 
+     } while (0);
+ 
+     if (utf8 || latin1) {
+         TVLog(@"Clipboard: sending to clients (utf8Len=%d, latin1Len=%d, clients=%d)", utf8Len, latin1Len,
+-              gClientCount);
++              gClientCount.load());
+     }
+ 
+     if (utf8 && latin1) {
+         rfbSendServerCutTextUTF8(gScreen, utf8, utf8Len, latin1, latin1Len);
+     } else if (latin1) {
+         rfbSendServerCutText(gScreen, latin1, latin1Len);
+     } else {
+         TVLog(@"Clipboard: no valid clipboard data to send");
+     }
+ 
+     if (utf8)
+         free(utf8);
+ 
+     if (latin1)
+         free(latin1);
+ }
+ 
+ #pragma mark - Server-Side Cursor
+@@ -4412,13 +4032,19 @@ static void prepareClipboardManager(void) {
+ }
+ 
+ static void prepareScreenCapturer(void) {
++    [[ScreenCapturer sharedCapturer] setFramePublicationHandler:^{
++        tryPublishPreparedFrame();
++    }];
++    [[ScreenCapturer sharedCapturer] setCaptureLifecycleHandler:^(BOOL active) {
++        resetPreparedFrameSession(active);
++    }];
+     // Apply preferred frame rate (if provided)
+     if (gFpsMin > 0 || gFpsPref > 0 || gFpsMax > 0) {
+         TVLog(@"Applying preferred FPS to ScreenCapturer: min=%d pref=%d max=%d", gFpsMin, gFpsPref, gFpsMax);
+         [[ScreenCapturer sharedCapturer] setPreferredFrameRateWithMin:gFpsMin preferred:gFpsPref max:gFpsMax];
+     }
+ 
+     gFrameHandler = ^(CMSampleBufferRef _Nonnull sampleBuffer) {
+         handleFramebuffer(sampleBuffer);
+     };
+ }
+@@ -4506,40 +4132,42 @@ NS_INLINE int rotationForOrientation(UIInterfaceOrientation o) {
+ static void setupOrientationObserver(void) {
+     if (!gOrientationSyncEnabled)
+         return;
+ 
+     static FBSOrientationObserver *sObserver;
+     sObserver = [[FBSOrientationObserver alloc] init];
+     if (!sObserver) {
+         TVPrintError("Failed to create orientation observer instance");
+         exit(EXIT_FAILURE);
+     }
+ 
+     // Set update handler
+     void (^handler)(FBSOrientationUpdate *) = ^(FBSOrientationUpdate *update) {
+         if (!update)
+             return;
+ 
+         UIInterfaceOrientation activeOrientation = [update orientation];
+ 
+         // Note: Actual framebuffer rotation will be handled in the next step.
+-        gRotationQuad.store(rotationForOrientation(activeOrientation), std::memory_order_relaxed);
++        int rotation = rotationForOrientation(activeOrientation);
++        if (gRotationQuad.exchange(rotation, std::memory_order_relaxed) != rotation)
++            [[ScreenCapturer sharedCapturer] forceNextFrameUpdate];
+ 
+ #if DEBUG
+         NSUInteger seq = [update sequenceNumber];
+         NSInteger direction = [update rotationDirection];
+         NSTimeInterval dur = [update duration];
+         TVLog(@"Orientation update: seq=%lu dir=%ld ori=%ld dur=%.3f", seq, direction, (long)activeOrientation, dur);
+ #endif
+     };
+ 
+     [sObserver setHandler:handler];
+ 
+     // Prime current orientation if available
+     UIInterfaceOrientation activeOrientation = [sObserver activeInterfaceOrientation];
+     gRotationQuad.store(rotationForOrientation(activeOrientation), std::memory_order_relaxed);
+ 
+     TVLog(@"Orientation observer registered (initial=%ld -> rotQ=%d)", (long)activeOrientation,
+           gRotationQuad.load(std::memory_order_relaxed));
+ }
+ 
+ #pragma mark - Setups (RFB)
+@@ -4547,53 +4175,66 @@ static void setupOrientationObserver(void) {
+ static void setupRfbScreen(int argc, const char *argv[]) {
+     int argcCopy = argc; // rfbGetScreen may modify argc/argv
+     char **argvCopy = (char **)argv;
+     int bitsPerSample = 8;
+     gScreen = rfbGetScreen(&argcCopy, argvCopy, gWidth, gHeight, bitsPerSample, 3, gBytesPerPixel);
+     if (!gScreen) {
+         TVPrintError("Failed to create rfbScreenInfo with rfbGetScreen");
          exit(EXIT_FAILURE);
      }
  
@@ -409,7 +3960,22 @@ index be6cce3..629bd35 100644
      // BGRA (little-endian) layout
      gScreen->paddedWidthInBytes = gWidth * gBytesPerPixel;
      gScreen->serverFormat.redShift = bitsPerSample * 2;   // 16
-@@ -4576,6 +4584,12 @@ static void setupRfbScreen(int argc, const char *argv[]) {
+     gScreen->serverFormat.greenShift = bitsPerSample * 1; // 8
+     gScreen->serverFormat.blueShift = 0;
+     gScreen->frameBuffer = (char *)gFrontBuffer;
+ 
+     // Desktop name
+     gScreen->desktopName = strdup([gDesktopName UTF8String]);
+ 
+     // Server ports
+     gScreen->port = gPort;
+     gScreen->ipv6port = gPort;
+ 
+     // Server bind addresses
+     in_addr_t v4Addr = INADDR_ANY;
+     struct in6_addr v6Addr;
+     memset(&v6Addr, 0, sizeof(v6Addr));
+ 
      TVBindHostKind hostKind = tvClassifyBindHost(gBindHost, &v4Addr, &v6Addr);
      if (hostKind == kTVBindHostKindIPv4) {
          gScreen->listenInterface = v4Addr;
@@ -422,3 +3988,114 @@ index be6cce3..629bd35 100644
      } else if (hostKind == kTVBindHostKindIPv6) {
          char ifaceBuf[INET6_ADDRSTRLEN];
          const char *iface = inet_ntop(AF_INET6, &v6Addr, ifaceBuf, sizeof(ifaceBuf));
+         if (!iface) {
+             TVPrintError("Failed to normalize IPv6 bind host");
+             exit(EXIT_FAILURE);
+         }
+         gScreen->listen6Interface = strdup(iface);
+     } else if (hostKind == kTVBindHostKindInvalid && gBindHost) {
+         TVPrintError("Invalid host address: %s", [gBindHost UTF8String]);
+         exit(EXIT_FAILURE);
+     } else {
+         // Do nothing; default ANY
+     }
+ 
+     // Event handlers
+     gScreen->newClientHook = newClientHook;
+     gScreen->displayHook = displayHook;
+     gScreen->displayFinishedHook = displayFinishedHook;
+     gScreen->setDesktopSizeHook = setDesktopSizeHook;
+ }
+@@ -4964,32 +4605,38 @@ static void dropPrivileges(void) {
+ }
+ 
+ static void cleanupAndExit(int code) {
++    gCaptureShutdown = YES;
++    resetPreparedFrameSession(NO);
++    if (gIsCaptureStarted) {
++        [[ScreenCapturer sharedCapturer] endCapture];
++        gIsCaptureStarted = NO;
++    }
+     // Stop auto discovery
+     stopBonjour();
+ 
+     // Clear all user notifications
+     [[BulletinManager sharedManager] revokeAllNotifications];
+ 
+     // Stop control socket if any
+     tvStopControlSocket();
+ 
+     // Stop event thread if running
+     tvStopRfbEventThread();
+ 
+     if (gFileTransferRegistered) {
+         rfbUnregisterTightVNCFileTransferExtension();
+     }
+ 
+     if (gScreen) {
+         rfbShutdownServer(gScreen, YES);
+         rfbScreenCleanup(gScreen);
+         gScreen = NULL;
+     }
+ 
+     // There’s no need to free other resources because we’re going to exit the process. Yay!
+     exit(code);
+ }
+ 
+ #ifdef THEBOOTSTRAP
+ #define SINGLETON_PARENT_NAME "trollvncmanager"
+ #define SINGLETON_MARKER_PATH "/var/mobile/Library/Caches/com.82flex.trollvnc.server.pid"
+@@ -5104,51 +4751,51 @@ static void ensureSingleton(const char *argv[]) {
+ int main(int argc, const char *argv[]) {
+ 
+     /* Drop privileges: this program should run as mobile */
+     dropPrivileges();
+ 
+     @autoreleasepool {
+         parseCLI(argc, argv);
+ 
+ #ifdef THEBOOTSTRAP
+         monitorParentProcess();
+         ensureSingleton(argv);
+ #endif
+     }
+ 
+     /* Do nothing but keep the runloop alive */
+     if (!gEnabled) {
+         CFRunLoopRun();
+         return EXIT_SUCCESS;
+     }
+ 
+     @autoreleasepool {
+         setupGeometry();
+         setupOrientationObserver();
+ 
+         setupRfbLogging();
+         setupRfbScreen(argc, argv);
+         setupRfbEventHandlers();
+         setupRfbClassicAuthentication();
+         setupRfbCutTextHandlers();
+         setupRfbServerSideCursor();
+         setupRfbHttpServer();
+         setupRfbFileTransferExtension();
+ 
+         prepareBulletinManager();
+         prepareClipboardManager();
+         prepareScreenCapturer();
+ 
+         initializeTilingOrReset();
+         initializeAndRunRfbServer();
+ 
+         installSignalHandlers();
+         installTerminationHandlers();
+ 
+         tvStartControlSocketIfNeeded();
+     }
+ 
+     CFRunLoopRun();
+     cleanupAndExit(EXIT_SUCCESS);
+ 
+     return EXIT_SUCCESS;
+-}
+\ No newline at end of file
++}

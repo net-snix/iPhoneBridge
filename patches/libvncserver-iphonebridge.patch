@@ -1,0 +1,430 @@
+diff --git a/include/rfb/rfb.h b/include/rfb/rfb.h
+index e225c03..bdff273 100644
+--- a/include/rfb/rfb.h
++++ b/include/rfb/rfb.h
+@@ -839,6 +839,14 @@ extern void rfbReleaseClientIterator(rfbClientIteratorPtr iterator);
+ extern void rfbIncrClientRef(rfbClientPtr cl);
+ extern void rfbDecrClientRef(rfbClientPtr cl);
+ 
++/* Retain every currently linked client, including closed clients, while holding
++   the client-list mutex. TRUE with NULL/0 is an empty snapshot; FALSE leaves
++   NULL/0 outputs. Release only after dropping any locks on snapshot clients.
++   A snapshot does not prevent new clients being admitted after it is taken. */
++extern rfbBool rfbGetClientSnapshot(rfbScreenInfoPtr screen,
++                                   rfbClientPtr **clients, size_t *count);
++extern void rfbReleaseClientSnapshot(rfbClientPtr *clients, size_t count);
++
+ extern void rfbNewClientConnection(rfbScreenInfoPtr rfbScreen,rfbSocket sock);
+ extern rfbClientPtr rfbNewClient(rfbScreenInfoPtr rfbScreen,rfbSocket sock);
+ extern rfbClientPtr rfbNewUDPClient(rfbScreenInfoPtr rfbScreen);
+@@ -1113,6 +1121,13 @@ extern void rfbShutdownServer(rfbScreenInfoPtr rfbScreen,rfbBool disconnectClien
+ extern void rfbNewFramebuffer(rfbScreenInfoPtr rfbScreen,char *framebuffer,
+  int width,int height, int bitsPerSample,int samplesPerPixel,
+  int bytesPerPixel);
++/* Atomically apply the final pixel format before updating client translations.
++   NULL format retains rfbNewFramebuffer's derived-format behavior. An explicit
++   format must match bytesPerPixel. FALSE leaves the framebuffer unchanged.
++   The caller must serialize this operation with new-client admission. */
++extern rfbBool rfbNewFramebufferWithFormat(rfbScreenInfoPtr screen,char *framebuffer,
++ int width,int height, int bitsPerSample,int samplesPerPixel,
++ int bytesPerPixel, const rfbPixelFormat *format);
+ 
+ extern void rfbScreenCleanup(rfbScreenInfoPtr screenInfo);
+ extern void rfbSetServerVersionIdentity(rfbScreenInfoPtr screen, char *fmt, ...);
+diff --git a/include/rfb/rfbproto.h b/include/rfb/rfbproto.h
+index ebcd303..b00edef 100644
+--- a/include/rfb/rfbproto.h
++++ b/include/rfb/rfbproto.h
+@@ -65,43 +65,44 @@
+ #if defined(WIN32)
+ typedef int8_t rfbBool;
+ #include <sys/timeb.h>
+ #include <winsock2.h>
+ #endif
+ #include <rfb/rfbconfig.h>
+ 
+ #ifdef LIBVNCSERVER_HAVE_LIBZ
+ #include <zlib.h>
+ #ifdef __CHECKER__
+ #undef Z_NULL
+ #define Z_NULL NULL
+ #endif
+ #endif
+ 
+ #if LIBVNCSERVER_HAVE_ENDIAN_H
+ # include <endian.h>
+-# if __BYTE_ORDER == __BIG_ENDIAN
++/* iPhoneBridge, 2026-09-07: Darwin endian.h lacks these GNU macros. */
++# if defined(__BYTE_ORDER) && defined(__BIG_ENDIAN) && __BYTE_ORDER == __BIG_ENDIAN
+ #  define LIBVNCSERVER_WORDS_BIGENDIAN 1
+ # endif
+ #endif
+ 
+ /* MS compilers don't have strncasecmp */
+ #ifdef _MSC_VER
+ #define strncasecmp _strnicmp
+ #endif
+ 
+ #define rfbMax(a,b) (((a)>(b))?(a):(b))
+ #ifdef WIN32
+ #define rfbSocket SOCKET
+ #define RFB_INVALID_SOCKET INVALID_SOCKET
+ #define _rfbCloseSocket closesocket
+ #else
+ #ifdef LIBVNCSERVER_HAVE_SYS_TIME_H
+ #include <sys/time.h>
+ #endif
+ #ifdef LIBVNCSERVER_HAVE_NETINET_IN_H
+ #include <netinet/in.h>
+ #endif
+ #define rfbSocket int
+ #define SOCKET int /* LibVNCServer versions older than 0.9.13 defined this for non-Windows, so keep it here */
+ #define RFB_INVALID_SOCKET (-1)
+ #define _rfbCloseSocket close
+diff --git a/src/libvncserver/main.c b/src/libvncserver/main.c
+index b18f630..40a3d23 100644
+--- a/src/libvncserver/main.c
++++ b/src/libvncserver/main.c
+@@ -953,230 +953,264 @@ static void rfbInitServerFormat(rfbScreenInfoPtr screen, int bitsPerSample)
+ rfbScreenInfoPtr rfbGetScreen(int* argc,char** argv,
+  int width,int height,int bitsPerSample,int samplesPerPixel,
+  int bytesPerPixel)
+ {
+    rfbScreenInfoPtr screen=calloc(sizeof(rfbScreenInfo),1);
+    if (!screen)
+        return NULL;
+ 
+    if (! logMutex_initialized) {
+      INIT_MUTEX(logMutex);
+      logMutex_initialized = 1;
+    }
+ 
+ 
+    if(width&3)
+      rfbErr("WARNING: Width (%d) is not a multiple of 4. VncViewer has problems with that.\n",width);
+ 
+    screen->autoPort=FALSE;
+    screen->clientHead=NULL;
+    screen->pointerClient=NULL;
+    screen->port=5900;
+    screen->ipv6port=5900;
+    screen->socketState=RFB_SOCKET_INIT;
+ 
+    screen->inetdInitDone = FALSE;
+    screen->inetdSock=RFB_INVALID_SOCKET;
+ 
+    screen->udpSock=RFB_INVALID_SOCKET;
+    screen->udpSockConnected=FALSE;
+    screen->udpPort=0;
+    screen->udpClient=NULL;
+ 
+    screen->maxFd=0;
+    screen->listenSock=RFB_INVALID_SOCKET;
+    screen->listen6Sock=RFB_INVALID_SOCKET;
+ #ifdef LIBVNCSERVER_HAVE_LIBPTHREAD
+    screen->pipe_notify_listener_thread[0] = -1;
+    screen->pipe_notify_listener_thread[1] = -1;
+ #endif
+ 
+    screen->fdQuota = 0.5;
+ 
+    screen->httpInitDone=FALSE;
+    screen->httpEnableProxyConnect=FALSE;
+    screen->httpPort=0;
+    screen->http6Port=0;
+    screen->httpDir=NULL;
+    screen->httpListenSock=RFB_INVALID_SOCKET;
+    screen->httpListen6Sock=RFB_INVALID_SOCKET;
+    screen->httpSock=RFB_INVALID_SOCKET;
+ 
+    screen->desktopName = "LibVNCServer";
+    screen->alwaysShared = FALSE;
+    screen->neverShared = FALSE;
+    screen->dontDisconnect = FALSE;
+    screen->authPasswdData = NULL;
+    screen->authPasswdFirstViewOnly = 1;
+    
+    screen->width = width;
+    screen->height = height;
+    screen->bitsPerPixel = screen->depth = 8*bytesPerPixel;
+ 
+    screen->passwordCheck = rfbDefaultPasswordCheck;
+ 
+    screen->ignoreSIGPIPE = TRUE;
+ 
+    /* disable progressive updating per default */
+    screen->progressiveSliceHeight = 0;
+ 
+    screen->listenInterface = htonl(INADDR_ANY);
+ 
+    screen->deferUpdateTime=5;
+    screen->maxRectsPerUpdate=50;
+ 
+    screen->handleEventsEagerly = FALSE;
+ 
+    screen->protocolMajorVersion = rfbProtocolMajorVersion;
+    screen->protocolMinorVersion = rfbProtocolMinorVersion;
+ 
+    screen->permitFileTransfer = FALSE;
+ 
+    if(!rfbProcessArguments(screen,argc,argv)) {
+      free(screen);
+      return NULL;
+    }
+ 
+ #ifdef WIN32
+    {
+ 	   DWORD dummy=255;
+ 	   GetComputerName(screen->thisHost,&dummy);
+    }
+ #else
+    gethostname(screen->thisHost, 255);
+ #endif
+ 
+    screen->paddedWidthInBytes = width*bytesPerPixel;
+ 
+    /* format */
+ 
+    rfbInitServerFormat(screen, bitsPerSample);
+ 
+    /* cursor */
+ 
+    screen->cursorX=screen->cursorY=screen->underCursorBufferLen=0;
+    screen->underCursorBuffer=NULL;
+    screen->dontConvertRichCursorToXCursor = FALSE;
+    screen->cursor = &myCursor;
+    INIT_MUTEX(screen->cursorMutex);
+ 
+ #if defined(LIBVNCSERVER_HAVE_LIBPTHREAD) || defined(LIBVNCSERVER_HAVE_WIN32THREADS)
+    screen->backgroundLoop = FALSE;
+ #endif
+ 
+    /* proc's and hook's */
+ 
+    screen->kbdAddEvent = rfbDefaultKbdAddEvent;
+    screen->kbdReleaseAllKeys = rfbDoNothingWithClient;
+    screen->ptrAddEvent = rfbDefaultPtrAddEvent;
+    screen->setXCutText = rfbDefaultSetXCutText;
+ #ifdef LIBVNCSERVER_HAVE_LIBZ
+    screen->setXCutTextUTF8 = NULL;
+ #endif
+    screen->getCursorPtr = rfbDefaultGetCursorPtr;
+    screen->setTranslateFunction = rfbSetTranslateFunction;
+    screen->newClientHook = rfbDefaultNewClientHook;
+    screen->displayHook = NULL;
+    screen->displayFinishedHook = NULL;
+    screen->getKeyboardLedStateHook = NULL;
+    screen->xvpHook = NULL;
+    screen->setDesktopSizeHook = rfbDefaultSetDesktopSize;
+    screen->numberOfExtDesktopScreensHook = rfbDefaultNumberOfExtDesktopScreens;
+    screen->getExtDesktopScreenHook = rfbDefaultGetExtDesktopScreen;
+ 
+    /* initialize client list and iterator mutex */
+    rfbClientListInit(screen);
+ 
+    return(screen);
+ }
+ 
+ /*
+  * Switch to another framebuffer (maybe of different size and color
+  * format). Clients supporting NewFBSize pseudo-encoding will change
+  * their local framebuffer dimensions if necessary.
+  * NOTE: Rich cursor data should be converted to new pixel format by
+  * the caller.
++ * The caller must serialize framebuffer replacement with new-client admission.
++ * If the client snapshot cannot be allocated, the framebuffer is unchanged.
+  */
+ 
+-void rfbNewFramebuffer(rfbScreenInfoPtr screen, char *framebuffer,
+-                       int width, int height,
+-                       int bitsPerSample, int samplesPerPixel,
+-                       int bytesPerPixel)
++rfbBool rfbNewFramebufferWithFormat(rfbScreenInfoPtr screen, char *framebuffer,
++                                  int width, int height,
++                                  int bitsPerSample, int samplesPerPixel,
++                                  int bytesPerPixel, const rfbPixelFormat *format)
+ {
+-  rfbPixelFormat old_format;
++  rfbPixelFormat old_format, final_format;
+   rfbBool format_changed = FALSE;
+-  rfbClientIteratorPtr iterator;
+-  rfbClientPtr cl;
++  rfbClientPtr cl, *clients;
++  size_t count, index;
++
++  /* The argument may alias screen->serverFormat, which initialization replaces. */
++  if (format) {
++    final_format = *format;
++    if (final_format.bitsPerPixel != 8 * bytesPerPixel) {
++      rfbErr("rfbNewFramebuffer: pixel format does not match bytesPerPixel.\n");
++      return FALSE;
++    }
++  }
+ 
+-  /* Lock out client reads. */
+-  iterator = rfbGetClientIterator(screen);
+-  while ((cl = rfbClientIteratorNext(iterator))) {
+-      LOCK(cl->sendMutex);
++  /* Keep the exact lock set alive even if clients close or leave the list. */
++  if (!rfbGetClientSnapshot(screen, &clients, &count)) {
++    rfbErr("rfbNewFramebuffer: unable to allocate client snapshot.\n");
++    return FALSE;
+   }
+-  rfbReleaseClientIterator(iterator);
++  for (index = 0; index < count; ++index)
++    LOCK(clients[index]->sendMutex);
+ 
+   /* Prevent cursor drawing into framebuffer */
+   LOCK(screen->cursorMutex);
+ 
+   /* Update information in the screenInfo structure */
+ 
+   old_format = screen->serverFormat;
+ 
+   if (width & 3)
+     rfbErr("WARNING: New width (%d) is not a multiple of 4.\n", width);
+ 
+   screen->width = width;
+   screen->height = height;
+   screen->bitsPerPixel = screen->depth = 8*bytesPerPixel;
+   screen->paddedWidthInBytes = width*bytesPerPixel;
+ 
+-  rfbInitServerFormat(screen, bitsPerSample);
++  if (format) {
++    /* New clients copy this format before their admission hook. Do not expose
++       a temporary derived format, or rewrite an unchanged final format. */
++    if (memcmp(&screen->serverFormat, &final_format, sizeof(rfbPixelFormat)) != 0)
++      screen->serverFormat = final_format;
++    screen->depth = final_format.depth;
++    screen->colourMap.count = 0;
++    screen->colourMap.is16 = 0;
++    screen->colourMap.data.bytes = NULL;
++  } else {
++    rfbInitServerFormat(screen, bitsPerSample);
++  }
+ 
+   if (memcmp(&screen->serverFormat, &old_format,
+              sizeof(rfbPixelFormat)) != 0) {
+     format_changed = TRUE;
+   }
+ 
+   screen->frameBuffer = framebuffer;
+ 
+   /* Adjust pointer position if necessary */
+ 
+   if (screen->cursorX >= width)
+     screen->cursorX = width - 1;
+   if (screen->cursorY >= height)
+     screen->cursorY = height - 1;
+ 
+   /* For each client: */
+-  iterator = rfbGetClientIterator(screen);
+-  while ((cl = rfbClientIteratorNext(iterator)) != NULL) {
++  for (index = 0; index < count; ++index) {
++    cl = clients[index];
+ 
+     /* Re-install color translation tables if necessary */
+ 
+     if (format_changed)
+       screen->setTranslateFunction(cl);
+ 
+     /* Mark the screen contents as changed, and schedule sending
+        NewFBSize message if supported by this client. */
+ 
+     LOCK(cl->updateMutex);
+     sraRgnDestroy(cl->modifiedRegion);
+     cl->modifiedRegion = sraRgnCreateRect(0, 0, width, height);
+     sraRgnMakeEmpty(cl->copyRegion);
+     cl->copyDX = 0;
+     cl->copyDY = 0;
+ 
+     if (cl->useNewFBSize)
+       cl->newFBSizePending = TRUE;
+ 
+     TSIGNAL(cl->updateCond);
+     UNLOCK(cl->updateMutex);
+-
+-    /* Swapping frame buffers finished, re-enable client reads. */
+-    UNLOCK(cl->sendMutex);
+   }
+-  rfbReleaseClientIterator(iterator);
+ 
+   /* Re-enable cursor drawing into framebuffer */
+   UNLOCK(screen->cursorMutex);
++
++  /* Unlock and release the same clients, including ones no longer on the list. */
++  for (index = 0; index < count; ++index)
++    UNLOCK(clients[index]->sendMutex);
++  rfbReleaseClientSnapshot(clients, count);
++  return TRUE;
++}
++
++void rfbNewFramebuffer(rfbScreenInfoPtr screen, char *framebuffer,
++                       int width, int height,
++                       int bitsPerSample, int samplesPerPixel,
++                       int bytesPerPixel)
++{
++  (void)rfbNewFramebufferWithFormat(screen, framebuffer, width, height,
++                                  bitsPerSample, samplesPerPixel, bytesPerPixel, NULL);
+ }
+ 
+ /* hang up on all clients and free all reserved memory */
+diff --git a/src/libvncserver/rfbserver.c b/src/libvncserver/rfbserver.c
+index 5cb4265..d2ad37d 100644
+--- a/src/libvncserver/rfbserver.c
++++ b/src/libvncserver/rfbserver.c
+@@ -234,11 +234,54 @@ void
+ rfbReleaseClientIterator(rfbClientIteratorPtr iterator)
+ {
+   if(iterator && iterator->next) rfbDecrClientRef(iterator->next);
+   free(iterator);
+ }
+ 
++rfbBool
++rfbGetClientSnapshot(rfbScreenInfoPtr screen,
++                     rfbClientPtr **clients, size_t *count)
++{
++  rfbClientPtr cl, *snapshot = NULL;
++  size_t length = 0, index = 0;
++
++  *clients = NULL;
++  *count = 0;
++  LOCK(rfbClientListMutex);
++  for (cl = screen->clientHead; cl; cl = cl->next) {
++    if (length == (size_t)-1 / sizeof(*snapshot)) {
++      UNLOCK(rfbClientListMutex);
++      return FALSE;
++    }
++    ++length;
++  }
++  if (length) {
++    snapshot = malloc(length * sizeof(*snapshot));
++    if (!snapshot) {
++      UNLOCK(rfbClientListMutex);
++      return FALSE;
++    }
++    for (cl = screen->clientHead; cl; cl = cl->next) {
++      rfbIncrClientRef(cl);
++      snapshot[index++] = cl;
++    }
++  }
++  UNLOCK(rfbClientListMutex);
++  *clients = snapshot;
++  *count = length;
++  return TRUE;
++}
++
++void
++rfbReleaseClientSnapshot(rfbClientPtr *clients, size_t count)
++{
++  size_t index;
++  for (index = 0; index < count; ++index)
++    rfbDecrClientRef(clients[index]);
++  free(clients);
++}
++
+ 
+ /*
+  * rfbNewClientConnection is called from sockets.c when a new connection
+  * comes in.
+  */
