@@ -413,6 +413,30 @@ test('disconnect closes queued bitmaps, releases canvases and closes late conver
   assertReleased();
 });
 
+test('disconnect cancels pending admission before releasing an exhausted decoder document', async () => {
+  const { display, drawn, errors } = displayRig();
+  // Leave the real production context one admission short of its boundary.
+  for (let i = 0; i < 4095; i++) {
+    (await display._imageContext.acquire()).release();
+  }
+  const last = await enqueue(display);
+  last.load();
+  await enqueue(display);
+  assert.equal(images.length, 1, 'the next rectangle is waiting for the active decode');
+  assert.equal(display._imageContext._waiters.size, 1);
+  assert.equal(decoderFrames.length, 1);
+  const rejected = assert.rejects(display.flush(), /disconnected/);
+  display.dispose();
+  resolveBitmap(last);
+  await rejected;
+  await tick();
+  assert.equal(decoderFrames.length, 1, 'teardown must not create a successor decoder document');
+  assert.ok(decoderFrames.every(frame => !frame.parentNode));
+  assert.deepEqual(drawn, []);
+  assert.deepEqual(errors, [], 'intentional disconnect is not a new rendering error');
+  assertReleased();
+});
+
 test('repeated image rectangles release URLs, sources, bitmaps, listeners and decode timers', async () => {
   const { display, drawn } = displayRig();
   for (let i = 0; i < 1000; i++) {

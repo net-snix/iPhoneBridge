@@ -1,0 +1,261 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-10",
+  "qualification": "Windowless memory stress complete; visible physical-phone speed qualification deferred by user.",
+  "candidate": {
+    "app_version": "0.2.2",
+    "app_build": "4",
+    "patch_sha256": "bbe3976ddc1f7c966dbe9edc67826f603345e43063d67ddc9d5bca7556f032c7",
+    "tested_prepared_source_sha256": {
+      "core/display.js": "df88067c9a4bfbee13c9e10494d410592f38fa62c64d87295d63e81bb72d4ad7",
+      "core/image-context.js": "d5bc4a9b0b5b41d67fd1f4464ae3f9a7778cafc6c53a9147661272ef7b374d60",
+      "core/image-resource.js": "efbfc34135bf0559b7ed54f199f9e99f3d5070e7a2ea7037a8908bc1fc578ebe",
+      "core/rfb.js": "bb2e752c8724752a99a71ed8eb7aec5ed2614ff1eb48ba16e53f3aefc63c0039",
+      "tests/test.display.js": "a275c9c744e05a6f46796beb046bda8fe61d8cbdebb1b9d596646c5ee165bf77"
+    },
+    "latest_rebuilt_app_installed": false
+  },
+  "environment": {
+    "macos": "27.0 (26A5425a)",
+    "webkit": "22625.1.29.11.26"
+  },
+  "windowless_memory": {
+    "complete": true,
+    "duration_seconds": 1320.02,
+    "observer_started_utc": "2026-09-10T06:34:34.783196+00:00",
+    "observer_finished_utc": "2026-09-10T06:55:09.448312+00:00",
+    "scheduling_policy": "WKPreferences.inactiveSchedulingPolicy.none (diagnostic only)",
+    "data_store": "nonPersistent",
+    "native_activation_policy": "prohibited",
+    "inspectable": false,
+    "phone_connection": false,
+    "fixture": {
+      "width": 1172,
+      "height": 2536,
+      "jpeg_rectangles_per_update": 47,
+      "jpeg_quality": 79,
+      "jpeg_subsampling": "4:4:4",
+      "quality_level": 6,
+      "compression_level": 2,
+      "encoding": "precomputed Tight JPEG strips"
+    },
+    "images_submitted": 950716,
+    "completed_flips": 20228,
+    "completed_updates": 20228,
+    "ready_events": 1,
+    "clean_disconnect_events": 1,
+    "telemetry_samples": 221,
+    "maximum_telemetry_gap_seconds": 6.331,
+    "all_samples_windowless_and_hidden": true,
+    "footprint_units": "bytes",
+    "active_footprint_sample_count": 41,
+    "active_footprint_interval_seconds": [
+      95.45,
+      1299.26
+    ],
+    "first_five_interval_seconds": [
+      95.45,
+      216.63
+    ],
+    "last_five_interval_seconds": [
+      1178.97,
+      1299.26
+    ],
+    "footprint_summary": {
+      "app": {
+        "minimum": 19350536,
+        "maximum": 20874248,
+        "first_sample": 19973128,
+        "last_active_sample": 20874248,
+        "first_five_median": 19481608,
+        "last_five_median": 20808712
+      },
+      "renderer": {
+        "minimum": 186221456,
+        "maximum": 216875920,
+        "first_sample": 198771600,
+        "last_active_sample": 192234408,
+        "first_five_median": 197198736,
+        "last_five_median": 199754664
+      },
+      "gpu": {
+        "minimum": 115393520,
+        "maximum": 133645296,
+        "first_sample": 129369072,
+        "last_active_sample": 128500720,
+        "first_five_median": 124093424,
+        "last_five_median": 128500720
+      },
+      "network": {
+        "minimum": 6390336,
+        "maximum": 7373376,
+        "first_sample": 6505024,
+        "last_active_sample": 6390336,
+        "first_five_median": 6505024,
+        "last_five_median": 6406720
+      },
+      "webkit_total": {
+        "minimum": 317131200,
+        "maximum": 357009856,
+        "first_sample": 334645696,
+        "last_active_sample": 327125464,
+        "first_five_median": 327895488,
+        "last_five_median": 336251352
+      }
+    },
+    "active_footprint_samples": [
+      {"elapsed_seconds": 95.45, "footprints": {"app": 19973128, "renderer": 198771600, "gpu": 129369072, "network": 6505024, "webkit_total": 334645696}, "images": 64625, "flips": 1375},
+      {"elapsed_seconds": 126.4, "footprints": {"app": 20005896, "renderer": 195871632, "gpu": 123241456, "network": 6488640, "webkit_total": 325601728}, "images": 88971, "flips": 1893},
+      {"elapsed_seconds": 156.49, "footprints": {"app": 19350536, "renderer": 197198736, "gpu": 124093424, "network": 6603328, "webkit_total": 327895488}, "images": 110591, "flips": 2353},
+      {"elapsed_seconds": 186.55, "footprints": {"app": 19432456, "renderer": 216875920, "gpu": 133645296, "network": 6488640, "webkit_total": 357009856}, "images": 132963, "flips": 2829},
+      {"elapsed_seconds": 216.63, "footprints": {"app": 19481608, "renderer": 194003856, "gpu": 120783856, "network": 7373376, "webkit_total": 322161088}, "images": 154912, "flips": 3296},
+      {"elapsed_seconds": 246.69, "footprints": {"app": 19530760, "renderer": 186221456, "gpu": 124404720, "network": 6505024, "webkit_total": 317131200}, "images": 175921, "flips": 3743},
+      {"elapsed_seconds": 276.77, "footprints": {"app": 19547144, "renderer": 191792016, "gpu": 121766896, "network": 6488640, "webkit_total": 320047552}, "images": 196930, "flips": 4190},
+      {"elapsed_seconds": 306.85, "footprints": {"app": 19579912, "renderer": 191710096, "gpu": 119145456, "network": 7275072, "webkit_total": 318130624}, "images": 218456, "flips": 4648},
+      {"elapsed_seconds": 336.92, "footprints": {"app": 19678216, "renderer": 212337552, "gpu": 128320496, "network": 6488640, "webkit_total": 347146688}, "images": 240170, "flips": 5110},
+      {"elapsed_seconds": 366.99, "footprints": {"app": 19645448, "renderer": 204653456, "gpu": 129631216, "network": 6488640, "webkit_total": 340773312}, "images": 261508, "flips": 5564},
+      {"elapsed_seconds": 397.07, "footprints": {"app": 19743752, "renderer": 198149008, "gpu": 128058352, "network": 6488640, "webkit_total": 332696000}, "images": 283504, "flips": 6032},
+      {"elapsed_seconds": 427.14, "footprints": {"app": 19743752, "renderer": 188154768, "gpu": 125436912, "network": 6472256, "webkit_total": 320063936}, "images": 304626, "flips": 6482},
+      {"elapsed_seconds": 457.21, "footprints": {"app": 19776520, "renderer": 208683920, "gpu": 130204656, "network": 6931008, "webkit_total": 345819584}, "images": 326227, "flips": 6941},
+      {"elapsed_seconds": 487.28, "footprints": {"app": 19792904, "renderer": 200328080, "gpu": 129336304, "network": 6554176, "webkit_total": 336218560}, "images": 347095, "flips": 7385},
+      {"elapsed_seconds": 517.36, "footprints": {"app": 19842056, "renderer": 207799184, "gpu": 128058352, "network": 6439488, "webkit_total": 342297024}, "images": 368762, "flips": 7846},
+      {"elapsed_seconds": 547.43, "footprints": {"app": 19874824, "renderer": 198804368, "gpu": 125977584, "network": 6439488, "webkit_total": 331221440}, "images": 390053, "flips": 8299},
+      {"elapsed_seconds": 577.51, "footprints": {"app": 19940360, "renderer": 195822480, "gpu": 130155504, "network": 7193152, "webkit_total": 333171136}, "images": 411626, "flips": 8758},
+      {"elapsed_seconds": 607.59, "footprints": {"app": 19973128, "renderer": 203064208, "gpu": 125649904, "network": 6488640, "webkit_total": 335202752}, "images": 434186, "flips": 9238},
+      {"elapsed_seconds": 637.66, "footprints": {"app": 20005896, "renderer": 195707816, "gpu": 115852272, "network": 6799936, "webkit_total": 318360024}, "images": 454913, "flips": 9679},
+      {"elapsed_seconds": 667.74, "footprints": {"app": 20038664, "renderer": 202933160, "gpu": 130155504, "network": 7111232, "webkit_total": 340199896}, "images": 475546, "flips": 10118},
+      {"elapsed_seconds": 697.81, "footprints": {"app": 20071432, "renderer": 188990376, "gpu": 123290608, "network": 6406720, "webkit_total": 318687704}, "images": 496978, "flips": 10574},
+      {"elapsed_seconds": 727.88, "footprints": {"app": 20104200, "renderer": 189072296, "gpu": 126239728, "network": 6406720, "webkit_total": 321718744}, "images": 519303, "flips": 11049},
+      {"elapsed_seconds": 757.94, "footprints": {"app": 20218888, "renderer": 213156776, "gpu": 130122736, "network": 6980160, "webkit_total": 350259672}, "images": 541910, "flips": 11530},
+      {"elapsed_seconds": 788.01, "footprints": {"app": 20202504, "renderer": 205456296, "gpu": 130204656, "network": 6406720, "webkit_total": 342067672}, "images": 564047, "flips": 12001},
+      {"elapsed_seconds": 818.09, "footprints": {"app": 20300808, "renderer": 213386152, "gpu": 127501296, "network": 6406720, "webkit_total": 347294168}, "images": 586278, "flips": 12474},
+      {"elapsed_seconds": 848.16, "footprints": {"app": 20284424, "renderer": 206521256, "gpu": 124142576, "network": 6685248, "webkit_total": 337349080}, "images": 609308, "flips": 12964},
+      {"elapsed_seconds": 878.24, "footprints": {"app": 20300808, "renderer": 213451688, "gpu": 122520560, "network": 6406720, "webkit_total": 342378968}, "images": 632573, "flips": 13459},
+      {"elapsed_seconds": 908.31, "footprints": {"app": 20366344, "renderer": 196150184, "gpu": 118850544, "network": 6406720, "webkit_total": 321407448}, "images": 655509, "flips": 13947},
+      {"elapsed_seconds": 938.38, "footprints": {"app": 20399112, "renderer": 203522984, "gpu": 127992816, "network": 6406720, "webkit_total": 337922520}, "images": 677270, "flips": 14410},
+      {"elapsed_seconds": 968.45, "footprints": {"app": 20448264, "renderer": 205816744, "gpu": 118785008, "network": 6521408, "webkit_total": 331123160}, "images": 698655, "flips": 14865},
+      {"elapsed_seconds": 998.52, "footprints": {"app": 20464648, "renderer": 203539368, "gpu": 127697904, "network": 6406720, "webkit_total": 337643992}, "images": 719946, "flips": 15318},
+      {"elapsed_seconds": 1028.6, "footprints": {"app": 20546568, "renderer": 206455720, "gpu": 130089968, "network": 6406720, "webkit_total": 342952408}, "images": 741613, "flips": 15779},
+      {"elapsed_seconds": 1058.67, "footprints": {"app": 20546568, "renderer": 208405416, "gpu": 130089968, "network": 6406720, "webkit_total": 344902104}, "images": 764032, "flips": 16256},
+      {"elapsed_seconds": 1088.74, "footprints": {"app": 20612104, "renderer": 191677352, "gpu": 126665712, "network": 6406720, "webkit_total": 324749784}, "images": 785605, "flips": 16715},
+      {"elapsed_seconds": 1118.82, "footprints": {"app": 20644872, "renderer": 190350248, "gpu": 121406448, "network": 6406720, "webkit_total": 318163416}, "images": 806755, "flips": 17165},
+      {"elapsed_seconds": 1148.9, "footprints": {"app": 20694024, "renderer": 198509480, "gpu": 115393520, "network": 6406720, "webkit_total": 320309720}, "images": 828046, "flips": 17618},
+      {"elapsed_seconds": 1178.97, "footprints": {"app": 20710408, "renderer": 199754664, "gpu": 130089968, "network": 6406720, "webkit_total": 336251352}, "images": 848632, "flips": 18056},
+      {"elapsed_seconds": 1209.03, "footprints": {"app": 20792328, "renderer": 203572136, "gpu": 130089968, "network": 6406720, "webkit_total": 340068824}, "images": 870510, "flips": 18522},
+      {"elapsed_seconds": 1239.1, "footprints": {"app": 20808712, "renderer": 198280104, "gpu": 121684976, "network": 6406720, "webkit_total": 326371800}, "images": 891825, "flips": 18975},
+      {"elapsed_seconds": 1269.18, "footprints": {"app": 20825096, "renderer": 207405992, "gpu": 122487792, "network": 6390336, "webkit_total": 336284120}, "images": 912458, "flips": 19414},
+      {"elapsed_seconds": 1299.26, "footprints": {"app": 20874248, "renderer": 192234408, "gpu": 128500720, "network": 6390336, "webkit_total": 327125464}, "images": 933138, "flips": 19854}
+    ],
+    "heap": {
+      "early_active": {
+        "date_local": "2026-09-10 08:34:34.837 +0200",
+        "non_object_112_bytes": 5675,
+        "cached_images": 1216,
+        "html_image_elements": 574,
+        "document_loaders": 2
+      },
+      "middle_active": {
+        "date_local": "2026-09-10 08:45:59.564 +0200",
+        "non_object_112_bytes": 5891,
+        "cached_images": 1263,
+        "html_image_elements": 184,
+        "document_loaders": 2
+      },
+      "late_active": {
+        "date_local": "2026-09-10 08:54:00.630 +0200",
+        "non_object_112_bytes": 2924,
+        "cached_images": 1263,
+        "html_image_elements": 47,
+        "document_loaders": 2
+      },
+      "after_disconnect": {
+        "date_local": "2026-09-10 08:55:08.722 +0200",
+        "non_object_112_bytes": 2464,
+        "cached_images": 1170,
+        "html_image_elements": 0,
+        "document_loaders": 1
+      }
+    },
+    "diagnostic_source_sha256": {
+      "RendererWindowless.swift": "1d64a1679ee15d8e1353cc1875c195a0a12ea87adae0533c51f04943860980c9",
+      "test.mjs": "036bb66b91e001439465de699451b4f3e2b8ca8d8f743ec35fb0661a092d7fa7",
+      "rfb-server.py": "5f11d6aa6b017a8e4b1254f01e931df6fe032c7d2fa6ffc800df496f81f053c8"
+    },
+    "limitations": [
+      "Detached view uses a diagnostic-only public scheduling policy; production policy is unchanged.",
+      "Hidden processing rate does not qualify visible speed.",
+      "Footprint sampling starts after approximately 95 seconds of warmup.",
+      "Synthetic fixture is not a physical-phone session.",
+      "Native heap snapshots briefly pause the renderer; no forced garbage collection."
+    ]
+  },
+  "native_pixel_comparison": {
+    "patch_sha256": "541cb361ea42df8bf860635373b7abeb73c199743a0250290685f663e85ea9be",
+    "completed_cases": 4,
+    "exact_match": true,
+    "cases": [
+      {
+        "name": "full-resolution-png",
+        "width": 1172,
+        "height": 2536,
+        "differentPixels": 0,
+        "differentChannels": 0,
+        "maxChannelDifference": 0,
+        "exactMatch": true
+      },
+      {
+        "name": "full-resolution-jpeg",
+        "width": 1172,
+        "height": 2536,
+        "differentPixels": 0,
+        "differentChannels": 0,
+        "maxChannelDifference": 0,
+        "exactMatch": true
+      },
+      {
+        "name": "translucent-png",
+        "width": 32,
+        "height": 24,
+        "differentPixels": 0,
+        "differentChannels": 0,
+        "maxChannelDifference": 0,
+        "exactMatch": true
+      },
+      {
+        "name": "translucent-png-composited",
+        "width": 32,
+        "height": 24,
+        "differentPixels": 0,
+        "differentChannels": 0,
+        "maxChannelDifference": 0,
+        "exactMatch": true
+      }
+    ],
+    "image_decoder_api": "undefined",
+    "scope": "Installed candidate before teardown-order-only change; repeat on final installed artifact during deferred qualification."
+  },
+  "earlier_visible_baseline": {
+    "duration_seconds": 1320,
+    "samples": 44,
+    "all_samples_visible": true,
+    "initial_steady_fps": 58.276561528654604,
+    "final_steady_fps": 28.362685972110665,
+    "initial_footprint": {
+      "com.apple.WebKit.WebContent": 249447384,
+      "com.apple.WebKit.GPU": 141525976,
+      "com.apple.WebKit.Networking": 7914072
+    },
+    "final_footprint": {
+      "com.apple.WebKit.WebContent": 716834112,
+      "com.apple.WebKit.GPU": 177013840,
+      "com.apple.WebKit.Networking": 6586968
+    },
+    "limitation": "Different visibility and scheduling conditions; not a matched speed comparison with the windowless candidate."
+  },
+  "automated_checks": {
+    "node_tests_passed": 75,
+    "python_tests_passed": 70,
+    "standard_app_build": "passed",
+    "prepared_source_check": "passed"
+  }
+}

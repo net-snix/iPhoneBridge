@@ -1,5 +1,5 @@
 diff --git a/core/display.js b/core/display.js
-index 4efd6f4..a6837f0 100644
+index 4efd6f4..120531a 100644
 --- a/core/display.js
 +++ b/core/display.js
 @@ -7,7 +7,8 @@
@@ -127,11 +127,11 @@ index 4efd6f4..a6837f0 100644
 +    _failRenderQ(error, notify = true) {
 +        if (this._renderError !== null) { return; }
 +        this._renderError = error;
++        this._imageContext.dispose(error);
 +        for (const action of this._renderQ) {
 +            this._disposeRenderAction(action);
 +        }
 +        this._renderQ = [];
-+        this._imageContext.dispose(error);
 +        if (this._flushPromise !== null) {
 +            this._flushReject(error);
 +            this._flushPromise = null;

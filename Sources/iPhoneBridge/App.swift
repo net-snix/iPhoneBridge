@@ -37,11 +37,6 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.collectionBehavior = [.fullScreenPrimary]
-        // Explicit qualification control; ordinary mirroring respects occlusion.
-        if CommandLine.arguments.contains("--benchmark") &&
-            CommandLine.arguments.contains("--benchmark-visible") {
-            window.level = .floating
-        }
         let toolbar = NSToolbar(identifier: "phone.navigation")
         toolbar.delegate = self
         toolbar.displayMode = .iconOnly
