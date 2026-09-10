@@ -61,14 +61,16 @@ checks the loopback and navigation behavior in the compiled source.
 
 The complete noVNC checkout is distributed as source, with its original notices,
 AUTHORS and documentation. `patches/novnc-image-lifecycle.patch` loads encoded
-rectangles through a temporary HTML image and converts it to an ImageBitmap.
-The images belong to an isolated, attached decoding document. That document
-admits at most 4,096 images, then is removed after its outstanding conversions
-finish. Subsequent images wait for a new document; the mirror and RFB connection
-continue normally. This bounds WebKit's native history of loaded image URLs.
-It releases the image and object URL after conversion, closes the bitmap after
-drawing, handles decode failure and timeout, and disposes pending images on
-disconnect. These modified files remain MPL-2.0.
+rectangles through HTMLImageElements and draws them directly, without an
+intermediate ImageBitmap. The images belong to an isolated, attached decoding
+document. That document admits at most 4,096 images, then is removed after every
+admitted image has been drawn or disposed. Subsequent images wait for a new
+document; the mirror and RFB connection continue normally. This bounds WebKit's
+native history of loaded image URLs. Each image retains its object URL and
+document lease until drawing or disposal. The patch handles decode failure and
+timeout and disposes pending images on disconnect. These modified files remain
+MPL-2.0. The current candidate's sustained performance qualification remains
+incomplete; see [the renderer investigation](docs/renderer-memory-2026-09-09.md).
 The patch and resulting source hashes are pinned in `dependency-lock.json` and
 verified by `scripts/prepare-viewer` before bundling. Python dependencies and transitive download hashes
 are pinned in `uv.lock`. Their installed source, metadata and license files

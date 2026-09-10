@@ -338,10 +338,10 @@ index 0000000..a5bd1e3
 +}
 diff --git a/core/image-resource.js b/core/image-resource.js
 new file mode 100644
-index 0000000..916ee9e
+index 0000000..b5ad8ca
 --- /dev/null
 +++ b/core/image-resource.js
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,138 @@
 +/*
 + * iPhoneBridge: bounded lifetime for encoded image rectangles.
 + * Licensed under MPL 2.0, like the surrounding noVNC display code.
@@ -355,36 +355,35 @@ index 0000000..916ee9e
 +            throw new Error("Image rectangle requires a decode context");
 +        }
 +        this.image = null;
-+        this._sourceImage = null;
 +        this._context = context;
 +        this._lease = null;
 +        this._admission = null;
 +        this._contextFailed = null;
 +        this.ready = false;
 +        this._disposed = false;
-+        this._decoding = false;
 +        this._width = width;
 +        this._height = height;
 +        this._onReady = onReady;
 +        this._onError = onError;
 +        this._timer = null;
 +        // Blob snapshots the socket bytes before its receive buffer is reused.
-+        // Decode through HTMLImageElement, then give the queue a closeable
-+        // bitmap. Passing the element (not the Blob) avoids WebKit's separate
-+        // FileReaderLoader path and its internal temporary object URL.
++        // Keep the native HTML image, its URL and document lease until the
++        // render queue has drawn it. No intermediate bitmap is allocated.
 +        const bytes = ArrayBuffer.isView(data) ?
 +            new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : new Uint8Array(data);
 +        this._blob = new Blob([bytes], { type: mime });
 +        this._url = null;
 +        this._loaded = this._handleLoad.bind(this);
-+        this._failed = () => this._fail(new Error("Image rectangle failed to decode"));
++        this._failed = () => {
++            if (!this.ready) { this._fail(new Error("Image rectangle failed to decode")); }
++        };
 +    }
 +
 +    start() {
 +        if (this._disposed || this._timer !== null || this.ready) { return; }
 +        this._admission = new AbortController();
 +        this._timer = setTimeout(() => {
-+            this._fail(new Error("Image rectangle decode timed out"));
++            if (!this.ready) { this._fail(new Error("Image rectangle decode timed out")); }
 +        }, DECODE_TIMEOUT);
 +        try {
 +            this._context.acquire(this._admission.signal)
@@ -408,45 +407,28 @@ index 0000000..916ee9e
 +        const signal = lease.signal;
 +        this._contextFailed = () => this._fail(signal.reason);
 +        signal.addEventListener('abort', this._contextFailed, { once: true });
-+        this._sourceImage = lease.document.createElement('img');
-+        this._sourceImage.addEventListener('load', this._loaded);
-+        this._sourceImage.addEventListener('error', this._failed);
++        this.image = lease.document.createElement('img');
++        this.image.addEventListener('load', this._loaded);
++        this.image.addEventListener('error', this._failed);
 +        this._url = URL.createObjectURL(this._blob);
 +        this._blob = null;
-+        this._sourceImage.src = this._url;
++        this.image.src = this._url;
 +    }
 +
 +    _handleLoad() {
-+        if (this._disposed || this._decoding || this._sourceImage === null) { return; }
-+        if (this._sourceImage.naturalWidth !== this._width ||
-+            this._sourceImage.naturalHeight !== this._height) {
++        if (this._disposed || this.ready || this.image === null) { return; }
++        if (this.image.naturalWidth !== this._width ||
++            this.image.naturalHeight !== this._height) {
 +            this._fail(new Error("Decoded image has incorrect dimensions. Got " +
-+                                 this._sourceImage.naturalWidth + "x" + this._sourceImage.naturalHeight +
++                                 this.image.naturalWidth + "x" + this.image.naturalHeight +
 +                                 ". Expected " + this._width + "x" + this._height + "."));
 +            return;
 +        }
-+        this._decoding = true;
 +        this._removeListeners();
++        this.ready = true;
++        this._clearTimer();
 +        try {
-+            // Default orientation, color conversion and alpha handling; no
-+            // resizing or alternate decoder. Keep the source until resolved.
-+            createImageBitmap(this._sourceImage).then(bitmap => {
-+                if (this._disposed) {
-+                    bitmap.close();
-+                    return;
-+                }
-+                this.image = bitmap;
-+                if (bitmap.width !== this._width || bitmap.height !== this._height) {
-+                    this._fail(new Error("Decoded bitmap has incorrect dimensions. Got " +
-+                                         bitmap.width + "x" + bitmap.height + ". Expected " +
-+                                         this._width + "x" + this._height + "."));
-+                    return;
-+                }
-+                this._releaseSource();
-+                this.ready = true;
-+                this._clearTimer();
-+                this._onReady();
-+            }).catch(error => this._fail(error));
++            this._onReady();
 +        } catch (error) {
 +            this._fail(error);
 +        }
@@ -458,16 +440,16 @@ index 0000000..916ee9e
 +    }
 +
 +    _removeListeners() {
-+        if (this._sourceImage === null) { return; }
-+        this._sourceImage.removeEventListener('load', this._loaded);
-+        this._sourceImage.removeEventListener('error', this._failed);
++        if (this.image === null) { return; }
++        this.image.removeEventListener('load', this._loaded);
++        this.image.removeEventListener('error', this._failed);
 +    }
 +
 +    _releaseSource() {
 +        this._removeListeners();
-+        const source = this._sourceImage, url = this._url, lease = this._lease;
++        const source = this.image, url = this._url, lease = this._lease;
 +        const admission = this._admission, contextFailed = this._contextFailed;
-+        this._sourceImage = this._url = this._lease = this._admission = null;
++        this.image = this._url = this._lease = this._admission = null;
 +        this._blob = this._context = this._contextFailed = null;
 +        this._loaded = this._failed = null;
 +        lease?.signal.removeEventListener('abort', contextFailed);
@@ -481,7 +463,9 @@ index 0000000..916ee9e
 +    }
 +
 +    _fail(error) {
-+        if (this._disposed || this.ready) { return; }
++        // Ready images still own a source and lease until drawn. Context abort
++        // must retire them and fail the queue before their document is removed.
++        if (this._disposed) { return; }
 +        const onError = this._onError;
 +        this.dispose();
 +        onError(error);
@@ -490,10 +474,9 @@ index 0000000..916ee9e
 +    dispose() {
 +        if (this._disposed) { return; }
 +        this._disposed = true;
++        this.ready = false;
 +        this._clearTimer();
 +        this._releaseSource();
-+        if (this.image !== null) { this.image.close(); }
-+        this.image = null;
 +        this._onReady = this._onError = null;
 +    }
 +}

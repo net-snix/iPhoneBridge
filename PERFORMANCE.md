@@ -2,10 +2,14 @@
 
 The follow-up [renderer memory investigation](docs/renderer-memory-2026-09-09.md)
 identifies WebKit's retained image-load URL history and describes the bounded
-decoding-document repair. The September 10 windowless memory test completed
-22 minutes and 950,716 image rectangles with WebContent at 178–207 MiB.
-Visible physical-phone speed qualification is deferred at the user's request.
-These results are recorded separately from the earlier measurements below.
+decoding-document repair. An earlier candidate completed 22 minutes and
+950,716 image rectangles in a windowless memory test, with WebContent at
+178–207 MiB. The current candidate draws native HTML images directly and is
+awaiting completion of visible physical-phone qualification on the second monitor. A
+zero-size canvas invalidated earlier synthetic visible-speed comparisons;
+their allocation measurements retain their recorded scope. The long-session
+speed decline remains unresolved pending the physical-phone tests. Work was
+paused at the user's request on 2026-09-10; no benchmark is running.
 
 # Frame delivery repair — 2026-09-09
 
@@ -102,11 +106,17 @@ For video cadence, open the same phone page with `mode=motion` or `mode=sparse`,
 
 The fixture and metrics server bind to Mac loopback; the phone reaches the fixture through the existing bridge-owned USB reverse forward. Requests and reports stay in `work/`. The input runner requires a recognized barcode, rejects the animation flag, waits up to two seconds for a stable input fixture, releases each key after 20 ms, and aborts on an unexpected/missing response. It never retries an uncertain input. Animation measurement sends no input.
 
-Keep the ordinary app window visible beside other work during speed checks.
+Keep the app window visible during speed checks. When explicitly wanted,
+`--benchmark-visible` keeps the test window on top and
+`--benchmark-display=<display ID>` places it on a connected CoreGraphics display
+(for example, the ID reported by `system_profiler SPDisplaysDataType -json`).
+Both options require `--benchmark`; an unavailable requested display stops the
+launch. Ordinary launches retain the normal window level and placement.
+
 Reports record hidden intervals; covered or minimized windows are not valid
-samples of active mirror performance. Benchmark mode also records completed
-update/draw counts, image counts, connection continuity and decoding-frame count every five seconds
-without reading canvas pixels between requested barcode tests.
+samples of active mirror performance. Benchmark mode records completed
+update/draw counts, image counts, connection continuity and decoding-frame count
+every five seconds without reading canvas pixels between requested barcode tests.
 
 Quit the benchmark app when finished, then open iPhoneBridge normally. Normal mode does not import the benchmark module, poll the test server, read canvas pixels, or send test keys. The benchmark is retained as a reproducible performance diagnostic, not a production telemetry loop.
 

@@ -44,6 +44,7 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         window.toolbar = toolbar
         window.toolbarStyle = .unifiedCompact
         window.center()
+        guard configureBenchmarkWindow() else { NSApp.terminate(nil); return }
 
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
@@ -86,6 +87,24 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         installShortcuts()
         NSApp.activate(ignoringOtherApps: true)
         connect()
+    }
+
+    private func configureBenchmarkWindow() -> Bool {
+        let arguments = CommandLine.arguments
+        guard arguments.contains("--benchmark") else { return true }
+        if let selection = arguments.first(where: { $0.hasPrefix("--benchmark-display=") }) {
+            guard let identifier = UInt32(selection.dropFirst("--benchmark-display=".count)),
+                  let screen = NSScreen.screens.first(where: {
+                      ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == identifier
+                  }) else {
+                NSLog("Requested benchmark display is unavailable: %@", selection)
+                return false
+            }
+            window.setFrameOrigin(NSPoint(x: screen.visibleFrame.midX - window.frame.width / 2,
+                                          y: screen.visibleFrame.midY - window.frame.height / 2))
+        }
+        if arguments.contains("--benchmark-visible") { window.level = .floating }
+        return true
     }
 
     private func makeMenu() {

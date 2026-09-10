@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "status": "diagnosis_confirmed_fix_pending",
+  "date": "2026-09-10",
+  "viewer_patch_sha256": "c501684eef3529357b2483e6df7538550c6c4e1a9737242a25a96e1bfada5c2a",
+  "phone_daemon_sha256": "f30543574711d977a1a41ed053f9e4e49f6cfa4ff535d3f65011b7c2e6de4c5e",
+  "profile": {
+    "framebuffer": [
+      1172,
+      2536
+    ],
+    "capture_fps_limit": 60,
+    "quality_level": 6,
+    "compression_level": 2,
+    "max_inflight_updates": 1
+  },
+  "physical_native_run": {
+    "started_utc": "2026-09-10T09:21:39.719105+00:00",
+    "elapsed_seconds": 369.9027563749696,
+    "completed_22_minutes": false,
+    "qualification": "failed_frame_rate_decline",
+    "window": "Floating on BenQ G2420HDB external display, 60 Hz; screenshot verified real fixture pixels",
+    "renderer_generation": 1,
+    "hidden_samples": 0,
+    "max_decoder_documents": 1,
+    "completed_image_jobs_at_last_sample": 1026150,
+    "barcode_windows": [
+      {
+        "label": "context-motion-at-0s",
+        "requestedDurationMs": 30000,
+        "uniqueSequences": 1799,
+        "sourceFramesSkipped": 1,
+        "receivedFps": 59.975316054571536,
+        "p50": 17,
+        "p95": 18,
+        "visibleQualification": true,
+        "visibility": {
+          "available": true,
+          "hidden": false,
+          "focused": true,
+          "hadHidden": false,
+          "hiddenMs": 0,
+          "changes": 0
+        }
+      },
+      {
+        "label": "context-motion-at-300s",
+        "requestedDurationMs": 30000,
+        "uniqueSequences": 1046,
+        "sourceFramesSkipped": 753,
+        "receivedFps": 34.87518355359765,
+        "p50": 33,
+        "p95": 35,
+        "visibleQualification": true,
+        "visibility": {
+          "available": true,
+          "hidden": false,
+          "focused": false,
+          "hadHidden": false,
+          "hiddenMs": 0,
+          "changes": 0
+        }
+      }
+    ],
+    "physical_footprint_mib": {
+      "renderer": {
+        "min": 96.45406341552734,
+        "max": 119.87596130371094,
+        "first": 119.87596130371094,
+        "last": 102.40718841552734
+      },
+      "gpu": {
+        "min": 190.14142608642578,
+        "max": 204.18834686279297,
+        "first": 190.14142608642578,
+        "last": 192.57894897460938
+      },
+      "network": {
+        "min": 6.547492980957031,
+        "max": 6.750617980957031,
+        "first": 6.750617980957031,
+        "last": 6.547492980957031
+      },
+      "combined_webkit": {
+        "min": 294.93988037109375,
+        "max": 316.76800537109375,
+        "first": 316.76800537109375,
+        "last": 301.53363037109375
+      }
+    },
+    "post_soak_heap": {
+      "non_object_112_byte_allocations": 8083,
+      "cached_images": 3732,
+      "html_image_elements": 215,
+      "document_loaders": 2,
+      "note": "Native allocation class is a proxy, not an enumeration of retained URLs; collected after failed soak, without forcing garbage collection."
+    }
+  },
+  "same_daemon_without_native_viewer": {
+    "action": "Terminate only owned native app, preserve USB/SSH/daemon session identity, verify no existing RFB client, then run one Tight sink",
+    "data_update_fps": 41.29377135080724,
+    "data_updates_per_second": [
+      55,
+      59,
+      45,
+      38,
+      37,
+      36,
+      35,
+      34,
+      35,
+      39
+    ],
+    "session_identity_unchanged": true
+  },
+  "sustained_phone_only_verbose": {
+    "started_utc": "2026-09-10T09:33:14Z",
+    "duration_seconds": 600.0003475829726,
+    "measurement": "complete RFB delivery; no image decode, pixel inspection, or input",
+    "max_active_clients": 1,
+    "data_updates": 20828,
+    "data_update_fps": 34.713313223739,
+    "busy_drops": 15153,
+    "delivered_plus_busy_per_second": 59.96829859340085,
+    "first_minute_fps": 59.766666666666666,
+    "last_minute_fps": 29.983333333333334,
+    "minute_mean_fps": [
+      59.766666666666666,
+      47.05,
+      30.4,
+      29.983333333333334,
+      30,
+      29.983333333333334,
+      29.983333333333334,
+      30,
+      29.983333333333334,
+      29.983333333333334
+    ],
+    "canonical_session_restored": true,
+    "packaged_connect_verified": true,
+    "limitations": [
+      "Verbose busy logging can add overhead.",
+      "This arm restarts the daemon and SSH session before measuring.",
+      "The sink measures complete RFB delivery, without image decoding or physical display observation."
+    ]
+  },
+  "conclusion": "The direct-image path has bounded native memory in this run, but does not fix sustained throughput. In the sole-client phone probe, completed updates plus busy rejections account for approximately 60 captures/s while delivered updates settle at30/s. Source inspection identifies next-display-tick retry as an amplifier when encode/transmit service crosses a16.67ms interval. The exact stage cost still needs measurement; no thermal cause is claimed."
+}

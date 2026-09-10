@@ -85,10 +85,10 @@ const { default: RFB } = await import(moduleURL('rfb.js'));
 const { initLogging } = await import(moduleURL('util/logging.js'));
 initLogging('none');
 
-let images, bitmaps, objectURLs, revokedURLs, timers, nextTimer, nextURL, decoderFrames, owners;
+let images, objectURLs, revokedURLs, timers, nextTimer, nextURL, decoderFrames, owners;
 globalThis.createImageBitmap ??= () => {};
 beforeEach(t => {
-  images = []; bitmaps = []; objectURLs = new Map(); revokedURLs = [];
+  images = []; objectURLs = new Map(); revokedURLs = [];
   timers = new Map(); nextTimer = 0; nextURL = 0;
   decoderFrames = []; owners = [];
   t.after(() => {
@@ -98,7 +98,7 @@ beforeEach(t => {
   class Image extends EventTarget {
     constructor() {
       super(); this._src = ''; this.naturalWidth = this.naturalHeight = 0;
-      this.listeners = new Set(); images.push(this);
+      this.listeners = new Set(); this.cleared = 0; images.push(this);
     }
     get src() { return this._src; }
     set src(value) {
@@ -116,6 +116,8 @@ beforeEach(t => {
     removeAttribute(name) {
       assert.equal(name, 'src');
       assert.equal(this.listeners.size, 0, 'detach callbacks before clearing the source');
+      assert.ok(this.ownerDocument.frame.parentNode, 'clear the source before its document is removed');
+      assert.equal(++this.cleared, 1, 'each source is cleared exactly once');
       this._src = '';
     }
     load(width = 4, height = 4) {
@@ -125,14 +127,7 @@ beforeEach(t => {
     fail() { this.dispatchEvent(new Event('error')); }
   }
   globalThis.Image = Image;
-  t.mock.method(globalThis, 'createImageBitmap', (...args) => {
-    assert.equal(args.length, 1, 'default pixel behavior without resizing or color overrides');
-    const [image] = args;
-    assert.ok(image instanceof Image, 'convert the loaded HTML image, never a Blob');
-    assert.ok(objectURLs.has(image.src), 'the source remains valid during bitmap conversion');
-    if (Image.bitmapThrows) throw new Error('bitmap conversion unavailable');
-    return new Promise((resolve, reject) => { image.decode = { resolve, reject }; });
-  });
+  t.mock.method(globalThis, 'createImageBitmap', () => assert.fail('draw native HTML images without an intermediate bitmap'));
   t.mock.method(URL, 'createObjectURL', blob => {
     const url = `blob:mock-${++nextURL}`;
     objectURLs.set(url, blob); return url;
@@ -152,9 +147,11 @@ function displayRig() {
   owners.push(display);
   display.resize(4, 4);
   const drawn = [], errors = [];
-  display.drawImage = bitmap => {
-    assert.equal(bitmap.closed, 0, 'the bitmap must remain open until it is drawn');
-    drawn.push(images.indexOf(bitmap.source));
+  display.drawImage = image => {
+    assert.ok(image instanceof Image, 'draw the original native HTML image');
+    assert.ok(objectURLs.has(image.src), 'the encoded source stays valid until drawing');
+    assert.ok(image.ownerDocument.frame.parentNode, 'the source document stays attached through drawing');
+    drawn.push(images.indexOf(image));
   };
   display.onerror = error => errors.push(error);
   return { display, drawn, errors };
@@ -174,28 +171,16 @@ function assertReleased() {
   assert.ok(images.every(image => image.src === ''), 'decoded image sources are cleared');
   assert.ok(images.every(image => image.listeners.size === 0), 'image listeners are removed');
   assert.equal(objectURLs.size, 0, 'no encoded object URLs remain');
-  assert.ok(bitmaps.every(bitmap => bitmap.closed === 1), 'every completed bitmap is closed once');
+  assert.ok(images.every(image => image.cleared === 1), 'every source is cleared exactly once');
 }
 async function tick() { for (let i = 0; i < 5; i++) await Promise.resolve(); }
-function resolveBitmap(image, width = 4, height = 4) {
-  assert.ok(image.decode, 'the HTML image must load before conversion');
-  const bitmap = { source: image, width, height, closed: 0, close() { this.closed++; } };
-  bitmaps.push(bitmap);
-  const decode = image.decode;
-  image.decode = null;
-  decode.resolve(bitmap);
-  return bitmap;
-}
-function complete(image) { image.load(); return resolveBitmap(image); }
+function complete(image) { image.load(); }
 async function settleRemaining() {
-  for (const image of images) {
-    image.load();
-    if (image.decode) resolveBitmap(image);
-  }
+  for (const image of images) image.load();
   await tick();
 }
 
-test('object URLs snapshot exact bytes and ordered drawing owns only completed bitmaps', async () => {
+test('object URLs snapshot exact bytes and ordered drawing retains ready image sources and leases', async () => {
   const { display, drawn } = displayRig();
   const bytes = new Uint8Array([9, 1, 2, 3, 8]);
   const first = await enqueue(display, bytes.subarray(1, 4));
@@ -206,13 +191,11 @@ test('object URLs snapshot exact bytes and ordered drawing owns only completed b
   const second = await enqueue(display);
   const flushed = display.flush();
   second.load();
-  assert.notEqual(second.src, '', 'the HTML source stays valid until bitmap conversion completes');
-  const secondBitmap = resolveBitmap(second);
   await tick();
   assert.deepEqual(drawn, [], 'a later rectangle cannot overtake an earlier one');
-  assert.equal(second.src, '', 'the queue does not retain the HTML source after conversion');
-  assert.equal(secondBitmap.closed, 0, 'ready but queued bitmaps stay open until drawn');
-  assert.equal(objectURLs.size, 1, 'the completed rectangle releases its encoded URL');
+  assert.notEqual(second.src, '', 'ready but queued native images keep their source');
+  assert.equal(objectURLs.size, 2, 'both encoded URLs remain owned until drawing');
+  assert.equal(display._imageContext._current.active, 2, 'ready images retain their document lease');
   assert.equal(second.listeners.size, 0, 'completed loading retains no event listeners');
   complete(first);
   await flushed;
@@ -229,8 +212,8 @@ test('legacy byte arrays retain the same encoded bytes as typed-array rectangles
   assertReleased();
 });
 
-test('disposal releases both decode stages and callback ownership including late bitmaps', async () => {
-  for (const stage of ['unstarted', 'loading', 'converting', 'ready']) {
+test('disposal releases unstarted, loading and ready image ownership despite late callbacks', async () => {
+  for (const stage of ['unstarted', 'loading', 'ready']) {
     let ready = 0, failed = 0;
     const onReady = () => ready++;
     const onError = () => failed++;
@@ -244,12 +227,10 @@ test('disposal releases both decode stages and callback ownership including late
       await tick();
       assert.equal(timers.size, 1);
     }
-    const image = resource._sourceImage;
-    if (stage === 'converting' || stage === 'ready') image.load();
-    if (stage === 'ready') { resolveBitmap(image); await tick(); }
+    const image = resource.image;
+    if (stage === 'ready') image.load();
     resource.dispose(); resource.dispose();
     lateLoad(); lateError();
-    if (image?.decode) resolveBitmap(image);
     await tick();
     resource.start();
     assert.equal(ready, stage === 'ready' ? 1 : 0);
@@ -266,7 +247,7 @@ test('disposal releases both decode stages and callback ownership including late
 test('synchronous load during source assignment can draw and dispose safely', async () => {
   const { display, drawn, errors } = displayRig();
   Image.immediateEvent = 'load';
-  resolveBitmap(await enqueue(display));
+  await enqueue(display);
   await display.flush();
   assert.deepEqual(drawn, [0]);
   assert.deepEqual(errors, []);
@@ -283,7 +264,7 @@ test('synchronous error during source assignment fails and disposes safely', asy
   assertReleased();
 });
 
-for (const failure of ['decode', 'dimensions', 'bitmap', 'bitmap dimensions', 'timeout', 'conversion timeout']) {
+for (const failure of ['decode', 'dimensions', 'timeout']) {
   test(`${failure} failure releases the whole queue and rejects pending and future flushes`, async () => {
     const { display, drawn, errors } = displayRig();
     const first = await enqueue(display);
@@ -293,13 +274,6 @@ for (const failure of ['decode', 'dimensions', 'bitmap', 'bitmap dimensions', 't
     await tick();
     if (failure === 'decode') first.fail();
     else if (failure === 'dimensions') first.load(3, 4);
-    else if (failure === 'bitmap') {
-      first.load(); first.decode.reject(new Error('bitmap decode failed')); first.decode = null;
-    } else if (failure === 'bitmap dimensions') {
-      first.load(); resolveBitmap(first, 3, 4);
-    } else if (failure === 'conversion timeout') {
-      first.load(); fireTimer(10000);
-    }
     else fireTimer(10000);
     await rejected;
     await assert.rejects(display.flush());
@@ -330,28 +304,6 @@ test('a synchronous image source error terminates rendering without a fallback',
   Image.failAssignment = true;
   await enqueue(display);
   await assert.rejects(display.flush(), /image source unavailable/);
-  assert.equal(errors.length, 1);
-  assertReleased();
-});
-
-test('a synchronous bitmap conversion error releases the HTML source and fails rendering', async () => {
-  const { display, errors } = displayRig();
-  Image.bitmapThrows = true;
-  (await enqueue(display)).load();
-  await assert.rejects(display.flush(), /bitmap conversion unavailable/);
-  assert.equal(errors.length, 1);
-  assertReleased();
-});
-
-test('late bitmap rejection after a conversion timeout reports only the original failure', async () => {
-  const { display, errors } = displayRig();
-  const image = await enqueue(display);
-  image.load();
-  const rejected = assert.rejects(display.flush(), /timed out/);
-  fireTimer(10000);
-  image.decode.reject(new Error('late bitmap failure')); image.decode = null;
-  await rejected;
-  await tick();
   assert.equal(errors.length, 1);
   assertReleased();
 });
@@ -394,16 +346,14 @@ test('a queued canvas flip failure also terminates the flush instead of hanging 
   assertReleased();
 });
 
-test('disconnect closes queued bitmaps, releases canvases and closes late conversion results', async () => {
+test('disconnect releases loading and ready image sources before removing their document', async () => {
   const { display, drawn, errors } = displayRig();
   const first = await enqueue(display);
   const second = await enqueue(display);
-  first.load();
   complete(second);
   await tick();
   const rejected = assert.rejects(display.flush(), /disconnected/);
   display.dispose(); display.dispose();
-  resolveBitmap(first);
   first.load(); first.fail(); second.load();
   await rejected;
   await tick();
@@ -415,19 +365,21 @@ test('disconnect closes queued bitmaps, releases canvases and closes late conver
 
 test('disconnect cancels pending admission before releasing an exhausted decoder document', async () => {
   const { display, drawn, errors } = displayRig();
-  // Leave the real production context one admission short of its boundary.
-  for (let i = 0; i < 4095; i++) {
+  // A loading head, ready successor and admission waiting across the boundary.
+  for (let i = 0; i < 4094; i++) {
     (await display._imageContext.acquire()).release();
   }
-  const last = await enqueue(display);
-  last.load();
+  const head = await enqueue(display);
+  const ready = await enqueue(display);
+  ready.load();
   await enqueue(display);
-  assert.equal(images.length, 1, 'the next rectangle is waiting for the active decode');
+  assert.equal(images.length, 2, 'the next rectangle is waiting for drawing');
+  assert.equal(display._imageContext._current.active, 2);
   assert.equal(display._imageContext._waiters.size, 1);
   assert.equal(decoderFrames.length, 1);
   const rejected = assert.rejects(display.flush(), /disconnected/);
   display.dispose();
-  resolveBitmap(last);
+  head.load(); ready.load();
   await rejected;
   await tick();
   assert.equal(decoderFrames.length, 1, 'teardown must not create a successor decoder document');
@@ -437,7 +389,64 @@ test('disconnect cancels pending admission before releasing an exhausted decoder
   assertReleased();
 });
 
-test('repeated image rectangles release URLs, sources, bitmaps, listeners and decode timers', async () => {
+test('context failure releases ready queue entries and rejects the display flush once', async () => {
+  const { display, drawn, errors } = displayRig();
+  const head = await enqueue(display);
+  const ready = await enqueue(display);
+  ready.load();
+  const rejected = assert.rejects(display.flush(), /decoder owner failed/);
+  display._imageContext.dispose(new Error('decoder owner failed'));
+  await rejected;
+  await assert.rejects(display.flush(), /decoder owner failed/);
+  head.load(); ready.load();
+  display.dispose();
+  assert.equal(display._renderQ.length, 0);
+  assert.deepEqual(drawn, []);
+  assert.equal(errors.length, 1);
+  assertReleased();
+});
+
+test('late decode callbacks cannot fail a ready image while it waits to be drawn', async () => {
+  const { display, drawn, errors } = displayRig();
+  const head = await enqueue(display);
+  const image = await enqueue(display);
+  const resource = display._renderQ[1].img;
+  const lateLoad = resource._loaded, lateError = resource._failed;
+  const lateTimeout = timers.get(resource._timer).callback;
+  image.load();
+  lateLoad(); lateError(); lateTimeout();
+  assert.equal(resource.ready, true);
+  assert.equal(display._imageContext._current.active, 2);
+  assert.deepEqual(errors, []);
+  head.load();
+  await display.flush();
+  assert.deepEqual(drawn, [0, 1]);
+  assertReleased();
+});
+
+test('ordered drawing drains an exhausted document before admitting the next rectangle', async () => {
+  const { display, drawn, errors } = displayRig();
+  for (let i = 0; i < 4094; i++) (await display._imageContext.acquire()).release();
+  const head = await enqueue(display);
+  const ready = await enqueue(display);
+  ready.load();
+  await enqueue(display);
+  const flushed = display.flush();
+  assert.equal(images.length, 2);
+  head.load();
+  await tick();
+  assert.deepEqual(drawn, [0, 1]);
+  assert.equal(decoderFrames[0].parentNode, null);
+  assert.equal(decoderFrames.length, 2);
+  assert.equal(images.length, 3);
+  images[2].load();
+  await flushed;
+  assert.deepEqual(drawn, [0, 1, 2]);
+  assert.deepEqual(errors, []);
+  assertReleased();
+});
+
+test('repeated image rectangles release URLs, sources, listeners and decode timers', async () => {
   const { display, drawn } = displayRig();
   for (let i = 0; i < 1000; i++) {
     complete(await enqueue(display));

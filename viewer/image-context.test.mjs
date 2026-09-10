@@ -232,16 +232,16 @@ test('forty thousand jobs keep one owner and at most one attached decoder docume
 });
 
 // Compose the real resource and owner to cover the asynchronous admission,
-// source cleanup, and late bitmap edges without a browser or phone.
+// source cleanup, and ready image ownership without a browser or phone.
 function resourceRig(t) {
   const state = rig();
-  const images = [], resources = [], bitmaps = [], errors = [];
+  const images = [], resources = [], errors = [];
   const urls = new Map(), timers = new Map();
   let nextURL = 0, nextTimer = 0;
   state.document.makeImage = ownerDocument => {
     const image = new EventTarget();
     Object.assign(image, {
-      ownerDocument, src: '', naturalWidth: 4, naturalHeight: 4, listeners: new Set(),
+      ownerDocument, src: '', naturalWidth: 4, naturalHeight: 4, listeners: new Set(), cleared: 0,
       addEventListener(type, callback, options) {
         this.listeners.add(callback);
         EventTarget.prototype.addEventListener.call(this, type, callback, options);
@@ -253,6 +253,8 @@ function resourceRig(t) {
       removeAttribute(name) {
         assert.equal(name, 'src');
         assert.equal(this.listeners.size, 0);
+        assert.equal(state.frames[this.ownerDocument.id].removed, 0, 'release the image before its document');
+        assert.equal(++this.cleared, 1);
         this.src = '';
       },
       load() { this.dispatchEvent(new Event('load')); },
@@ -261,13 +263,7 @@ function resourceRig(t) {
     return image;
   };
   globalThis.createImageBitmap ??= () => {};
-  t.mock.method(globalThis, 'createImageBitmap', (...args) => {
-    assert.equal(args.length, 1);
-    const [image] = args;
-    assert.ok(images.includes(image));
-    assert.ok(urls.has(image.src));
-    return new Promise((resolve, reject) => { image.conversion = { resolve, reject }; });
-  });
+  t.mock.method(globalThis, 'createImageBitmap', () => assert.fail('native HTML images need no intermediate bitmap'));
   t.mock.method(URL, 'createObjectURL', blob => {
     const url = `blob:context-test-${++nextURL}`;
     urls.set(url, blob); return url;
@@ -282,12 +278,6 @@ function resourceRig(t) {
     const result = new ImageResource(bytes, 'image/jpeg', 4, 4, () => {}, error => errors.push(error), state.context);
     resources.push(result); return result;
   };
-  const convert = image => {
-    const bitmap = { width: 4, height: 4, closed: 0, close() { this.closed++; } };
-    bitmaps.push(bitmap);
-    image.conversion.resolve(bitmap); image.conversion = null;
-    return bitmap;
-  };
   t.after(() => {
     for (const value of resources) value.dispose();
     state.context.dispose();
@@ -295,9 +285,9 @@ function resourceRig(t) {
     assert.equal(timers.size, 0);
     assert.equal(state.attached.size, 0);
     assert.ok(images.every(image => image.src === '' && image.listeners.size === 0));
-    assert.ok(bitmaps.every(bitmap => bitmap.closed === 1));
+    assert.ok(images.every(image => image.cleared === 1));
   });
-  return { ...state, images, resources, errors, urls, timers, resource, convert };
+  return { ...state, images, resources, errors, urls, timers, resource };
 }
 
 test('an image rectangle cannot silently create a global decoder when its owner is missing', () => {
@@ -340,14 +330,14 @@ test('waiting for a decoder document still snapshots bytes before the socket reu
   assert.deepEqual(new Uint8Array(await state.urls.get(image.src).arrayBuffer()), new Uint8Array([1, 2, 3]));
   assert.equal(state.frames[0].removed, 1);
   assert.equal(image.ownerDocument, state.frames[1].contentDocument);
-  image.load(); state.convert(image);
+  image.load();
   await tick();
   assert.equal(resource.ready, true);
   resource.dispose();
   assert.equal(state.errors.length, 0);
 });
 
-test('the last source lease waits for bitmap completion while the independent bitmap survives retirement', async t => {
+test('the last ready image keeps its source and document until drawing is finished', async t => {
   const state = resourceRig(t);
   for (const lease of await fill(state.context, LIMIT - 1)) lease.release();
   const first = state.resource(), second = state.resource();
@@ -356,40 +346,46 @@ test('the last source lease waits for bitmap completion while the independent bi
   assert.equal(state.images.length, 1);
   const source = state.images[0];
   source.load();
-  assert.equal(state.frames[0].removed, 0, 'a pending conversion keeps its owner document');
-  const bitmap = state.convert(source);
+  await tick();
+  assert.equal(state.frames[0].removed, 0, 'a ready image keeps its owner document');
+  assert.equal(state.images.length, 1, 'the next image still waits for drawing');
+  assert.equal(first.ready, true);
+  assert.equal(first.image, source);
+  assert.ok(state.urls.has(source.src));
+  first.dispose(); // Display disposes its resource immediately after drawing.
   await tick();
   assert.equal(source.src, '', 'source cleanup finishes before document retirement');
   assert.equal(state.frames[0].removed, 1);
   assert.equal(state.images.length, 2);
-  assert.equal(first.image, bitmap);
-  assert.equal(bitmap.closed, 0, 'a queued ready bitmap is independent of the retired document');
-  state.images[1].load(); state.convert(state.images[1]);
+  assert.equal(first.image, null);
+  state.images[1].load();
   await tick();
   first.dispose(); second.dispose();
   assert.equal(state.maximumAttached(), 1);
   assert.equal(state.errors.length, 0);
 });
 
-test('owner teardown during conversion clears the source, fails once, and closes a late bitmap', async t => {
-  const state = resourceRig(t);
-  const resource = state.resource();
-  resource.start(); await tick();
-  const [image] = state.images;
-  image.load();
-  state.context.dispose(new Error('decoder owner stopped'));
-  assert.equal(image.src, '');
-  assert.equal(state.attached.size, 0);
-  assert.equal(state.urls.size, 0);
-  assert.equal(state.errors.length, 1);
-  assert.match(state.errors[0].message, /owner stopped/);
-  const late = state.convert(image);
-  await tick();
-  assert.equal(late.closed, 1);
-  assert.equal(resource.ready, false);
-  assert.equal(state.errors.length, 1);
-  await assert.rejects(state.context.acquire(), /owner stopped/);
-});
+for (const ready of [false, true]) {
+  test(`owner teardown releases a ${ready ? 'ready' : 'loading'} image before removing its document`, async t => {
+    const state = resourceRig(t);
+    const resource = state.resource();
+    resource.start(); await tick();
+    const [image] = state.images;
+    if (ready) image.load();
+    state.context.dispose(new Error('decoder owner stopped'));
+    assert.equal(image.src, '');
+    assert.equal(state.attached.size, 0);
+    assert.equal(state.urls.size, 0);
+    assert.equal(state.errors.length, 1);
+    assert.match(state.errors[0].message, /owner stopped/);
+    image.load(); resource.dispose(); state.context.dispose();
+    await tick();
+    assert.equal(resource.image, null);
+    assert.equal(resource.ready, false);
+    assert.equal(state.errors.length, 1);
+    await assert.rejects(state.context.acquire(), /owner stopped/);
+  });
+}
 
 test('owner teardown before an admission callback prevents creating an image in the retired frame', async t => {
   const state = resourceRig(t);
