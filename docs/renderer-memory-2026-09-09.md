@@ -13,14 +13,21 @@ VNC connection remain continuous. The current candidate draws the decoded
 HTMLImageElement directly, retaining its Blob URL and document lease until
 drawing or disposal. It removes the earlier intermediate ImageBitmap conversion.
 
-**Qualification remains incomplete.** The earlier ImageBitmap candidate passed
-a 22-minute windowless memory test with 950,716 JPEG rectangles. The current
-direct-image candidate passes 74 Node tests and four installed native pixel
-comparisons, but its physical-phone test delivered about 30 frames/s. Synthetic
-replays previously described as visible had a zero-size canvas and cannot
-qualify displayed speed. Work resumed at the user's request on 2026-09-10.
-The reviewed capture-scheduling candidate is integrated, but its next visible
-test still declined to about 36 fps. It is not qualified for promotion.
+**WebKit memory qualification passed; sustained FPS remains unresolved.** On
+September 11, the current direct-image renderer (`c501684e…`) completed a 22-minute visible
+physical-phone run. WebContent stayed at 106–123 MiB, and all four native pixel
+comparisons matched before and after collection. It also passes 74 Node tests.
+The native app itself grew 3.14 MiB during collection; that smaller drift remains
+unexplained. Input, staged-daemon lifecycle and sustained-speed qualification
+remain incomplete, so the complete candidate is not qualified for promotion.
+
+Separate phone-only runs reproduced the FPS decline without Mac rendering.
+The latest candidate moved publication outside the main thread, but JPEG CPU
+time still rose from 8.68 to 35.41 ms per update while delivery fell from 59.53
+to 27.42 updates/s. Worker policy and hardware counters are the next diagnostic
+step. The measurements below distinguish each tested artifact and its limits.
+Earlier synthetic replays had a zero-size canvas and cannot qualify displayed
+speed.
 
 The first installed capture candidate (`8c061f12`) delivered 54.75 updates/s in a
 60-second phone-only Tight sink, then 53.97 updates/s over five minutes. Its
