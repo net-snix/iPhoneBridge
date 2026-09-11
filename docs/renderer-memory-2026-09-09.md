@@ -301,6 +301,38 @@ or input qualification is claimed. All three sessions restored the normal daemon
 The candidate remains unpromoted. See the [complete-update trial evidence and
 limits](jpeg-fbu-pipeline-trial-2026-09-11.json).
 
+### Publication outside the main thread
+
+Candidate D (`50951d1b…`) gives prepared-frame state one owner and moves publication
+to a bounded serial queue. The completion wake runs after both LibVNC send and
+negotiation locks are released. Capture and render remain on main; codec, image
+quality, resolution and the two JPEG workers are unchanged.
+
+The phone-only trial recorded 12,526 complete publication wake CPU pairs with
+zero diagnostic errors and 5,908 new publication-to-send associations originating
+from the completion wake. In the final minute, wake queue delay averaged 0.128 ms,
+owner wait 0.526 ms and wake CPU 0.087 ms. The complete finish-to-next-send gap
+averaged 4.703 ms, compared with 10.185 ms in the earlier C run. These separate
+runs were not thermally matched, and publication-event latency is not display
+latency.
+
+Delivery still declined from **59.53 to 27.42 updates/s**. Worker JPEG CPU rose
+from 8.68 to 35.41 ms per update, coordinator CPU from 1.03 to 4.03 ms and send
+wall time from 5.62 to 31.78 ms. Job count stayed near 43 per update and socket
+bytes per update rose only 0.178%. Thermal category stayed at 2. Queue waiting
+cannot explain the CPU-time increase; worker policy, core placement, frequency
+and hardware instruction counts were not measured. D is not a sustained FPS fix.
+
+The runner restored the normal daemon but initially rejected publication metadata.
+Its validator incorrectly expected no helper probes and required a prior
+publication for the initial full send. Source review established three deliberate
+greeting-only probes and a legal full-frame send before the first publication.
+The corrected validator requires that exact startup pattern, preserves measured
+single-client and timing checks, and passes 14 acceptance cases plus 73 injected
+fault rejections. A separate retrospective result validates the unchanged D report;
+the original failed run remains preserved. Exact records and limits are in
+[offmain-publication-trial-2026-09-11.json](offmain-publication-trial-2026-09-11.json).
+
 ## Why the previous cleanup did not stop growth
 
 In the inspected WebKit source, `ResourceLoadNotifier::dispatchWillSendRequest`
