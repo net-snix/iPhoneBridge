@@ -24,8 +24,10 @@ remain incomplete, so the complete candidate is not qualified for promotion.
 Separate phone-only runs reproduced the FPS decline without Mac rendering.
 The latest candidate moved publication outside the main thread, but JPEG CPU
 time still rose from 8.68 to 35.41 ms per update while delivery fell from 59.53
-to 27.42 updates/s. Worker policy and hardware counters are the next diagnostic
-step. The measurements below distinguish each tested artifact and its limits.
+to 27.42 updates/s. Subsequent sparse worker counters show rising CPU cost per
+instruction during a warm slowdown, with unchanged sampled worker policy.
+A bounded four-worker experiment is being qualified. The measurements below
+distinguish each tested artifact and its limits.
 Earlier synthetic replays had a zero-size canvas and cannot qualify displayed
 speed.
 
@@ -339,6 +341,39 @@ single-client and timing checks, and passes 14 acceptance cases plus 73 injected
 fault rejections. A separate retrospective result validates the unchanged D report;
 the original failed run remains preserved. Exact records and limits are in
 [offmain-publication-trial-2026-09-11.json](offmain-publication-trial-2026-09-11.json).
+
+### Sparse worker policy and execution counters
+
+Two consecutive five-minute phone-only runs used diagnostic daemon `286419fd`
+and the unchanged two-worker library `61fcaabe`. Each run collected 60 worker
+policy observations, 60 selected JPEG-job counter pairs and 60 no-work controls.
+Every pair was complete and valid. The existing measurements still covered every
+JPEG job. Both runs had one client and unchanged Q6/C2, JPEG quality 79, 4:4:4 and
+1172 × 2536 geometry. The normal daemon was restored after each run. Exact
+identities, minute tables and raw-data hashes are in
+[the worker diagnostic record](jpeg-worker-diagnostics-2026-09-11.json).
+
+The first run held 59.35–59.55 updates/s. In the immediate warm follow-up,
+delivery changed from 59.37 to 51.73 updates/s while whole JPEG CPU time rose
+from 7.98 to 19.33 ms/update. Capture remained near 59.5–59.8 starts/s, and the
+phone reported serious thermal state throughout the warm run. Short cold runs
+therefore still cannot establish a sustained fix.
+
+Among the selected warm jobs, CPU time per instruction increased 97.22% from
+minute one to five, even though instructions/job decreased 20.74%. Requested
+worker QoS remained 21, with Mach current/base priority 31/31 in all observations.
+Both cycles/instruction and effective cycles/CPU-time changed; the latter alone
+would miss part of the loss in execution efficiency. These measurements support
+an execution-efficiency component, but do not identify core placement, literal
+clock frequency, DVFS or the underlying cause.
+
+Warm no-work controls averaged 1.13 μs CPU and 1.80 μs wall, respectively 0.297%
+and 0.447% of the raw selected-job sums. No controls were subtracted. The brackets
+are not atomic, include some kernel/probe work and do not bound all diagnostic
+overhead. No sampled job geometry or pixels were recorded, so these samples do
+not establish matched image work or represent all JPEG jobs. A four-worker trial
+can test additional concurrency; these counters neither prove spare capacity nor
+predict a gain. Native display, input and sustained performance remain unqualified.
 
 ## Why the previous cleanup did not stop growth
 
