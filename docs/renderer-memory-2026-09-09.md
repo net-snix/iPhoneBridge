@@ -26,7 +26,8 @@ The latest candidate moved publication outside the main thread, but JPEG CPU
 time still rose from 8.68 to 35.41 ms per update while delivery fell from 59.53
 to 27.42 updates/s. Subsequent sparse worker counters show rising CPU cost per
 instruction during a warm slowdown, with unchanged sampled worker policy.
-A bounded four-worker experiment is being qualified. The measurements below
+A bounded four-worker experiment also failed its warm sustained-speed test.
+Worker-specific scheduling remains a separate hypothesis. The measurements below
 distinguish each tested artifact and its limits.
 Earlier synthetic replays had a zero-size canvas and cannot qualify displayed
 speed.
@@ -374,6 +375,41 @@ overhead. No sampled job geometry or pixels were recorded, so these samples do
 not establish matched image work or represent all JPEG jobs. A four-worker trial
 can test additional concurrency; these counters neither prove spare capacity nor
 predict a gain. Native display, input and sustained performance remain unqualified.
+
+### Four workers: cold delivery held, warm slowdown remained
+
+Diagnostic daemon `f02fb9ac` retained D's daemon source, timing scopes and four
+codec archives. Its library `88b0b411` changes only the private fixed worker count
+from two to four. One client owns the pipeline; each encoded-result slot remains
+bounded at 1 MiB, giving four a 4 MiB result-capacity bound. Additional stacks and
+codec state are outside that bound. The default remains two workers.
+
+All 29 UBSan host groups passed. Ninety-three full-wire comparisons totaling
+263,360,496 bytes matched D's two-worker output. Four concurrent readers,
+deliberately reversed completion, ring reuse, extra-worker failures, disconnect,
+resize and cursor restoration passed. This establishes tested ordering and
+lifetime behavior, rather than a performance gain.
+
+Two consecutive five-minute phone-only runs used the same heavy-motion fixture,
+one client and unchanged resolution/JPEG settings. Both completed all timing and
+publication checks and restored the normal daemon. The first run held minute
+means of 59.48, 59.25, 59.43, 59.32 and 59.00 updates/s; its final ten seconds fell
+to 57.4. The immediate warm follow-up measured **59.42, 59.50, 52.05, 32.62 and
+36.22 updates/s**. Four workers therefore do not fix sustained delivery and are
+not selected for adoption.
+
+Warm JPEG CPU time rose from 11.09 to 34.38 ms/update in minute four, then 31.23
+in minute five. Capture starts fell from 59.67 to 49.83/s before recovering to
+52.95/s. Capture callback time rose from about 10 to 18 ms; rendering and frame
+preparation grew while surface transfer stayed near 4.4 ms. Publication wakes
+completed without accounting errors. The broader slowdown cannot be attributed
+to a broken publication wake from these data.
+
+Some intervals at similar measured JPEG CPU/update had shorter send wall time
+with four workers, but physical state and image work were not matched. Those
+intervals do not override the failed warm run. Source identities, complete minute
+tables and hashes are in
+[the four-worker trial record](jpeg-four-worker-trial-2026-09-11.json).
 
 ## Why the previous cleanup did not stop growth
 
