@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-11",
+  "status": "three_restored_canonical_final_frame_barcode_checks_passed",
+  "phone_binary_sha256": "3487cfad710fc41ddaf01b8e48ce976dc5c21e53d0b9df8cbf22eb818b69569e",
+  "script": "scripts/measure-frame-retention",
+  "script_sha256": "5ce663ae8ef8e18f7c62d9dbc766b86cfed5e5060fd46622262f37a14154fea6",
+  "local_raw_directory": "work/renderer-memory-20260909/canonical-final-frame-20260911",
+  "restoration_evidence": {
+    "path": "work/renderer-memory-20260909/offmain-publication-sink-5095/session/session.json",
+    "sha256": "28e046685e0ba65ca31bdd1916a6a1a5841159c061b33d87826fe8f6b20b975b"
+  },
+  "preflight": {
+    "fixture": "Disposable latency fixture INPUT mode with background NONE",
+    "image": "outputs/screenshots/20260911T135905.518866Z-98a32c9a-tap.png",
+    "image_sha256": "2039b61c98ea0662cc403d05ac9c4fd189352388fa597e28bdbe5f7395e13071"
+  },
+  "method": "A warm control client sends one released Space after a second RAW client starts a full update; hold the RAW reader 400 ms, drain and close it, then compare the RFB barcode to an independent USB screenshot. Verify after another second and send one recovery Space.",
+  "runs": [
+    {
+      "run": 1,
+      "timestamp_utc": "2026-09-11T13:59:20Z",
+      "initial": 0,
+      "expected": 1,
+      "rfb_observed": 1,
+      "direct_usb_observed": 1,
+      "held_reader_ms": 400,
+      "mismatch": false,
+      "rfb_after_extra_second": 1,
+      "recovery_rfb_observed": 2,
+      "evidence_sha256": {
+        "result.json": "b6839ba0ffe94fdc57c1a78174c42afdbba0afd9478224a731c0afc53cc089c6",
+        "direct.png": "9ee8ee9844609030e369c099f56fb7bdb755362fe6e1a1a8e8d5f2fc5262f623",
+        "rfb.png": "fa7f3d674c92d9f8e06aba50d46a97712ea1d4e824f405f8fca06c404c57d4c2"
+      }
+    },
+    {
+      "run": 2,
+      "timestamp_utc": "2026-09-11T13:59:41Z",
+      "initial": 2,
+      "expected": 3,
+      "rfb_observed": 3,
+      "direct_usb_observed": 3,
+      "held_reader_ms": 400,
+      "mismatch": false,
+      "rfb_after_extra_second": 3,
+      "recovery_rfb_observed": 4,
+      "evidence_sha256": {
+        "result.json": "b5523dbc9298924dc9ca915d6143904450dbf4c9a4be28b1313071c31892dccf",
+        "direct.png": "30ff31ab5d0d745dab96cc2f342bac6be22ceae852cfd0ec8e0ebc132a70cca5",
+        "rfb.png": "f22b12c919ee04a91eb84fb6b1566969836c9eda3573f8d63482ef0b5d202ca5"
+      }
+    },
+    {
+      "run": 3,
+      "timestamp_utc": "2026-09-11T14:00:12Z",
+      "initial": 4,
+      "expected": 5,
+      "rfb_observed": 5,
+      "direct_usb_observed": 5,
+      "held_reader_ms": 400,
+      "mismatch": false,
+      "rfb_after_extra_second": 5,
+      "recovery_rfb_observed": 6,
+      "evidence_sha256": {
+        "result.json": "6c1d124d9a792c8c4719938a9805ab1421c03e99679afa3b8bef6d7a25e28f4f",
+        "direct.png": "0a11d9ccb22e48e7f98847b169966aaf7f6ee758d976de71508bb69598d54f53",
+        "rfb.png": "77032125e92363f93f1b3fad5c2625ba49adb5284b0415e0849b2f18b08bcadf"
+      }
+    }
+  ],
+  "limits": [
+    "Barcode and final-state delivery check, not pixel equality or measured display latency.",
+    "Uses restored canonical phone binary 3487cfad, not staged C or D.",
+    "No native viewer involved; this does not qualify native renderer, sustained FPS, rotation, reconnect or hot input."
+  ]
+}

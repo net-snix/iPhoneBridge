@@ -519,13 +519,87 @@ session. The canonical session was restored and verified afterward. See the
 capture retry has been installed for the tests described above; it remains
 unqualified for sustained visible performance.
 
+### September 11 visible physical-phone memory qualification
+
+The unchanged `c501684e…` direct-image renderer completed **1,320.4986 seconds**
+with phone candidate C (`d03d4c28…`): 40 physical-footprint samples, 264 renderer
+health records and five 30-second barcode windows. The app and all four renderer
+source hashes match the recorded context and frozen c501 manifest. This completes
+the 22-minute visible-memory gate for the sampled WebKit workload; it does not
+qualify the complete candidate or resolve frame delivery.
+
+Every health record stayed connected on the same renderer identity and generation,
+with one attached decoding iframe and zero new hidden time. The lifetime hidden
+counter remained at 3 ms from before collection. All 40 geometry checks and the
+after-run check preserved the opaque floating 380×863 window, fully inside the
+built-in 120 Hz display. Geometry is sampled; these checks do not measure monitor
+scanout or enumerate retained detached documents.
+
+| Process | Sampled range, MiB | Early median, MiB | Late median, MiB |
+| --- | ---: | ---: | ---: |
+| Native app | 35.59–38.74 | 35.70 | 38.56 |
+| WebContent | 105.92–123.13 | 109.30 | 110.82 |
+| GPU | 191.88–191.97 | 191.95 | 191.88 |
+| Network | 6.45–6.63 | 6.48 | 6.45 |
+| Combined WebKit processes | 304.32–321.58 | 307.74 | 309.15 |
+
+The table uses each process's sampled `footprint`, not RSS or its lifetime peak.
+Combined WebKit is the sum of WebContent, GPU and Networking footprints, not a
+deduplicated machine memory total. Early uses three samples ending within
+0–120 seconds; late uses four within 1,200.4986–1,320.4986 seconds. The collector's
+built-in late summary omitted final sample 39 because its rounded `1320.50`
+label exceeded the unrounded duration. Its raw footprint ended at 1,320.4881
+seconds, inside the run; including it gives the corrected medians above.
+
+WebKit ended below its first sample, with an early-to-late median increase of
+1.4140 MiB. The native app grew **3.1406 MiB**, with 38 increasing sample steps,
+one unchanged step and no decreases. That monotonic nondecreasing drift remains
+unexplained; this is not evidence that all app allocations reached a plateau.
+The first footprint was about 30.7 seconds into collection, several minutes after
+app launch. No matched unrepaired baseline or heap census was collected.
+
+Between the first and last health records, **1,953,892 imageRect submissions**
+and 45,439 complete framebuffer-update calls were observed over 1,315.946 seconds.
+The image counter runs before imageRect processing; it does not count completed
+decodes. Existing counter totals before the first record are excluded.
+
+Early/late weighted framebuffer-update telemetry declined from **39.46 to
+31.39/s**. The five barcode windows measured **37.21, 34.01, 33.56, 36.73 and
+30.04 distinct observations/s**, while source sequence advances imply about
+60/s in each window. Missing sequences at canvas observation do not locate the
+loss within capture, sending, decoding or observation. FPS remains unfixed.
+
+All four same-byte native image comparisons passed both before and after the
+collection, with zero differing pixels or channels. Input was not tested before
+the run. The post-run benchmark aborted before sending input because the fixture
+was still animating: zero of 30 requested trials completed. One bridge tap and
+two native-viewer clicks also failed to switch that hot C fixture to input mode.
+After C was stopped and canonical `3487cfad…` restored, one bridge tap switched
+the same disposable control; saved before/after images confirm the mode change.
+That control was not a latency benchmark, and differing load/session conditions
+leave the cause of C's nonresponse unresolved.
+
+The owned app and its three WebKit processes all exited. The normal phone daemon
+was restored, with the shared USB, viewer and fixture services preserved. Exact
+sample values, source/raw hashes, rounding correction and control evidence are
+in [renderer-memory-2026-09-11.json](renderer-memory-2026-09-11.json).
+
+After restoring canonical phone daemon `3487cfad…`, three separate quiet final-frame
+checks passed. Each held a RAW reader for 400 ms while another client changed the
+static fixture once. The subsequent RFB barcode matched the independent USB
+capture, remained correct after another second, and advanced on the recovery
+input. These checks used no native viewer and do not qualify staged C or D.
+See [final-frame-check-2026-09-11.json](final-frame-check-2026-09-11.json).
+
 ### Remaining qualification
 
-Testing is authorized and ongoing. The corrected synthetic replay verified
-visible changing pixels in a short preflight; its longer attempt was invalidated
-by an occluded interval. The candidate still needs a successful physical-phone animation run
-longer than 20 minutes with continuous memory and connection telemetry, input
-latency before/after, and independent USB final-frame verification. Native
-pixel equivalence alone does not qualify sustained speed. The candidate has
-not been released; do not report the long-session frame-rate decline as resolved
-until those checks pass.
+The current c501 renderer now has a completed 22-minute visible WebKit memory
+check and exact native pixel comparisons before and after it. Full qualification
+remains incomplete: sustained native FPS still declines, input needs matched
+before/after latency checks and an explanation of the hot-run nonresponse, and
+independent USB quiet/final-frame checks for the staged phone variants, physical
+rotation and reconnect/disconnect checks remain outstanding. The native app's
+memory drift also remains unexplained.
+Neither pixel equivalence nor the restored control's successful tap closes those
+gates. The candidate remains unpromoted; do not report the long-session frame-rate
+or input problems as resolved.
