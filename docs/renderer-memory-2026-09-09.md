@@ -26,8 +26,8 @@ The latest candidate moved publication outside the main thread, but JPEG CPU
 time still rose from 8.68 to 35.41 ms per update while delivery fell from 59.53
 to 27.42 updates/s. Subsequent sparse worker counters show rising CPU cost per
 instruction during a warm slowdown, with unchanged sampled worker policy.
-A bounded four-worker experiment also failed its warm sustained-speed test.
-Worker-specific scheduling remains a separate hypothesis. The measurements below
+A bounded four-worker experiment and a two-worker priority experiment also
+failed their warm sustained-speed tests. The measurements below
 distinguish each tested artifact and its limits.
 Earlier synthetic replays had a zero-size canvas and cannot qualify displayed
 speed.
@@ -410,6 +410,33 @@ with four workers, but physical state and image work were not matched. Those
 intervals do not override the failed warm run. Source identities, complete minute
 tables and hashes are in
 [the four-worker trial record](jpeg-four-worker-trial-2026-09-11.json).
+
+### Higher JPEG-worker priority did not prevent the warm slowdown
+
+Diagnostic daemon `f60ae01a` uses E's unchanged daemon and sparse measurements,
+with a two-worker library (`6d9d7659`) that requests interactive QoS at thread
+creation. The output and capture policies are unchanged. All 29 UBSan groups
+passed, including worker-attribute failure cleanup and readmission. Ninety-three
+full-wire comparisons totaling 263,360,496 bytes matched D exactly; the default
+remains unchanged and the diagnostic flag remains off.
+
+Both five-minute phone-only runs completed all measurement checks and restored
+the normal daemon. Each run observed requested QoS 33 and relative priority zero
+in all 60 worker samples. The first run delivered minute means of 59.43, 59.53,
+59.42, 54.67 and 50.20 updates/s. The warm follow-up began about 67 seconds
+after the first sink ended and delivered
+**59.52, 48.38, 34.22, 32.25 and 36.03 updates/s**. The priority change therefore
+does not fix sustained delivery and is not selected for adoption.
+
+Warm JPEG CPU rose from 7.69 to 31.44 ms/update in minute four, while capture
+starts fell from 59.70 to 52.93/s. Capture callback time rose from 9.96 to
+17.64 ms. Sparse worker observations also show reduced execution efficiency;
+requested QoS remained 33, with Mach base priority 37. These measurements do not
+identify core placement, literal clock speed or a single thermal cause.
+Publication accounting passed in both runs, with increasing capture replacement
+and capacity waits under load. The change neither removes the broader slowdown
+nor qualifies native display or input performance. Exact minute summaries and
+source hashes are in [the worker-priority trial record](jpeg-worker-qos-trial-2026-09-11.json).
 
 ## Why the previous cleanup did not stop growth
 
