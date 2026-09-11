@@ -262,6 +262,45 @@ speedup or qualify native display, latency or memory behavior. The other-CPU
 column includes instrumentation, planning, protocol and remaining output work.
 See the [paired sums, scope and exact source hashes](jpeg-stage-timing-2026-09-10.json).
 
+### Two JPEG workers: partial improvement, remaining delay
+
+The first bounded two-worker candidate preserves the exact encoded bytes in its
+host tests, but still fails sustained delivery. Its five measured minute means
+were 59.40, 59.47, 59.50, 54.95 and **42.58 updates/s**. A subsequent serial control
+used identical sources and codec archives with only the worker compile option
+disabled; it ended at **29.87 updates/s**. Both runs retained one client and the
+same quality and format, had complete CPU timing pairs with zero reported
+errors, and restored the normal daemon afterward.
+
+The worker candidate's final-minute send time was 15.99 ms, followed by another
+7.49 ms before the next send. It drains queued jobs around each public Tight
+region: about 20 regions for 43 JPEG jobs per update. The subsequent candidate
+extends batching across the complete framebuffer update, with explicit completion
+and error drains before source pixels can change. Six UBSan host groups passed,
+including disjoint regions, wire order, software cursors and failure paths.
+Main-thread capture and queued publication also overlap the remaining
+gap; the aggregate timing does not attribute the entire delay to either cause.
+
+These runs are not thermally matched: their final windows share thermal state 2,
+but physical temperature and CPU frequency were not controlled. Parallel workers
+did not demonstrate lower total CPU use. This remains an unqualified experiment,
+with [source checks, paired sums and limits](jpeg-pipeline-trial-2026-09-10.json).
+
+On September 11, complete-update batching held about 59.4 updates/s in a cold
+five-minute sink, but a later warm sink declined to **33–36 updates/s**. Capture
+stayed near 60/s. The final minute took 17.65 ms to send plus 10.19 ms before the
+next send; worker JPEG CPU rose from 8.34 to 22.10 ms per update. Even removing
+the entire gap would not yield 60 fps at that unchanged send cost. Thermal state
+remained 2 throughout despite the changing CPU cost; temperature, clock frequency
+and core placement were not measured. This does not establish a batching
+regression against earlier runs with different CPU cost.
+
+The intervening native preflight supplies valid daemon timing only: its window
+was partly offscreen and changed geometry, so no sustained visible, memory, image
+or input qualification is claimed. All three sessions restored the normal daemon.
+The candidate remains unpromoted. See the [complete-update trial evidence and
+limits](jpeg-fbu-pipeline-trial-2026-09-11.json).
+
 ## Why the previous cleanup did not stop growth
 
 In the inspected WebKit source, `ResourceLoadNotifier::dispatchWillSendRequest`
