@@ -597,12 +597,30 @@
     "interpretation": "Both runs start at thermal state 0 with the same fixture and capture rate. The JPEG path reaches state 2 (serious) by minute 4; the hardware path stays at state 0 for all five minutes."
   },
   "limits": [
-    "Encoded bytes are counted and discarded. They were never decoded, so this does not establish valid or correct video output.",
+    "Decoding was verified off-device with ffmpeg. No VideoToolbox decode path, AVSampleBufferDisplayLayer display, or end-to-end pixel comparison against a reference screenshot was performed.",
     "No transport: encoded frames were not framed, sent over SSH/USB, decoded or displayed. A real path adds those costs, though 4.8 MB/s is about a tenth of the JPEG path bytes.",
     "The probe measures only the submit handler, not the render/transfer/prepare work that the JPEG capture_callback figures include. The two are not directly comparable.",
     "No input latency, pixel quality or image comparison was performed.",
     "VNC sends only changed regions; a video encoder submits every frame. A static screen costs nothing on the current path and would still cost encoder submissions here unless skipped.",
     "Capture size 1170x2532 (native) differs from the VNC path aligned 1172x2536.",
     "Runs began from a cool phone. No warm-start hardware run was performed."
-  ]
+  ],
+  "decode_validation": {
+    "method": "An 8-second Annex B HEVC elementary stream was captured on the phone, transferred, and decoded on the Mac with ffmpeg/ffprobe.",
+    "stream_bytes": 39931074,
+    "stream_sha256": "de16ffc2f1014cebec42e84a1de7a0d7f2ac2fda46c64a3944c598d21b5a7ab9",
+    "ffprobe": {
+      "codec_name": "hevc",
+      "profile": "Main",
+      "width": 1170,
+      "height": 2532,
+      "pix_fmt": "yuv420p",
+      "level": 153
+    },
+    "frames_decoded": 475,
+    "implied_frame_rate": 59.38,
+    "decode_errors": 0,
+    "visual_check": "A decoded frame was rendered to PNG and matches the phone screen: sharp text, correct colours, the heavy-motion fixture reproduced faithfully.",
+    "result": "The encoded bytes are valid, decodable, visually correct video at full capture rate. This removes the earlier limit that bytes were counted but never decoded."
+  }
 }

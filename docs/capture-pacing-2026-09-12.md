@@ -176,9 +176,13 @@ mean and 24.6 ms maximum, roughly one frame of pipelining. That is a real trade,
 not a free win, and must be weighed against the frame interval and publication
 gap it replaces.
 
-These are cost and cadence measurements only. The encoded bytes were counted and
-discarded, never decoded, so nothing here establishes valid video output, and no
-transport, decode, display, input latency or pixel comparison was performed.
+The output is valid video. An 8-second Annex B elementary stream was captured,
+transferred and decoded with ffmpeg: HEVC Main, 1170x2532, yuv420p, **475 frames
+decoded with zero errors** (59.4 fps), and a decoded frame rendered to PNG shows
+the phone screen with sharp text and correct colours.
+
+No transport, VideoToolbox decode path, display, input latency or end-to-end
+pixel comparison was performed.
 
 - `ScreenCapturer` already produces a `CMSampleBufferRef`
   backed by a `CVPixelBuffer`, which is `VTCompressionSessionEncodeFrame` input.
