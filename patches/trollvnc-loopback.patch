@@ -1,3 +1,143 @@
+diff --git a/src/CaptureGovernor.h b/src/CaptureGovernor.h
+new file mode 100644
+index 0000000..a9b6541
+--- /dev/null
++++ b/src/CaptureGovernor.h
+@@ -0,0 +1,134 @@
++/*
++ * iPhoneBridge capture-rate governor, 2026-09-12.
++ * Copyright (c) 2026 iPhoneBridge contributors.
++ * SPDX-License-Identifier: GPL-2.0-only
++ *
++ * Why this exists
++ * ---------------
++ * Capture runs on the display link at the configured ceiling (60 fps) even when
++ * encoding cannot absorb that rate. Each over-driven tick still pays for
++ * CARenderServerRenderDisplay, the IOSurfaceAccelerator transfer and the
++ * rotate/scale/hash preparation, then the prepared frame is discarded because
++ * the encoder still holds the only in-flight slot. Measured on a warm phone,
++ * ~20 of ~53 captures per second were discarded that way.
++ *
++ * That waste is self-reinforcing: discarded captures are pure heat, heat moves
++ * the daemon's threads onto efficiency cores at reduced clocks, slower encoding
++ * discards more captures. Pacing capture to the rate the encoder actually
++ * sustains removes the wasted work and turns the loop negative.
++ *
++ * Signals (both counted without blocking the capture or output threads):
++ *  - completed(): one framebuffer update finished encoding and sending.
++ *  - blocked():   a prepared frame could not be published because no in-flight
++ *                 capacity was available. This is the over-drive signal.
++ *
++ * A static screen produces neither signal, so the ceiling is restored rather
++ * than clamped to an idle rate.
++ */
++#ifndef TV_CAPTURE_GOVERNOR_H
++#define TV_CAPTURE_GOVERNOR_H
++
++#include <algorithm>
++#include <atomic>
++#include <cmath>
++#include <cstdint>
++
++class TVCaptureGovernor {
++public:
++    // Evaluation cadence and the window each decision observes.
++    static constexpr double kEvaluateInterval = 0.5;
++    // Never pace below this; the mirror must stay usable while hot.
++    static constexpr double kFloorFps = 20.0;
++    // Asymmetric response. The limit being tracked is thermal, so it moves on a
++    // multi-second time constant: shedding load briefly restores headroom that
++    // disappears again once the heat returns. A symmetric controller therefore
++    // rides that recovery straight back into over-drive and oscillates. Back off
++    // immediately on evidence, and probe upward only after a sustained clean
++    // period, one small step at a time.
++    static constexpr double kRecoverStepFps = 2.0;
++    static constexpr uint32_t kCleanWindowsBeforeRaise = 20; // 10 s at 0.5 s
++    // Apply only changes worth a display-link reconfiguration.
++    static constexpr double kApplyEpsilonFps = 1.5;
++
++    // A ceiling of zero or less disables pacing entirely; evaluate() then never
++    // reports a change and capture keeps the configured display-link rate.
++    void configure(double ceilingFps) {
++        ceiling_ = (ceilingFps > 0) ? ceilingFps : 0.0;
++        current_ = ceiling_;
++        windowOpen_ = false;
++        cleanWindows_ = 0;
++        completed_.store(0, std::memory_order_relaxed);
++        blocked_.store(0, std::memory_order_relaxed);
++    }
++
++    // Main thread, on capture session start. Returns to the ceiling so a new
++    // session is never inherited at a previous session's paced rate.
++    void reset() {
++        current_ = ceiling_;
++        windowOpen_ = false;
++        cleanWindows_ = 0;
++        completed_.store(0, std::memory_order_relaxed);
++        blocked_.store(0, std::memory_order_relaxed);
++    }
++
++    // Output thread. Counting only; no locks and no reconfiguration here.
++    void completed() { completed_.fetch_add(1, std::memory_order_relaxed); }
++
++    // Main thread, from the publication path when capacity was unavailable.
++    void blocked() { blocked_.fetch_add(1, std::memory_order_relaxed); }
++
++    double ceiling() const { return ceiling_; }
++    double current() const { return current_; }
++
++    // Main thread, once per display-link tick. Returns true when the caller
++    // should apply `fpsOut` to the display link and capture schedule.
++    bool evaluate(double now, double *fpsOut) {
++        if (ceiling_ <= 0) return false;
++        if (!windowOpen_) {
++            windowOpen_ = true;
++            windowStart_ = now;
++            return false;
++        }
++        double elapsed = now - windowStart_;
++        if (elapsed < kEvaluateInterval) return false;
++
++        uint32_t completed = completed_.exchange(0, std::memory_order_relaxed);
++        uint32_t blocked = blocked_.exchange(0, std::memory_order_relaxed);
++        windowStart_ = now;
++        if (elapsed <= 0) return false;
++
++        double deliveredFps = (double)completed / elapsed;
++        double target;
++        if (blocked > 0) {
++            // Over-driving: pace to what the pipeline actually sustained. No
++            // headroom is added; anything above the measured rate re-blocks and
++            // spends the capture budget on frames that will be discarded.
++            cleanWindows_ = 0;
++            target = deliveredFps;
++        } else if (++cleanWindows_ >= kCleanWindowsBeforeRaise) {
++            // Sustained clean period: probe one small step toward the ceiling so
++            // a phone that has actually cooled recovers.
++            cleanWindows_ = 0;
++            target = current_ + kRecoverStepFps;
++        } else {
++            return false;
++        }
++        target = std::min(ceiling_, std::max(kFloorFps, target));
++
++        if (std::fabs(target - current_) < kApplyEpsilonFps) return false;
++        current_ = target;
++        *fpsOut = current_;
++        return true;
++    }
++
++private:
++    std::atomic<uint32_t> completed_{0};
++    std::atomic<uint32_t> blocked_{0};
++    double ceiling_ = 60.0;
++    double current_ = 60.0;
++    double windowStart_ = 0;
++    bool windowOpen_ = false;
++    uint32_t cleanWindows_ = 0;
++};
++
++#endif
 diff --git a/src/CaptureSchedule.h b/src/CaptureSchedule.h
 new file mode 100644
 index 0000000..dc246eb
@@ -234,47 +374,7 @@ diff --git a/src/ScreenCapturer.h b/src/ScreenCapturer.h
 index d56330a..d14d643 100644
 --- a/src/ScreenCapturer.h
 +++ b/src/ScreenCapturer.h
-@@ -25,83 +25,89 @@
- NS_ASSUME_NONNULL_BEGIN
- 
- /**
-  ScreenCapturer
-  ----------------
-  A singleton that captures the device screen into an IOSurface and produces
-  CMSampleBufferRef frames on a CADisplayLink-driven cadence. Intended for use
-  by encoders/streamers that require CVPixelBuffer-backed sample buffers.
- 
-  Threading & lifetime:
-  - startCapture/endCapture must be called on the main thread (internally uses CADisplayLink on main run loop).
-  - The provided frame handler is invoked on the main thread.
-  - ARC only.
- 
-  Performance & format:
-  - Uses IOSurface + CoreAnimation render server to copy screen contents.
-  - Zero-copy wrapping via CVPixelBufferCreateWithIOSurface.
-  - Pixel format is ARGB as defined by sharedRenderProperties.
- 
-  Debug stats (DEBUG builds only):
-  - Average FPS is periodically logged over a configurable window.
-  - Instantaneous FPS is computed from CADisplayLink.duration and can be smoothed with EMA.
-  */
- @interface ScreenCapturer : NSObject
- 
- /** Returns the shared singleton instance. */
- + (instancetype)sharedCapturer;
- 
- + (instancetype)new NS_UNAVAILABLE;
- - (instancetype)init NS_UNAVAILABLE;
- 
- /**
-  Returns the IOSurface property dictionary used to create screen-sized surfaces
-  compatible with the current device configuration (size/orientation/format).
-  Consumers can use this to allocate compatible IOSurfaces.
-  */
- @property(nonatomic, strong, readonly) NSDictionary *renderProperties;
- 
- /**
-  Start screen capture. The frame handler will be called on the main thread for
+@@ -65,45 +65,51 @@ NS_ASSUME_NONNULL_BEGIN
   each captured frame with a CMSampleBufferRef referencing a CVPixelBuffer backed
   by the current IOSurface.
  
@@ -324,11 +424,13 @@ index d56330a..d14d643 100644
  @end
  
  NS_ASSUME_NONNULL_END
+ 
+ #endif /* ScreenCapturer_h */
 diff --git a/src/ScreenCapturer.mm b/src/ScreenCapturer.mm
 index afc7ea7..164fd76 100644
 --- a/src/ScreenCapturer.mm
 +++ b/src/ScreenCapturer.mm
-@@ -1,35 +1,39 @@
+@@ -1,90 +1,99 @@
  /*
   This file is part of TrollVNC
   Copyright (c) 2025 82Flex <82flex@gmail.com> and contributors
@@ -368,7 +470,10 @@ index afc7ea7..164fd76 100644
  #import "UIScreen+Private.h"
  
  #ifdef __cplusplus
-@@ -40,401 +44,484 @@ CFIndex CARenderServerGetDirtyFrameCount(void *);
+ extern "C" {
+ #endif
+ 
+ CFIndex CARenderServerGetDirtyFrameCount(void *);
  void CARenderServerRenderDisplay(kern_return_t a, CFStringRef b, IOSurfaceRef surface, int x, int y);
  
  #ifdef __cplusplus
@@ -425,36 +530,7 @@ index afc7ea7..164fd76 100644
          width = (int)round(screenSize.width);
          height = (int)round(screenSize.height);
  #if !TARGET_IPHONE_SIMULATOR
-     }
- #endif
- 
-     // Pixel format for Alpha, Red, Green and Blue
-     unsigned pixelFormat = 0x42475241; // 'ARGB'
- 
-     // 1 or 2 bytes per component
-     int bytesPerComponent = sizeof(uint8_t);
- 
-     // 8 bytes per pixel
-     int bytesPerElement = bytesPerComponent * 4;
- 
-     // Bytes per row (must be aligned)
-     int bytesPerRow = (int)IOSurfaceAlignProperty(kIOSurfaceBytesPerRow, bytesPerElement * width);
- 
-     // Properties included:
-     // BytesPerElement, BytesPerRow, Width, Height, PixelFormat, AllocSize
-     CGColorSpaceRef colorSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
- 
-     CFPropertyListRef colorSpacePropertyList = CGColorSpaceCopyPropertyList(colorSpace);
-     CGColorSpaceRelease(colorSpace);
- 
-     mRenderProperties = @{
-         (__bridge NSString *)kIOSurfaceBytesPerElement : @(bytesPerElement),
-         (__bridge NSString *)kIOSurfaceBytesPerRow : @(bytesPerRow),
-         (__bridge NSString *)kIOSurfaceWidth : @(width),
-         (__bridge NSString *)kIOSurfaceHeight : @(height),
-         (__bridge NSString *)kIOSurfacePixelFormat : @(pixelFormat),
-         (__bridge NSString *)kIOSurfaceAllocSize : @(bytesPerRow * height),
-         (__bridge NSString *)kIOSurfaceColorSpace : CFBridgingRelease(colorSpacePropertyList),
+@@ -121,320 +130,398 @@ void CARenderServerRenderDisplay(kern_return_t a, CFStringRef b, IOSurfaceRef su
      };
  
  #if DEBUG
@@ -869,11 +945,10 @@ index afc7ea7..164fd76 100644
  
  @end
 diff --git a/src/trollvncserver.mm b/src/trollvncserver.mm
-index be6cce3..72ae244 100644
+index be6cce3..a758539 100644
 --- a/src/trollvncserver.mm
 +++ b/src/trollvncserver.mm
-@@ -1,63 +1,66 @@
- /*
+@@ -2,126 +2,129 @@
   This file is part of TrollVNC
   Copyright (c) 2025 82Flex <82flex@gmail.com> and contributors
  
@@ -920,6 +995,7 @@ index be6cce3..72ae244 100644
  
  #import "BulletinManager.h"
  #import "ClipboardManager.h"
++#import "CaptureGovernor.h"
 +#import "ClientSendLocks.h"
  #import "Control.h"
  #import "FBSOrientationObserver.h"
@@ -939,7 +1015,22 @@ index be6cce3..72ae244 100644
      } while (0)
  
  #pragma mark - Options
-@@ -80,11 +83,10 @@ static int gFpsMin = 0;
+ 
+ int gOrientationFixQuad = 0; // 0=0°, 1=90°CW, 2=180°, 3=270°CW
+ 
+ static BOOL gEnabled = YES;
+ static int gPort = 5901;
+ static int gTvCtlPort = 0;        // port for control connections (0 = disabled)
+ static NSString *gBindHost = nil; // optional bind address from CLI/config
+ static NSString *gDesktopName = @"TrollVNC";
+ static BOOL gViewOnly = NO;
+ static double gKeepAliveSec = 0.0; // 15..86400
+ static BOOL gClipboardEnabled = YES;
+ static BOOL gIsDaemonMode = NO; // set when launched with -daemon
+ 
+ static double gScale = 1.0; // 0 < scale <= 1.0, 1.0 = no scaling
+ // Preferred frame rate range (0 = unspecified)
+ static int gFpsMin = 0;
  static int gFpsPref = 0;
  static int gFpsMax = 0;
  static double gDeferWindowSec = 0.015;      // Coalescing window; 0 disables deferral
@@ -952,7 +1043,64 @@ index be6cce3..72ae244 100644
  
  // Wheel scroll coalescing state (async, non-blocking)
  static double gWheelStepPx = 48.0;        // base pixels per wheel tick (lower = slower)
-@@ -293,81 +295,81 @@ static NSBundle *tvLocalizationBundle(void) {
+ static double gWheelMaxStepPx = 192.0;    // base max distance per flush (pre-clamp)
+ static double gWheelCoalesceSec = 0.03;   // coalescing window
+ static double gWheelAbsClampFactor = 2.5; // absolute clamp = factor * gWheelMaxStepPx
+ static double gWheelAmpCoeff = 0.18;      // velocity amplification coefficient
+ static double gWheelAmpCap = 0.75;        // max extra amplification (0..1)
+ static double gWheelMinTakeRatio = 0.35;  // minimum take distance vs step size
+ static double gWheelDurBase = 0.05;       // duration base seconds
+ static double gWheelDurK = 0.00016;       // duration factor applied to sqrt(distance)
+ static double gWheelDurMin = 0.05;        // duration clamp min
+ static double gWheelDurMax = 0.14;        // duration clamp max
+ static BOOL gWheelNaturalDir = NO;        // natural scroll direction (invert delta)
+ 
+ // Modifier mapping scheme: 0 = standard (Alt->Option, Meta/Super->Command), 1 = Alt-as-Command
+ static int gModMapScheme = 0;
+ static BOOL gAutoAssistEnabled = NO;
+ static BOOL gCursorEnabled = NO;
+ static BOOL gKeyEventLogging = NO;
+ static BOOL gOrientationSyncEnabled = YES;
+ 
+ // Classic VNC authentication
+ static char **gAuthPasswdVec = NULL;        // owns the vector
+ static char *gAuthPasswdStr = NULL;         // owns the duplicated password string
+ static char *gAuthViewOnlyPasswdStr = NULL; // optional view-only password string
+ 
+ // HTTP server (LibVNCServer built-in web client)
+ static int gHttpPort = 0;
+ static char *gHttpDirOverride = NULL;
+ static char *gSslCertPath = NULL;
+ static char *gSslKeyPath = NULL;
+ 
+ // Bonjour / mDNS Auto-Discovery
+ static BOOL gBonjourEnabled = YES; // publish _rfb._tcp (and optional _http._tcp)
+ 
+ // TightVNC 1.x file transfer extension (deprecated)
+ static BOOL gFileTransferEnabled = NO;
+ 
+ // UltraVNC repeater
+@@ -273,88 +276,88 @@ static NSBundle *tvLocalizationBundle(void) {
+         sBundle = resBundle;
+     });
+     return sBundle;
+ }
+ 
+ #pragma mark - Command-Line Parsing
+ 
+ /* clangd behavior workarounds */
+ #define STRINGIFY(x) #x
+ #define EXPAND_AND_STRINGIFY(x) STRINGIFY(x)
+ #define MYSTRINGIFY(x)                                                                                                 \
+     ^{                                                                                                                 \
+         NSString *str = [NSString stringWithUTF8String:EXPAND_AND_STRINGIFY(x)];                                       \
+         if ([str hasPrefix:@"\""])                                                                                     \
+             str = [str substringFromIndex:1];                                                                          \
+         if ([str hasSuffix:@"\""])                                                                                     \
+             str = [str substringToIndex:str.length - 1];                                                               \
+         return strdup([str UTF8String]);                                                                               \
+     }()
+ 
  static void printUsageAndExit(const char *prog) {
      // Compact, grouped usage for quick reference. See README for detailed explanations.
      static const char *sPackageScheme = MYSTRINGIFY(THEOS_PACKAGE_SCHEME);
@@ -1024,204 +1172,7 @@ index be6cce3..72ae244 100644
      fprintf(stderr, "  -h         Show this help message\n\n");
  
      fprintf(stderr, "Reverse Connection:\n");
-     fprintf(stderr, "  %s -reverse host:port [options]\n", prog);
-     fprintf(stderr, "  %s -repeater id host:port [options]\n\n", prog);
- 
-     fprintf(stderr, "Environment:\n");
-     fprintf(
-         stderr,
-         "  TROLLVNC_PASSWORD                 Classic VNC password (enables VNC auth when set; first 8 chars used)\n");
-     fprintf(stderr,
-             "  TROLLVNC_VIEWONLY_PASSWORD        View-only password; passwords stored as [full..., view-only...]\n");
-     fprintf(stderr, "  TROLLVNC_REPEATER_RETRY_INTERVAL  Repeater retry interval (default: 0)\n\n");
- 
-     exit(EXIT_SUCCESS);
- }
-@@ -442,491 +444,490 @@ static void parseWheelOptions(const char *spec) {
- static void parseDaemonOptions(void) {
-     NSDictionary *prefs = nil;
- 
-     if (!prefs) {
-         NSBundle *resBundle = tvResourceBundle();
-         NSString *presetPath = [resBundle pathForResource:@"Managed" ofType:@"plist"];
-         if (presetPath) {
-             prefs = [NSDictionary dictionaryWithContentsOfFile:presetPath];
-         }
-     }
- 
-     if (!prefs) {
-         prefs = [[NSUserDefaults standardUserDefaults] persistentDomainForName:@"com.82flex.trollvnc"];
-     }
- 
- #if TARGET_IPHONE_SIMULATOR
-     if (!prefs) {
-         const char *sandboxPath = getenv("TROLLVNC_SANDBOX_PATH");
-         if (sandboxPath && sandboxPath[0] != '\0') {
-             NSString *sandbox = [NSString stringWithUTF8String:sandboxPath];
-             NSString *plistPath =
-                 [sandbox stringByAppendingPathComponent:@"Library/Preferences/com.82flex.trollvnc.plist"];
-             prefs = [NSDictionary dictionaryWithContentsOfFile:plistPath];
-             if (prefs) {
-                 TVLog(@"-daemon: loaded simulator preferences from %@", plistPath);
-             }
-         }
-     }
- #endif
- 
-     if (!prefs) {
-         TVLog(@"-daemon: no preferences found for domain com.82flex.trollvnc");
-         return;
-     }
- 
-     // Strings
-     NSString *desktopName = [prefs objectForKey:@"DesktopName"];
-     if ([desktopName isKindOfClass:[NSString class]] && desktopName.length > 0) {
-         gDesktopName = desktopName;
-     } else if (desktopName) {
-         TVLog(@"-daemon: DesktopName is empty; using default '%@'", gDesktopName);
-     }
- 
-     NSString *bindHost = [prefs objectForKey:@"BindHost"];
-     if ([bindHost isKindOfClass:[NSString class]]) {
-         if (bindHost.length > 0) {
-             gBindHost = bindHost;
-             TVLog(@"-daemon: BindHost=%@", gBindHost);
-         } else {
-             gBindHost = nil;
-             TVLog(@"-daemon: BindHost empty; cleared to default (any)");
-         }
-     }
- 
-     // Numbers
-     NSNumber *portN = [prefs objectForKey:@"Port"];
-     if ([portN isKindOfClass:[NSNumber class]] || [portN isKindOfClass:[NSString class]]) {
-         int v = portN.intValue;
-         if (v < 1024 || v > 65535) {
-             // Privileged or invalid -> fallback to default 5901
-             TVLog(@"-daemon: invalid TCP Port=%d; using default 5901", v);
-             gPort = 5901;
-         } else {
-             gPort = v;
-         }
-     }
- 
-     NSNumber *keepAliveN = [prefs objectForKey:@"KeepAliveSec"];
-     if ([keepAliveN isKindOfClass:[NSNumber class]]) {
-         double v = keepAliveN.doubleValue;
-         if (v < 0.0) {
-             TVLog(@"-daemon: KeepAliveSec < 0; set to 0");
-             v = 0.0;
-         } else if (v > 0.0 && v < 15.0) {
-             TVLog(@"-daemon: KeepAliveSec < 15; treated as 0 (off)");
-             v = 0.0;
-         } else if (v > 300.0) {
-             TVLog(@"-daemon: KeepAliveSec > 300; clamped to 300");
-             v = 300.0;
-         }
-         gKeepAliveSec = v;
-     }
- 
-     NSNumber *scaleN = [prefs objectForKey:@"Scale"];
-     if ([scaleN isKindOfClass:[NSNumber class]]) {
-         double v = scaleN.doubleValue;
-         if (v <= 0.0 || v > 1.0) {
-             TVLog(@"-daemon: invalid Scale=%.3f; clamped to [0.1..1.0]", v);
-         }
-         if (v < 0.1)
-             v = 0.1;
-         if (v > 1.0)
-             v = 1.0;
-         gScale = v;
-     }
- 
-     NSNumber *deferN = [prefs objectForKey:@"DeferWindowSec"];
-     if ([deferN isKindOfClass:[NSNumber class]]) {
-         double v = deferN.doubleValue;
-         if (v < 0.0) {
-             TVLog(@"-daemon: DeferWindowSec < 0; set to 0");
-             v = 0.0;
-         }
-         if (v > 0.5) {
-             TVLog(@"-daemon: DeferWindowSec > 0.5; clamped to 0.5");
-             v = 0.5;
-         }
-         gDeferWindowSec = v;
-     }
- 
-     NSNumber *maxInflightN = [prefs objectForKey:@"MaxInflight"];
-     if ([maxInflightN isKindOfClass:[NSNumber class]]) {
-         int v = maxInflightN.intValue;
-         if (v < 0) {
-             TVLog(@"-daemon: MaxInflight < 0; set to 0");
-             v = 0;
-         }
-         if (v > 8) {
-             TVLog(@"-daemon: MaxInflight > 8; clamped to 8");
-             v = 8;
-         }
-         gMaxInflightUpdates = v;
-     }
- 
-     NSNumber *tileSizeN = [prefs objectForKey:@"TileSize"];
-     if ([tileSizeN isKindOfClass:[NSNumber class]]) {
-         int v = tileSizeN.intValue;
-         if (v < 8) {
-             TVLog(@"-daemon: TileSize < 8; set to 8");
-             v = 8;
-         }
-         if (v > 128) {
-             TVLog(@"-daemon: TileSize > 128; clamped to 128");
-             v = 128;
-         }
-         gTileSize = v;
-     }
- 
-     NSNumber *fullThreshN = [prefs objectForKey:@"FullscreenThresholdPercent"];
-     if ([fullThreshN isKindOfClass:[NSNumber class]]) {
-         int v = fullThreshN.intValue;
-         if (v < 0) {
-             TVLog(@"-daemon: FullscreenThresholdPercent < 0; set to 0");
-             v = 0;
-         }
-         if (v > 100) {
-             TVLog(@"-daemon: FullscreenThresholdPercent > 100; clamped to 100");
-             v = 100;
-         }
-         gFullscreenThresholdPercent = v;
-     }
- 
-     NSNumber *maxRectsN = [prefs objectForKey:@"MaxRects"];
-     if ([maxRectsN isKindOfClass:[NSNumber class]]) {
-         int v = maxRectsN.intValue;
-         if (v < 1) {
-             TVLog(@"-daemon: MaxRects < 1; set to 1");
-             v = 1;
-         }
-         if (v > 4096) {
-             TVLog(@"-daemon: MaxRects > 4096; clamped to 4096");
-             v = 4096;
-         }
-         gMaxRectsLimit = v;
-     }
- 
-     NSNumber *wheelPxN = [prefs objectForKey:@"WheelStepPx"];
-     if ([wheelPxN isKindOfClass:[NSNumber class]]) {
-         double v = wheelPxN.doubleValue;
-         if (v == 0.0) {
-             gWheelStepPx = 0.0;
-             gWheelMaxStepPx = 0.0;
-             TVLog(@"-daemon: Wheel emulation disabled (step=0)");
-         } else {
-             if (v <= 4.0) {
-                 TVLog(@"-daemon: WheelStepPx <= 4; raised to 5");
-                 v = 5.0;
-             }
-             if (v > 1000.0) {
-                 TVLog(@"-daemon: WheelStepPx > 1000; clamped to 1000");
-                 v = 1000.0;
-             }
-             gWheelStepPx = v;
-             gWheelMaxStepPx = fmax(2.0 * gWheelStepPx, 96.0) * 1.0;
+@@ -626,83 +629,82 @@ static void parseDaemonOptions(void) {
          }
      }
  
@@ -1307,168 +1258,7 @@ index be6cce3..72ae244 100644
              const char *p2 = colon1 + 1;
              const char *colon2 = strchr(p2, ':');
              if (colon2) {
-                 long b = strtol(p2, NULL, 10);
-                 long c = strtol(colon2 + 1, NULL, 10);
-                 minV = (int)a;
-                 prefV = (int)b;
-                 maxV = (int)c;
-             }
-         } else if (dash) {
-             long a = strtol(spec, NULL, 10);
-             long b = strtol(dash + 1, NULL, 10);
-             minV = (int)a;
-             prefV = (int)b;
-             maxV = (int)b;
-         } else {
-             long v = strtol(spec, NULL, 10);
-             minV = (int)v;
-             prefV = (int)v;
-             maxV = (int)v;
-         }
-         // Normalize & validate: allow 0..240 (0 = unspecified)
-         if (minV < 0)
-             minV = 0;
-         if (minV > 240)
-             minV = 240;
-         if (prefV < 0)
-             prefV = 0;
-         if (prefV > 240)
-             prefV = 240;
-         if (maxV < 0)
-             maxV = 0;
-         if (maxV > 240)
-             maxV = 240;
-         if (minV > 0 && maxV > 0 && minV > maxV) {
-             int tmp = minV;
-             minV = maxV;
-             maxV = tmp;
-         }
-         if (prefV > 0) {
-             if (minV > 0 && prefV < minV)
-                 prefV = minV;
-             if (maxV > 0 && prefV > maxV)
-                 prefV = maxV;
-         }
-         gFpsMin = minV;
-         gFpsPref = prefV;
-         gFpsMax = maxV;
-     }
- 
-     // Wheel tuning (advanced)
-     NSString *wheelTuning = [prefs objectForKey:@"WheelTuning"];
-     if ([wheelTuning isKindOfClass:[NSString class]] && wheelTuning.length > 0) {
-         parseWheelOptions(wheelTuning.UTF8String);
-     }
- 
-     // HTTP dir override and SSL (require absolute paths)
-     NSString *httpDir = [prefs objectForKey:@"HttpDir"];
-     if ([httpDir isKindOfClass:[NSString class]] && httpDir.length > 0) {
-         if (![httpDir hasPrefix:@"/"]) {
-             TVLog(@"-daemon: HttpDir must be absolute: %@ (ignored)", httpDir);
-         } else {
-             gHttpDirOverride = strdup(httpDir.fileSystemRepresentation);
-         }
-     }
-     NSString *sslCert = [prefs objectForKey:@"SslCertFile"];
-     if ([sslCert isKindOfClass:[NSString class]] && sslCert.length > 0) {
-         if (![sslCert hasPrefix:@"/"]) {
-             TVLog(@"-daemon: SslCertFile must be absolute: %@ (ignored)", sslCert);
-         } else {
-             gSslCertPath = strdup(sslCert.fileSystemRepresentation);
-         }
-     }
-     NSString *sslKey = [prefs objectForKey:@"SslKeyFile"];
-     if ([sslKey isKindOfClass:[NSString class]] && sslKey.length > 0) {
-         if (![sslKey hasPrefix:@"/"]) {
-             TVLog(@"-daemon: SslKeyFile must be absolute: %@ (ignored)", sslKey);
-         } else {
-             gSslKeyPath = strdup(sslKey.fileSystemRepresentation);
-         }
-     }
- 
-     // Reverse Connection (26.1) from preferences
-     // Expected keys (per Root.plist):
-     //  - ReverseMode: "viewer" (default) | "repeater"
-     //  - ReverseSocket: "host:port" or "[ipv6]:port"
-     //  - ReverseRepeaterID: number id (only used when mode=repeater)
-     NSString *revMode = [prefs objectForKey:@"ReverseMode"];
-     if ([revMode isKindOfClass:[NSString class]]) {
-         if ([revMode caseInsensitiveCompare:@"repeater"] == NSOrderedSame) {
-             gRepeaterMode = 2;
-         } else if ([revMode caseInsensitiveCompare:@"viewer"] == NSOrderedSame) {
-             gRepeaterMode = 1;
-         } else {
-             gRepeaterMode = 0;
-         }
-     }
-     NSString *revSock = [prefs objectForKey:@"ReverseSocket"];
-     if ([revSock isKindOfClass:[NSString class]] && revSock.length > 0) {
-         const char *hp = revSock.UTF8String;
-         const char *hostBegin = hp;
-         const char *hostEnd = NULL;
-         const char *portStr = NULL;
-         if (hp[0] == '[') {
-             const char *rb = strchr(hp, ']');
-             if (rb && rb[1] == ':') {
-                 hostBegin = hp + 1;
-                 hostEnd = rb;
-                 portStr = rb + 2;
-             }
-         } else {
-             const char *colon = strrchr(hp, ':');
-             if (colon && colon != hp && *(colon + 1) != '\0') {
-                 hostBegin = hp;
-                 hostEnd = colon;
-                 portStr = colon + 1;
-             }
-         }
-         if (hostEnd && portStr) {
-             long pv = strtol(portStr, NULL, 10);
-             if (pv > 0 && pv <= 65535) {
-                 size_t hostLen = (size_t)(hostEnd - hostBegin);
-                 if (hostLen > 0) {
-                     char *hostDup = (char *)malloc(hostLen + 1);
-                     if (hostDup) {
-                         memcpy(hostDup, hostBegin, hostLen);
-                         hostDup[hostLen] = '\0';
-                         if (gRepeaterHost) {
-                             free(gRepeaterHost);
-                             gRepeaterHost = NULL;
-                         }
-                         gRepeaterHost = hostDup;
-                         gRepeaterPort = (int)pv;
-                     }
-                 }
-             } else {
-                 TVLog(@"-daemon: ReverseSocket port invalid: %ld (ignored)", pv);
-             }
-         } else {
-             TVLog(@"-daemon: ReverseSocket invalid: %@ (expected host:port or [ipv6]:port)", revSock);
-         }
-     } else {
-         // Backward-compat: accept separate ReverseHost/ReversePort if present
-         NSString *revHost = [prefs objectForKey:@"ReverseHost"];
-         if ([revHost isKindOfClass:[NSString class]] && revHost.length > 0) {
-             gRepeaterHost = strdup(revHost.UTF8String);
-         }
-         NSNumber *revPortN = [prefs objectForKey:@"ReversePort"];
-         if ([revPortN isKindOfClass:[NSNumber class]] || [revPortN isKindOfClass:[NSString class]]) {
-             int v = revPortN.intValue;
-             if (v > 0 && v <= 65535) {
-                 gRepeaterPort = v;
-             }
-         }
-     }
-     NSNumber *revIdN = [prefs objectForKey:@"ReverseRepeaterID"];
-     if ([revIdN isKindOfClass:[NSNumber class]] || [revIdN isKindOfClass:[NSString class]]) {
-         gRepeaterId = revIdN.intValue;
-     }
- 
-     // If reverse connection is configured, override mutually exclusive options here in daemon mode
-     if (isRepeaterEnabled()) {
-         gPort = -1;    // disable local listening
-         gHttpPort = 0; // disable HTTP server
-         if (gHttpDirOverride) {
+@@ -871,81 +873,81 @@ static void parseDaemonOptions(void) {
              free(gHttpDirOverride);
              gHttpDirOverride = NULL;
          }
@@ -1532,7 +1322,7 @@ index be6cce3..72ae244 100644
      TVLog(@"%@", cfg);
      TVLog(@"-daemon: preferences applied (domain=com.82flex.trollvnc)");
  }
-@@ -934,616 +935,615 @@ static void parseDaemonOptions(void) {
+ 
  static void parseCLI(int argc, const char *argv[]) {
      // Special mode: -daemon reads configuration from NSUserDefaults domain
      // com.82flex.trollvnc and initializes runtime options accordingly.
@@ -1551,329 +1341,7 @@ index be6cce3..72ae244 100644
      }
  
      // Pre-scan for Reverse Connection long options (-reverse, -repeater)
-     // Build a filtered argv without these options for getopt handling of the rest.
-     std::vector<const char *> __filtered;
-     __filtered.reserve((size_t)argc);
-     __filtered.push_back(argv[0]);
- 
-     BOOL __reverseEnabled = NO;
-     for (int i = 1; i < argc; ++i) {
-         const char *arg = argv[i];
-         if (strcmp(arg, "-reverse") == 0) {
-             if (i + 1 >= argc) {
-                 TVPrintError("-reverse requires host:port");
-                 exit(EXIT_FAILURE);
-             }
- 
-             const char *hp = argv[++i];
-             const char *hostBegin = hp;
-             const char *hostEnd = NULL;
-             const char *portStr = NULL;
- 
-             if (hp[0] == '[') {
-                 const char *rb = strchr(hp, ']');
-                 if (!rb || rb[1] != ':') {
-                     TVPrintError("Invalid -reverse target: %s (expected [host]:port)", hp);
-                     exit(EXIT_FAILURE);
-                 }
- 
-                 hostBegin = hp + 1;
-                 hostEnd = rb;
-                 portStr = rb + 2;
-             } else {
-                 const char *colon = strrchr(hp, ':');
-                 if (!colon || colon == hp || *(colon + 1) == '\0') {
-                     TVPrintError("Invalid -reverse target: %s (expected host:port)", hp);
-                     exit(EXIT_FAILURE);
-                 }
- 
-                 hostBegin = hp;
-                 hostEnd = colon;
-                 portStr = colon + 1;
-             }
- 
-             int port = (int)strtol(portStr, NULL, 10);
-             if (port <= 0 || port > 65535) {
-                 TVPrintError("Invalid -reverse port: %s", portStr);
-                 exit(EXIT_FAILURE);
-             }
- 
-             size_t hostLen = (size_t)(hostEnd - hostBegin);
-             if (hostLen == 0) {
-                 TVPrintError("Invalid -reverse host (empty)");
-                 exit(EXIT_FAILURE);
-             }
- 
-             char *hostDup = (char *)malloc(hostLen + 1);
-             if (!hostDup) {
-                 TVPrintError("Out of memory");
-                 exit(EXIT_FAILURE);
-             }
- 
-             memcpy(hostDup, hostBegin, hostLen);
-             hostDup[hostLen] = '\0';
- 
-             if (gRepeaterHost) {
-                 free(gRepeaterHost);
-                 gRepeaterHost = NULL;
-             }
- 
-             gRepeaterMode = 1;
-             gRepeaterHost = hostDup;
-             gRepeaterPort = port;
- 
-             TVLog(@"CLI: Reverse connection to %@:%d", [NSString stringWithUTF8String:gRepeaterHost], gRepeaterPort);
- 
-             __reverseEnabled = YES;
-             continue; // skip adding this arg
-         }
-         if (strcmp(arg, "-repeater") == 0) {
-             if (i + 2 >= argc) {
-                 TVPrintError("-repeater requires: id host:port");
-                 exit(EXIT_FAILURE);
-             }
- 
-             const char *idStr = argv[++i];
-             long repId = strtol(idStr, NULL, 10);
-             if (repId < 0 || repId > INT_MAX) {
-                 TVPrintError("Invalid repeater id: %s", idStr);
-                 exit(EXIT_FAILURE);
-             }
- 
-             const char *hp = argv[++i];
-             const char *hostBegin = hp;
-             const char *hostEnd = NULL;
-             const char *portStr = NULL;
- 
-             if (hp[0] == '[') {
-                 const char *rb = strchr(hp, ']');
-                 if (!rb || rb[1] != ':') {
-                     TVPrintError("Invalid -repeater target: %s (expected [host]:port)", hp);
-                     exit(EXIT_FAILURE);
-                 }
- 
-                 hostBegin = hp + 1;
-                 hostEnd = rb;
-                 portStr = rb + 2;
-             } else {
-                 const char *colon = strrchr(hp, ':');
-                 if (!colon || colon == hp || *(colon + 1) == '\0') {
-                     TVPrintError("Invalid -repeater target: %s (expected host:port)", hp);
-                     exit(EXIT_FAILURE);
-                 }
- 
-                 hostBegin = hp;
-                 hostEnd = colon;
-                 portStr = colon + 1;
-             }
- 
-             int port = (int)strtol(portStr, NULL, 10);
-             if (port <= 0 || port > 65535) {
-                 TVPrintError("Invalid -repeater port: %s", portStr);
-                 exit(EXIT_FAILURE);
-             }
- 
-             size_t hostLen = (size_t)(hostEnd - hostBegin);
-             if (hostLen == 0) {
-                 TVPrintError("Invalid -repeater host (empty)");
-                 exit(EXIT_FAILURE);
-             }
- 
-             char *hostDup = (char *)malloc(hostLen + 1);
-             if (!hostDup) {
-                 TVPrintError("Out of memory");
-                 exit(EXIT_FAILURE);
-             }
- 
-             memcpy(hostDup, hostBegin, hostLen);
-             hostDup[hostLen] = '\0';
- 
-             if (gRepeaterHost) {
-                 free(gRepeaterHost);
-                 gRepeaterHost = NULL;
-             }
- 
-             gRepeaterMode = 2;
-             gRepeaterId = (int)repId;
-             gRepeaterHost = hostDup;
-             gRepeaterPort = port;
- 
-             TVLog(@"CLI: Repeater mode id=%d target=%@:%d", gRepeaterId, [NSString stringWithUTF8String:gRepeaterHost],
-                   gRepeaterPort);
- 
-             __reverseEnabled = YES;
-             continue; // skip adding this arg
-         }
- 
-         __filtered.push_back(arg);
-     }
- 
-     // Prepare argv for getopt from filtered vector
-     int __argc2 = (int)__filtered.size();
-     std::vector<char *> __argv2;
-     __argv2.reserve(__filtered.size());
- #pragma clang diagnostic push
- #pragma clang diagnostic ignored "-Wc++11-extensions"
-     for (const char *s : __filtered)
-         __argv2.push_back(const_cast<char *>(s));
- #pragma clang diagnostic pop
- 
-     int opt;
-     const char *optstr = "p:b:n:vA:c:C:s:F:d:Q:t:P:R:aW:w:NM:KU:O:o:I:i:H:D:e:k:B:T:Vh";
-     optind = 1;
-     while ((opt = getopt(__argc2, __argv2.data(), optstr)) != -1) {
-         switch (opt) {
-         case 'b': {
-             if (!optarg || !*optarg) {
-                 TVPrintError("-b requires a non-empty host name or address");
-                 exit(EXIT_FAILURE);
-             }
-             gBindHost = [NSString stringWithUTF8String:optarg];
-             TVLog(@"CLI: Bind host set to '%@'", gBindHost);
-             break;
-         }
-         case 'p': {
-             long port = strtol(optarg, NULL, 10);
-             if (port <= 0 || port > 65535) {
-                 TVPrintError("Invalid port: %s", optarg);
-                 exit(EXIT_FAILURE);
-             }
-             gPort = (int)port;
-             TVLog(@"CLI: Port set to %d", gPort);
-             break;
-         }
-         case 'n': {
-             gDesktopName = [NSString stringWithUTF8String:optarg ?: "TrollVNC"];
-             TVLog(@"CLI: Desktop name set to '%@'", gDesktopName);
-             break;
-         }
-         case 'v': {
-             gViewOnly = YES;
-             TVLog(@"CLI: View-only mode enabled (-v)");
-             break;
-         }
-         case 'A': {
-             double sec = strtod(optarg ? optarg : "0", NULL);
-             if (sec < 15.0 || sec > 24 * 3600.0) {
-                 TVPrintError("Invalid keep-alive seconds: %s (expected 15..86400)", optarg);
-                 exit(EXIT_FAILURE);
-             }
-             gKeepAliveSec = sec;
-             TVLog(@"CLI: KeepAlive interval set to %.3f sec (-A)", gKeepAliveSec);
-             break;
-         }
-         case 'c': {
-             long port = strtol(optarg, NULL, 10);
-             if (port <= 0 || port > 65535) {
-                 TVPrintError("Invalid port: %s", optarg);
-                 exit(EXIT_FAILURE);
-             }
-             gTvCtlPort = (int)port;
-             TVLog(@"CLI: Mgmt port set to %d", gTvCtlPort);
-             break;
-         }
-         case 'C': {
-             const char *val = optarg ? optarg : "on";
-             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
-                 gClipboardEnabled = YES;
-                 TVLog(@"CLI: Clipboard sync enabled (-C %s)", [@(val) UTF8String]);
-             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
-                 gClipboardEnabled = NO;
-                 TVLog(@"CLI: Clipboard sync disabled (-C %s)", [@(val) UTF8String]);
-             } else {
-                 TVPrintError("Invalid -C value: %s (expected on|off|1|0|true|false)", val);
-                 exit(EXIT_FAILURE);
-             }
-             break;
-         }
-         case 's': {
-             double sc = strtod(optarg, NULL);
-             if (!(sc > 0.0 && sc <= 1.0)) {
-                 TVPrintError("Invalid scale: %s (expected 0 < s <= 1)", optarg);
-                 exit(EXIT_FAILURE);
-             }
-             gScale = sc;
-             TVLog(@"CLI: Output scale factor set to %.3f", gScale);
-             break;
-         }
-         case 'F': {
-             // Accept formats: "fps", "min-max", "min:pref:max"
-             const char *spec = optarg ? optarg : "";
-             int minV = 0, prefV = 0, maxV = 0;
-             if (spec[0] == '\0') {
-                 break; // ignore empty
-             }
-             const char *colon1 = strchr(spec, ':');
-             const char *dash = strchr(spec, '-');
-             if (colon1) {
-                 // min:pref:max
-                 long a = strtol(spec, NULL, 10);
-                 const char *p2 = colon1 + 1;
-                 const char *colon2 = strchr(p2, ':');
-                 if (!colon2) {
-                     TVPrintError("Invalid -F spec: %s (expected min:pref:max)", spec);
-                     exit(EXIT_FAILURE);
-                 }
-                 long b = strtol(p2, NULL, 10);
-                 long c = strtol(colon2 + 1, NULL, 10);
-                 minV = (int)a;
-                 prefV = (int)b;
-                 maxV = (int)c;
-             } else if (dash) {
-                 // min-max (preferred defaults to max)
-                 long a = strtol(spec, NULL, 10);
-                 long b = strtol(dash + 1, NULL, 10);
-                 minV = (int)a;
-                 prefV = (int)b;
-                 maxV = (int)b;
-             } else {
-                 // single fps
-                 long v = strtol(spec, NULL, 10);
-                 minV = (int)v;
-                 prefV = (int)v;
-                 maxV = (int)v;
-             }
-             // Normalize & validate: allow 0..240 (0 = unspecified)
-             if (minV < 0)
-                 minV = 0;
-             if (minV > 240)
-                 minV = 240;
-             if (prefV < 0)
-                 prefV = 0;
-             if (prefV > 240)
-                 prefV = 240;
-             if (maxV < 0)
-                 maxV = 0;
-             if (maxV > 240)
-                 maxV = 240;
-             if (minV > 0 && maxV > 0 && minV > maxV) {
-                 int tmp = minV;
-                 minV = maxV;
-                 maxV = tmp;
-             }
-             if (prefV > 0) {
-                 if (minV > 0 && prefV < minV)
-                     prefV = minV;
-                 if (maxV > 0 && prefV > maxV)
-                     prefV = maxV;
-             }
-             gFpsMin = minV;
-             gFpsPref = prefV;
-             gFpsMax = maxV;
-             TVLog(@"CLI: FPS preference set to min=%d pref=%d max=%d", gFpsMin, gFpsPref, gFpsMax);
-             break;
-         }
-         case 'd': {
-             double s = strtod(optarg, NULL);
-             if (s < 0.0 || s > 0.5) {
-                 TVPrintError("Invalid defer window seconds: %s (expected 0..0.5)", optarg);
-                 exit(EXIT_FAILURE);
-             }
-             gDeferWindowSec = s;
-             TVLog(@"CLI: Defer window set to %.3f sec", gDeferWindowSec);
-             break;
-         }
-         case 'Q': {
+@@ -1275,82 +1277,81 @@ static void parseCLI(int argc, const char *argv[]) {
              long q = strtol(optarg, NULL, 10);
              if (q < 0 || q > 8) {
                  TVPrintError("Invalid max in-flight: %s (expected 0..8)", optarg);
@@ -1957,200 +1425,44 @@ index be6cce3..72ae244 100644
                  TVPrintError("Invalid -M scheme: %s (expected std|altcmd)", val);
                  exit(EXIT_FAILURE);
              }
-             TVLog(@"CLI: Modifier mapping set to %s", gModMapScheme == 0 ? "std" : "altcmd");
-             break;
-         }
-         case 'K': {
-             gKeyEventLogging = YES;
-             TVLog(@"CLI: Keyboard event logging enabled (-K)");
-             break;
-         }
-         case 'E': {
-             const char *val = optarg ? optarg : "off";
-             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
-                 gAutoAssistEnabled = YES;
-                 TVLog(@"CLI: AssistiveTouch auto-activation enabled (-E %s)", [@(val) UTF8String]);
-             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
-                 gAutoAssistEnabled = NO;
-                 TVLog(@"CLI: AssistiveTouch auto-activation disabled (-E %s)", [@(val) UTF8String]);
-             } else {
-                 TVPrintError("Invalid -E value: %s (expected on|off|1|0|true|false)", val);
-                 exit(EXIT_FAILURE);
-             }
-             break;
-         }
-         case 'U': {
-             const char *val = optarg ? optarg : "off";
-             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
-                 gCursorEnabled = YES;
-                 TVLog(@"CLI: Cursor enabled (-U %s)", [@(val) UTF8String]);
-             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
-                 gCursorEnabled = NO;
-                 TVLog(@"CLI: Cursor disabled (-U %s)", [@(val) UTF8String]);
-             } else {
-                 TVPrintError("Invalid -U value: %s (expected on|off|1|0|true|false)", val);
-                 exit(EXIT_FAILURE);
-             }
-             break;
-         }
-         case 'O': {
-             const char *val = optarg ? optarg : "off";
-             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
-                 gOrientationSyncEnabled = YES;
-                 TVLog(@"CLI: Orientation observer enabled (-O %s)", [@(val) UTF8String]);
-             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
-                 gOrientationSyncEnabled = NO;
-                 TVLog(@"CLI: Orientation observer disabled (-O %s)", [@(val) UTF8String]);
-             } else {
-                 TVPrintError("Invalid -O value: %s (expected on|off|1|0|true|false)", val);
-                 exit(EXIT_FAILURE);
-             }
-             break;
-         }
-         case 'o': {
-             const char *val = optarg ? optarg : "0";
-             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
-                 gOrientationFixQuad = 3; // legacy: "on" means 270° (original behavior)
-                 TVLog(@"CLI: Orientation fix quad=3 (-o %s)", [@(val) UTF8String]);
-             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
-                 gOrientationFixQuad = 0;
-                 TVLog(@"CLI: Orientation fix quad=0 (-o %s)", [@(val) UTF8String]);
-             } else {
-                 long v = strtol(val, NULL, 10);
-                 if (v >= 0 && v <= 3) {
-                     gOrientationFixQuad = (int)v;
-                     TVLog(@"CLI: Orientation fix quad=%d (-o %s)", gOrientationFixQuad, [@(val) UTF8String]);
-                 } else {
-                     TVPrintError("Invalid -o value: %s (expected 0..3 or on|off)", val);
-                     exit(EXIT_FAILURE);
-                 }
-             }
-             break;
-         }
-         case 'I': {
-             const char *val = optarg ? optarg : "off";
-             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
-                 gUserClientNotifsEnabled = YES;
-                 TVLog(@"CLI: Client user notifications enabled (-I %s)", [@(val) UTF8String]);
-             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
-                 gUserClientNotifsEnabled = NO;
-                 TVLog(@"CLI: Client user notifications disabled (-I %s)", [@(val) UTF8String]);
-             } else {
-                 TVPrintError("Invalid -I value: %s (expected on|off|1|0|true|false)", val);
-                 exit(EXIT_FAILURE);
-             }
-             break;
-         }
-         case 'i': {
-             const char *val = optarg ? optarg : "off";
-             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
-                 gUserSingleNotifsEnabled = YES;
-                 TVLog(@"CLI: Single user notifications enabled (-i %s)", [@(val) UTF8String]);
-             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
-                 gUserSingleNotifsEnabled = NO;
-                 TVLog(@"CLI: Single user notifications disabled (-i %s)", [@(val) UTF8String]);
-             } else {
-                 TVPrintError("Invalid -i value: %s (expected on|off|1|0|true|false)", val);
-                 exit(EXIT_FAILURE);
-             }
-             break;
-         }
-         case 'H': {
-             long hp = strtol(optarg ? optarg : "0", NULL, 10);
-             if (hp < 0 || hp > 65535) {
-                 TVPrintError("Invalid HTTP port: %s (expected 0..65535)", optarg);
-                 exit(EXIT_FAILURE);
-             }
-             gHttpPort = (int)hp;
-             TVLog(@"CLI: HTTP port set to %d (-H)", gHttpPort);
-             break;
-         }
-         case 'D': {
-             const char *path = optarg ? optarg : "";
-             if (!path || path[0] != '/') {
-                 TVPrintError("Invalid httpDir path for -D: %s (must be absolute)", path);
-                 exit(EXIT_FAILURE);
-             }
-             gHttpDirOverride = strdup(path);
-             TVLog(@"CLI: HTTP dir override set to %s (-D)", path);
-             break;
-         }
-         case 'e': {
-             const char *path = optarg ? optarg : "";
-             if (!path || !*path) {
-                 TVPrintError("Invalid value for -e (sslcertfile)");
-                 exit(EXIT_FAILURE);
-             }
-             gSslCertPath = strdup(path);
-             TVLog(@"CLI: SSL cert file set (-e %s)", path);
-             break;
-         }
-         case 'k': {
-             const char *path = optarg ? optarg : "";
-             if (!path || !*path) {
-                 TVPrintError("Invalid value for -k (sslkeyfile)");
-                 exit(EXIT_FAILURE);
-             }
-             gSslKeyPath = strdup(path);
-             TVLog(@"CLI: SSL key file set (-k %s)", path);
-             break;
-         }
-         case 'B': {
-             const char *val = optarg ? optarg : "on";
-             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
-                 gBonjourEnabled = YES;
-                 TVLog(@"CLI: Bonjour advertisement enabled (-B %s)", [@(val) UTF8String]);
-             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
-                 gBonjourEnabled = NO;
-                 TVLog(@"CLI: Bonjour advertisement disabled (-B %s)", [@(val) UTF8String]);
-             } else {
-                 TVPrintError("Invalid -B value: %s (expected on|off|1|0|true|false)", val);
-                 exit(EXIT_FAILURE);
-             }
-             break;
-         }
-         case 'T': {
-             const char *val = optarg ? optarg : "off";
-             if (strcasecmp(val, "on") == 0 || strcmp(val, "1") == 0 || strcasecmp(val, "true") == 0) {
-                 gFileTransferEnabled = YES;
-                 TVLog(@"CLI: TightVNC 1.x file transfer extension enabled (-T %s)", [@(val) UTF8String]);
-             } else if (strcasecmp(val, "off") == 0 || strcmp(val, "0") == 0 || strcasecmp(val, "false") == 0) {
-                 gFileTransferEnabled = NO;
-                 TVLog(@"CLI: TightVNC 1.x file transfer extension disabled (-T %s)", [@(val) UTF8String]);
-             } else {
-                 TVPrintError("Invalid -T value: %s (expected on|off|1|0|true|false)", val);
-                 exit(EXIT_FAILURE);
-             }
-             break;
-         }
-         case 'V': {
-             tvncVerboseLoggingEnabled = YES;
-             TVLog(@"CLI: Verbose logging enabled (-V)");
-             break;
-         }
-         case 'h':
-         default: {
-             printUsageAndExit(argv[0]);
-             break;
-         }
-         }
+@@ -1609,80 +1610,87 @@ NS_INLINE uint64_t crc32_update(uint64_t h, const uint8_t *data, size_t len) {
+ }
+ #else
+ NS_INLINE uint64_t fnv1a_basis(void) { return 1469598103934665603ULL; }
+ NS_INLINE uint64_t fnv1a_update(uint64_t h, const uint8_t *data, size_t len) {
+     const uint64_t FNV_PRIME = 1099511628211ULL;
+     for (size_t i = 0; i < len; ++i) {
+         h ^= (uint64_t)data[i];
+         h *= FNV_PRIME;
      }
+     return h;
+ }
+ #endif
  
-     // Reverse connection active -> override conflicting settings
-     if (__reverseEnabled) {
-         gPort = -1;    // disable listening port
-         gHttpPort = 0; // disable HTTP server
-         if (gHttpDirOverride) {
-             free(gHttpDirOverride);
-             gHttpDirOverride = NULL;
-         }
-         gBonjourEnabled = NO; // disable Bonjour when reverse is used
-         TVLog(@"CLI: Reverse enabled -> port=-1, http=0, bonjour=off");
-     }
+ // Generic hash wrappers: prefer hardware CRC32 when enabled and available, else fallback to FNV-1a.
+ NS_INLINE uint64_t hash_basis(void) {
+ #if defined(__aarch64__) || defined(__ARM_FEATURE_CRC32)
+     return 0u; // CRC32 initial accumulator
+ #else
+     return fnv1a_basis();
+ #endif
  }
  
- #pragma mark - Display
-@@ -1646,6 +1646,13 @@ static uint64_t *gPrevHash = NULL;
+ NS_INLINE uint64_t hash_update(uint64_t h, const uint8_t *data, size_t len) {
+ #if defined(__aarch64__) || defined(__ARM_FEATURE_CRC32)
+     return crc32_update(h, data, len);
+ #else
+     // If CRC32 not supported at compile time, fallback to FNV-1a
+     return fnv1a_update(h, data, len);
+ #endif
+ }
+ 
+ #pragma mark - Display Tiling
+ 
+ static int gTilesX = 0;
+ static int gTilesY = 0;
+ static size_t gTileCount = 0;
+ static uint64_t *gPrevHash = NULL;
  static uint64_t *gCurrHash = NULL;
  static uint8_t *gPendingDirty = NULL; // per-tile pending dirty mask
  static BOOL gHasPending = NO;
@@ -2164,7 +1476,81 @@ index be6cce3..72ae244 100644
  
  static void initializeTilingOrReset(void) {
      int tilesX = (gWidth + gTileSize - 1) / gTileSize;
-@@ -1734,60 +1741,6 @@ NS_INLINE void hashTiledFromBuffer(const uint8_t *buf, int width, int height, si
+     int tilesY = (gHeight + gTileSize - 1) / gTileSize;
+     size_t tileCount = (size_t)tilesX * (size_t)tilesY;
+ 
+     if (tilesX != gTilesX || tilesY != gTilesY || tileCount != gTileCount || !gPrevHash || !gCurrHash) {
+         free(gPrevHash);
+         free(gCurrHash);
+ 
+         if (gPendingDirty) {
+             free(gPendingDirty);
+             gPendingDirty = NULL;
+         }
+ 
+         gPrevHash = (uint64_t *)malloc(tileCount * sizeof(uint64_t));
+         gCurrHash = (uint64_t *)malloc(tileCount * sizeof(uint64_t));
+         gPendingDirty = (uint8_t *)malloc(tileCount);
+ 
+         if (!gPrevHash || !gCurrHash) {
+             TVPrintError("Out of memory for tile hashes");
+             exit(EXIT_FAILURE);
+         }
+ 
+         for (size_t i = 0; i < tileCount; ++i) {
+             gPrevHash[i] = 0; // force full update first frame
+             gCurrHash[i] = hash_basis();
+         }
+ 
+         gTilesX = tilesX;
+         gTilesY = tilesY;
+         gTileCount = tileCount;
+ 
+         if (gPendingDirty)
+             memset(gPendingDirty, 0, gTileCount);
+     } else {
+         for (size_t i = 0; i < gTileCount; ++i) {
+             gCurrHash[i] = hash_basis();
+         }
+     }
+@@ -1697,1205 +1705,812 @@ NS_INLINE void swapTileHashes(void) {
+ NS_INLINE void resetCurrTileHashes(void) {
+     if (!gCurrHash || gTileCount == 0)
+         return;
+     uint64_t basis = hash_basis();
+     for (size_t i = 0; i < gTileCount; ++i) {
+         gCurrHash[i] = basis;
+     }
+ }
+ 
+ // Accumulate pending dirty tiles for time-based coalescing
+ NS_INLINE void accumulatePendingDirty(void) {
+     if (!gPendingDirty)
+         return;
+ 
+     for (size_t i = 0; i < gTileCount; ++i) {
+         if (gCurrHash[i] != gPrevHash[i])
+             gPendingDirty[i] = 1;
+     }
+ }
+ 
+ NS_INLINE void hashTiledFromBuffer(const uint8_t *buf, int width, int height, size_t bpr) {
+     resetCurrTileHashes();
+     for (int y = 0; y < height; ++y) {
+         int ty = y / gTileSize;
+         for (int tx = 0; tx < gTilesX; ++tx) {
+             int startX = tx * gTileSize;
+             if (startX >= width)
+                 break;
+             int endX = startX + gTileSize;
+             if (endX > width)
+                 endX = width;
+             size_t offset = (size_t)startX * (size_t)gBytesPerPixel;
+             size_t length = (size_t)(endX - startX) * (size_t)gBytesPerPixel;
+             size_t tileIndex = (size_t)ty * (size_t)gTilesX + (size_t)tx;
+             gCurrHash[tileIndex] = hash_update(gCurrHash[tileIndex], buf + (size_t)y * bpr + offset, length);
+         }
+     }
  }
  
  // Sparse sampling hash: sample a subset of pixels per tile to reduce bandwidth.
@@ -2225,7 +1611,46 @@ index be6cce3..72ae244 100644
  NS_INLINE void hashTiledFromBufferParallel(const uint8_t *buf, int width, int height, size_t bpr, int threads) {
      if (threads <= 1) {
          hashTiledFromBuffer(buf, width, height, bpr);
-@@ -1834,176 +1787,162 @@ NS_INLINE void hashTiledFromBufferParallel(const uint8_t *buf, int width, int he
+         return;
+     }
+     resetCurrTileHashes();
+     // Split by tile row bands
+     int tilesY = gTilesY;
+     if (tilesY <= 0)
+         return;
+     int bands = threads;
+     if (bands > tilesY)
+         bands = tilesY;
+     dispatch_group_t grp = dispatch_group_create();
+     for (int band = 0; band < bands; ++band) {
+         dispatch_group_async(grp, dispatch_get_global_queue(QOS_CLASS_USER_INTERACTIVE, 0), ^{
+             for (int ty = band; ty < tilesY; ty += bands) {
+                 int startY = ty * gTileSize;
+                 int endY = startY + gTileSize;
+                 if (startY >= height)
+                     break;
+                 if (endY > height)
+                     endY = height;
+                 for (int y = startY; y < endY; ++y) {
+                     for (int tx = 0; tx < gTilesX; ++tx) {
+                         int startX = tx * gTileSize;
+                         if (startX >= width)
+                             break;
+                         int endX = startX + gTileSize;
+                         if (endX > width)
+                             endX = width;
+                         size_t offset = (size_t)startX * (size_t)gBytesPerPixel;
+                         size_t length = (size_t)(endX - startX) * (size_t)gBytesPerPixel;
+                         size_t tileIndex = (size_t)ty * (size_t)gTilesX + (size_t)tx;
+                         // Each tileIndex is updated by a single band (fixed ty), no race across bands.
+                         gCurrHash[tileIndex] =
+                             hash_update(gCurrHash[tileIndex], buf + (size_t)y * bpr + offset, length);
+                     }
+                 }
+             }
+         });
+     }
+     dispatch_group_wait(grp, DISPATCH_TIME_FOREVER);
  }
  
  // Build dirty rectangles from tile hash diffs. Returns number of rects written, up to maxRects.
@@ -2366,25 +1791,35 @@ index be6cce3..72ae244 100644
 -            uint8_t *src = (uint8_t *)gBackBuffer + (size_t)(y + r) * fbBPR + (size_t)x * gBytesPerPixel;
 -            memcpy(dst, src, rowBytes);
 -        }
--    }
--}
--
- #pragma mark - Display Hooks
- 
--static std::atomic<int> gInflight(0);
++#pragma mark - Display Hooks
++
 +static TVFrameUpdateRetry gFrameUpdates;
++static TVCaptureGovernor gCaptureGovernor;
 +static void tryPublishPreparedFrame(void);
 +
 +static void resetPreparedFrameSession(BOOL active) {
-+    if (active) gFrameUpdates.start(); else gFrameUpdates.stop();
++    if (active) {
++        gFrameUpdates.start();
++        gCaptureGovernor.reset();
++        // A previous session may have paced the capturer down. Restore the
++        // configured rate here: this runs before the new display link is
++        // created from those same fields.
++        if (gFpsMin > 0 || gFpsPref > 0 || gFpsMax > 0)
++            [[ScreenCapturer sharedCapturer] setPreferredFrameRateWithMin:gFpsMin preferred:gFpsPref max:gFpsMax];
++    } else {
++        gFrameUpdates.stop();
+     }
 +    gPreparedFrame.reset();
 +    gPublishedRotation = -1;
 +    gPublishedHashesValid = NO;
 +    gHasPending = NO;
 +    gPendingSince = 0;
 +    if (gPendingDirty) memset(gPendingDirty, 0, gTileCount);
-+}
-+
+ }
+ 
+-#pragma mark - Display Hooks
+-
+-static std::atomic<int> gInflight(0);
 +static void requestPreparedFramePublication(void) {
 +    uint64_t generation = gFrameUpdates.queuePublication();
 +    if (!generation) return;
@@ -2405,6 +1840,8 @@ index be6cce3..72ae244 100644
      (void)result;
 -    gInflight.fetch_sub(1, std::memory_order_relaxed);
 +    gFrameUpdates.finished();
++    // Output thread: count only. Pacing decisions happen on main.
++    gCaptureGovernor.completed();
 +    // LibVNC still owns sendMutex. Only enqueue a publication try; the CAD
 +    // callback keeps retrying the prepared frame if this runs before unlock.
 +    requestPreparedFramePublication();
@@ -2448,7 +1885,26 @@ index be6cce3..72ae244 100644
  
  #pragma mark - Frame Handlers
  
-@@ -2030,85 +1969,95 @@ NS_INLINE void alignDimensions(int rawW, int rawH, int *alignedW, int *alignedH)
+ static std::atomic<int> gRotationQuad(0); // 0=0°, 1=90°, 2=180°, 3=270° (clockwise)
+ static void *gRotateScratch = NULL;       // rotation scratch (for 90°/270°)
+ static size_t gRotateScratchSize = 0;     // bytes
+ static void *gScaleTemp = NULL;           // vImage scale temp buffer
+ static size_t gScaleTempSize = 0;         // bytes
+ 
+ // Align width up to a multiple of 4 (helps encoders/clients). Preserve aspect by adjusting height.
+ NS_INLINE void alignDimensions(int rawW, int rawH, int *alignedW, int *alignedH) {
+     if (rawW <= 0)
+         rawW = 1;
+     if (rawH <= 0)
+         rawH = 1;
+     // Round width up to next multiple of 4
+     int w4 = (rawW + 3) & ~3;
+     long long numer = (long long)rawH * (long long)w4;
+     int hAdj = (int)((numer + rawW / 2) / rawW); // rounded to nearest
+     if (hAdj <= 0)
+         hAdj = 1;
+     *alignedW = w4;
+     *alignedH = hAdj;
  }
  
  // Resize framebuffer according to rotation (0/180 keep WxH from src, 90/270 swap), then apply scale
@@ -2566,7 +2022,7 @@ index be6cce3..72ae244 100644
      gRotateScratchSize = need;
      return 0;
  }
-@@ -2116,27 +2065,27 @@ NS_INLINE int ensureRotateScratch(size_t w, size_t h) {
+ 
  NS_INLINE int ensureScaleTemp(size_t srcW, size_t srcH, size_t dstW, size_t dstH, vImage_Flags flags) {
      vImage_Buffer s = {.data = NULL,
                         .height = (vImagePixelCount)srcH,
@@ -2595,7 +2051,53 @@ index be6cce3..72ae244 100644
  }
  
  // Row-by-row copy to convert a possibly-strided captured buffer into a tightly packed VNC buffer.
-@@ -2190,675 +2139,322 @@ NS_INLINE void copyPadOrCropToTight(uint8_t *dstTight, int dstW, int dstH, const
+ NS_INLINE void copyWithStrideTight(uint8_t *dstTight, const uint8_t *src, int width, int height,
+                                    size_t srcBytesPerRow) {
+     size_t dstBPR = (size_t)width * gBytesPerPixel;
+     for (int y = 0; y < height; ++y) {
+         memcpy(dstTight + (size_t)y * dstBPR, src + (size_t)y * srcBytesPerRow, dstBPR);
+     }
+ }
+ 
+ // Copy with small pad/crop to avoid expensive scaling when sizes are close.
+ // Strategy:
+ // - Copy overlap region at (0,0) with width=min(srcW,dstW), height=min(srcH,dstH)
+ // - If dst wider, horizontally replicate the last pixel in each row to fill the right pad.
+ // - If dst taller, vertically replicate the last valid row to fill the bottom pad.
+ NS_INLINE void copyPadOrCropToTight(uint8_t *dstTight, int dstW, int dstH, const uint8_t *src, int srcW, int srcH,
+                                     size_t srcBytesPerRow) {
+     const int bpp = gBytesPerPixel;
+     const size_t dstBPR = (size_t)dstW * (size_t)bpp;
+     const int overlapW = srcW < dstW ? srcW : dstW;
+     const int overlapH = srcH < dstH ? srcH : dstH;
+ 
+     // 1) Copy overlap region row-by-row
+     if (overlapW > 0 && overlapH > 0) {
+         const size_t copyBytes = (size_t)overlapW * (size_t)bpp;
+         for (int y = 0; y < overlapH; ++y) {
+             uint8_t *drow = dstTight + (size_t)y * dstBPR;
+             const uint8_t *srow = src + (size_t)y * srcBytesPerRow;
+             memcpy(drow, srow, copyBytes);
+             // 2) Right pad by replicating last pixel if needed
+             if (dstW > overlapW) {
+                 const uint8_t *lastPx = (overlapW > 0) ? (drow + ((size_t)overlapW - 1) * (size_t)bpp) : drow;
+                 for (int x = overlapW; x < dstW; ++x) {
+                     memcpy(drow + (size_t)x * (size_t)bpp, lastPx, (size_t)bpp);
+                 }
+             }
+         }
+     }
+ 
+     // 3) Bottom pad by replicating last valid row if needed
+     if (dstH > overlapH) {
+         uint8_t *lastRow = (overlapH > 0) ? (dstTight + (size_t)(overlapH - 1) * dstBPR) : dstTight;
+         for (int y = overlapH; y < dstH; ++y) {
+             uint8_t *drow = dstTight + (size_t)y * dstBPR;
+             memcpy(drow, lastRow, dstBPR);
+         }
+     }
+ }
+ 
  NS_INLINE void swapBuffers(void) {
      void *tmp = gFrontBuffer;
      gFrontBuffer = gBackBuffer;
@@ -2657,8 +2159,7 @@ index be6cce3..72ae244 100644
 +        gPreparedFrame.published();
 +        return;
      }
-+    if (!gFrameUpdates.capacityAvailable(gMaxInflightUpdates)) return;
- 
+-
 -    return 1;
 -}
 -
@@ -2668,13 +2169,14 @@ index be6cce3..72ae244 100644
 -    rfbClientPtr cl;
 -    while ((cl = rfbClientIteratorNext(it))) {
 -        pthread_mutex_lock(&cl->sendMutex);
--    }
++    if (!gFrameUpdates.capacityAvailable(gMaxInflightUpdates)) {
++        // This capture paid for render, transfer and preparation and is now
++        // discarded because encoding still holds the only slot. Over-drive.
++        gCaptureGovernor.blocked();
++        return;
+     }
 -    rfbReleaseClientIterator(it);
 -}
-+    std::unique_lock<std::mutex> admission(gPublicationAdmissionMutex, std::try_to_lock);
-+    if (!admission.owns_lock()) return;
-+    TVClientSendLocks clientLocks(gScreen);
-+    if (!clientLocks.acquired() || !clientLocks.count()) return;
  
 -NS_INLINE void unlockAllClientsBlocking(void) {
 -    rfbClientIteratorPtr it = rfbGetClientIterator(gScreen);
@@ -2683,6 +2185,11 @@ index be6cce3..72ae244 100644
 -        pthread_mutex_unlock(&cl->sendMutex);
 -    }
 -    rfbReleaseClientIterator(it);
++    std::unique_lock<std::mutex> admission(gPublicationAdmissionMutex, std::try_to_lock);
++    if (!admission.owns_lock()) return;
++    TVClientSendLocks clientLocks(gScreen);
++    if (!clientLocks.acquired() || !clientLocks.count()) return;
++
 +    enum { kRectBuf = 1024 };
 +    DirtyRect rects[kRectBuf];
 +    int changedTiles = 0;
@@ -3028,7 +2535,12 @@ index be6cce3..72ae244 100644
 -#endif
 -
 -        return;
--    }
++    // The back buffer now holds the newest complete preparation. Keep the
++    // published hash baseline until this exact buffer is successfully published.
++    if (!dirtyDisabled) {
++        hashFullBackBuffer();
++        accumulatePendingDirty();
+     }
 -
 -    // If dirty detection is disabled, perform a full-screen update
 -    if (dirtyDisabled) {
@@ -3100,9 +2612,14 @@ index be6cce3..72ae244 100644
 -    } else {
 -        resetCurrTileHashes();
 -        hashTiledFromBuffer((const uint8_t *)gBackBuffer, gWidth, gHeight, (size_t)gWidth * (size_t)gBytesPerPixel);
--    }
++    if (!gHasPending) {
++        gHasPending = YES;
++        gPendingSince = (double)clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / NSEC_PER_SEC;
+     }
 -
--#if DEBUG
++    gPreparedFrame.prepared(rotQ, dirtyDisabled || rotationChanged || !gPublishedHashesValid,
++                             !dirtyDisabled);
+ #if DEBUG
 -    CFAbsoluteTime __tv_tHash1 = CFAbsoluteTimeGetCurrent();
 -    CFTimeInterval __tv_msHash = (__tv_tHash1 - __tv_tHash0) * 1000.0;
 -    TVLogVerbose(@"tile hashing took %.3f ms (tiles=%zu, tileSize=%d)%@%@", __tv_msHash, gTileCount, gTileSize,
@@ -3160,12 +2677,7 @@ index be6cce3..72ae244 100644
 -#endif
 -
 -        return;
-+    // The back buffer now holds the newest complete preparation. Keep the
-+    // published hash baseline until this exact buffer is successfully published.
-+    if (!dirtyDisabled) {
-+        hashFullBackBuffer();
-+        accumulatePendingDirty();
-     }
+-    }
 -
 -    // At flush: recompute full hashes for precise rects
 -    {
@@ -3195,15 +2707,10 @@ index be6cce3..72ae244 100644
 -                     cParallelHashOnFlush ? @" [parallel]" : @"", __tv_msHash, gTileCount, gTileSize,
 -                     cUseCRC32Hash ? @" [crc32]" : @" [fnv]");
 -#endif
-+    if (!gHasPending) {
-+        gHasPending = YES;
-+        gPendingSince = (double)clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / NSEC_PER_SEC;
-     }
+-    }
 -
 -// Promote pending tiles into rects
-+    gPreparedFrame.prepared(rotQ, dirtyDisabled || rotationChanged || !gPublishedHashesValid,
-+                             !dirtyDisabled);
- #if DEBUG
+-#if DEBUG
 -    CFAbsoluteTime __tv_tRects0 = CFAbsoluteTimeGetCurrent();
 -#endif
 -
@@ -3354,7 +2861,75 @@ index be6cce3..72ae244 100644
  }
  
  #pragma mark - Event Handlers
-@@ -2940,79 +2536,89 @@ NS_INLINE NSString *keysymToString(rfbKeySym ks) {
+ 
+ NS_INLINE NSString *keysymToString(rfbKeySym ks) {
+     // Alphanumeric and basic ASCII
+     if ((ks >= 0x20 && ks <= 0x7E) || ks == ' ') {
+         unichar ch = (unichar)ks;
+         return [NSString stringWithCharacters:&ch length:1];
+     }
+     switch (ks) {
+     case XK_Return:
+     case XK_KP_Enter:
+         return @"RETURN";
+     case XK_Tab:
+         return @"TAB";
+     case XK_Escape:
+         return @"ESCAPE";
+     case XK_BackSpace:
+         return @"BACKSPACE";
+     case XK_Delete:
+         return @"FORWARDDELETE";
+     case XK_Insert:
+         return @"INSERT";
+     case XK_Home:
+         return @"HOME";
+     case XK_End:
+         return @"END";
+     case XK_Page_Up:
+         return @"PAGEUP";
+     case XK_Page_Down:
+         return @"PAGEDOWN";
+     case XK_Left:
+         return @"LEFTARROW";
+     case XK_Right:
+         return @"RIGHTARROW";
+     case XK_Up:
+         return @"UPARROW";
+     case XK_Down:
+         return @"DOWNARROW";
+@@ -2909,80 +2524,90 @@ NS_INLINE NSString *keysymToString(rfbKeySym ks) {
+         return @"LEFTCONTROL";
+     case XK_Control_R:
+         return @"RIGHTCONTROL";
+     // Modifier mapping depending on scheme
+     case XK_Alt_L:
+         return (gModMapScheme == 1) ? @"LEFTCOMMAND" : @"LEFTALT"; // Option or Command
+     case XK_Alt_R:
+         return (gModMapScheme == 1) ? @"RIGHTCOMMAND" : @"RIGHTALT"; // Option or Command
+     case XK_ISO_Level3_Shift:
+         return @"LEFTALT"; // macOS left Option often sent as ISO_Level3_Shift
+     case XK_Mode_switch:
+         return @"RIGHTALT"; // Mode switch often behaves like AltGr
+     case XK_Meta_L:
+         return (gModMapScheme == 1) ? @"LEFTALT" : @"LEFTCOMMAND"; // Option or Command
+     case XK_Meta_R:
+         return (gModMapScheme == 1) ? @"RIGHTALT" : @"RIGHTCOMMAND"; // Option or Command
+     case XK_Super_L:
+         return @"LEFTCOMMAND"; // Treat Super as Command in both schemes
+     case XK_Super_R:
+         return @"RIGHTCOMMAND";
+     default:
+         break;
+     }
+     // Function keys XK_F1..XK_F24
+     if (ks >= XK_F1 && ks <= XK_F24) {
+         int idx = (int)(ks - XK_F1) + 1;
+         return [NSString stringWithFormat:@"F%d", idx];
+     }
+     return nil;
+ }
+ 
  static void kbdAddEvent(rfbBool down, rfbKeySym keySym, rfbClientPtr cl) {
      (void)cl;
      if (gViewOnly)
@@ -3414,37 +2989,44 @@ index be6cce3..72ae244 100644
              [gen otherConsumerUsageUp:kHIDUsage_Csmr_ScanPreviousTrack];
          return;
      case 0x1008ff14UL: // XF86AudioPlay (toggle Play/Pause)
-         if (down)
-             [gen otherConsumerUsageDown:kHIDUsage_Csmr_PlayOrPause];
-         else
-             [gen otherConsumerUsageUp:kHIDUsage_Csmr_PlayOrPause];
+@@ -3431,81 +3056,81 @@ static void startBonjour(void) {
+ 
+     if (!gBonjourDelegate)
+         gBonjourDelegate = [TVBonjourDelegate new];
+ 
+     // Publish VNC service: _rfb._tcp. on gPort
+     if (!gBonjourService) {
+         NSString *svcName = tvBonjourServiceName(gDesktopName);
+         gBonjourService = [[NSNetService alloc] initWithDomain:@"local." type:@"_rfb._tcp." name:svcName port:gPort];
+         gBonjourService.delegate = gBonjourDelegate;
+         [gBonjourService setTXTRecordData:bonjourTXTRecord()];
+         [gBonjourService publish];
+     } else {
+         [gBonjourService stop];
+         gBonjourService = nil;
+         startBonjour();
          return;
-     case 0x1008ff97UL: // Map as Next Track (per user observation)
-         if (down)
-             [gen otherConsumerUsageDown:kHIDUsage_Csmr_ScanNextTrack];
-         else
-             [gen otherConsumerUsageUp:kHIDUsage_Csmr_ScanNextTrack];
-         return;
-     default:
-         break;
      }
  
-     NSString *keyStr = keysymToString(keySym);
-     if (gKeyEventLogging && tvncLoggingEnabled) {
-         const char *mapped = keyStr ? [keyStr UTF8String] : "(nil)";
-         rfbLog("[key] %s keysym=0x%lx (%lu) mapped=%s\n", down ? "down" : " up ", (unsigned long)keySym,
-                (unsigned long)keySym, mapped);
+     // Optionally publish HTTP service when enabled
+     if (gHttpPort > 0) {
+         if (gBonjourHttpService) {
+             [gBonjourHttpService stop];
+             gBonjourHttpService = nil;
+         }
+         NSString *svcName = tvBonjourServiceName(gDesktopName);
+         gBonjourHttpService = [[NSNetService alloc] initWithDomain:@"local."
+                                                               type:@"_http._tcp."
+                                                               name:svcName
+                                                               port:gHttpPort];
+         gBonjourHttpService.delegate = gBonjourDelegate;
+         [gBonjourHttpService publish];
      }
- 
-     if (!keyStr)
-         return;
- 
-     if (down)
-         [gen keyDown:keyStr];
-     else
-         [gen keyUp:keyStr];
  }
-@@ -3468,7 +3074,7 @@ static int gTvCtlListenFd = -1;
+ 
+ #pragma mark - Control Socket
+ 
+ static int gTvCtlListenFd = -1;
  static dispatch_source_t gTvCtlAcceptSource = NULL;
  
  // Number of connected clients
@@ -3453,9 +3035,44 @@ index be6cce3..72ae244 100644
  
  // Subscribers for control change notifications (store as NSNumber wrapping fd)
  static NSMutableSet<NSNumber *> *gTvCtlSubscribers = nil;
-@@ -3860,83 +3466,83 @@ static BOOL tvDisconnectAllClients(void) {
- void tvCtlHandleConnection(int cfd, struct sockaddr_in caddr) {
-     // Log peer and set short timeouts
+ static dispatch_source_t gTvCtlDebounceTimer = NULL; // debounce timer for change notifications
+ 
+ // Global client states, populated via newClientHook/clientGoneHook.
+ // Key: 8-char client id; Value: immutable snapshot dictionary.
+ static NSMutableDictionary<NSString *, NSDictionary<NSString *, id> *> *gClientStates = nil;
+ 
+ // Generate a stable-length 8-char id for a given socket fd (deterministic per fd).
+ static NSString *tvGenerateClientId8(int fd) {
+     static uint64_t sSeed = 0;
+     static dispatch_once_t onceToken;
+     dispatch_once(&onceToken, ^{
+         // Mix boot hash and time for seed
+         NSString *boot = tvBonjourServiceName(@""); // 8-char suffix only when baseName is empty
+         uint64_t h = 1469598103934665603ULL;
+         for (NSUInteger i = 0; i < boot.length; i++) {
+             unichar c = [boot characterAtIndex:i];
+             h ^= (uint8_t)(c & 0xFF);
+             h *= 1099511628211ULL;
+         }
+         struct timeval tv;
+         gettimeofday(&tv, NULL);
+         h ^= (uint64_t)tv.tv_sec;
+         h *= 1099511628211ULL;
+         h ^= (uint64_t)tv.tv_usec;
+         h *= 1099511628211ULL;
+         sSeed = h;
+     });
+     uint64_t x = sSeed ^ (uint64_t)(uint32_t)fd;
+     // xorshift mix to spread bits
+     x ^= x >> 12;
+     x ^= x << 25;
+     x ^= x >> 27;
+     uint32_t v = (uint32_t)(x & 0xFFFFFFFFu);
+     return [NSString stringWithFormat:@"%08x", v];
+ }
+ 
+ static int tvSetNonBlocking(int fd) {
+@@ -3862,488 +3487,502 @@ void tvCtlHandleConnection(int cfd, struct sockaddr_in caddr) {
      char ipbuf[INET_ADDRSTRLEN] = {0};
      const char *ip = inet_ntop(AF_INET, &caddr.sin_addr, ipbuf, sizeof(ipbuf));
      TVLog(@"Control socket: connection from %s:%d (fd=%d)", ip ? ip : "?", ntohs(caddr.sin_port), cfd);
@@ -3538,7 +3155,7 @@ index be6cce3..72ae244 100644
  }
  
  #pragma mark - User Notifications
-@@ -3944,29 +3550,29 @@ void tvCtlHandleConnection(int cfd, struct sockaddr_in caddr) {
+ 
  static void tvPublishUserSingleNotifs(void) {
      if (!gUserSingleNotifsEnabled || isRepeaterEnabled())
          return;
@@ -3573,7 +3190,52 @@ index be6cce3..72ae244 100644
      });
  }
  
-@@ -4019,9 +3625,32 @@ static void tvPublishClientDisconnectedNotif(NSString *host) {
+ static void tvPublishClientConnectedNotif(NSString *host) {
+     if (!gUserClientNotifsEnabled || isRepeaterEnabled() || !host || host.length == 0)
+         return;
+ 
+     // Check if host is a loopback address
+     if ([host isEqualToString:@"127.0.0.1"] || [host isEqualToString:@"::1"] || [host isEqualToString:@"localhost"] ||
+         [host hasPrefix:@"127."] || [host hasPrefix:@"::ffff:127."]) {
+         TVLog(@"Skipping notification for loopback connection from %@", host);
+         return;
+     }
+ 
+     BulletinManager *mgr = [BulletinManager sharedManager];
+ 
+     NSDictionary *userInfo = @{
+         @"clientHost" : host,
+     };
+ 
+     NSString *localizedContentTmpl;
+     localizedContentTmpl =
+         LocalizedString(@"A VNC client connected from %@.", @"Localizable", tvLocalizationBundle(), @"trollvncserver");
+ 
+     NSString *localizedContent = [NSString stringWithFormat:localizedContentTmpl, host];
+     dispatch_async(dispatch_get_main_queue(), ^(void) {
+         [mgr popBannerWithContent:localizedContent userInfo:userInfo];
+     });
+ }
+ 
+ static void tvPublishClientDisconnectedNotif(NSString *host) {
+     if (!gUserClientNotifsEnabled || !host || host.length == 0)
+         return;
+ 
+     BulletinManager *mgr = [BulletinManager sharedManager];
+ 
+     NSDictionary *userInfo = @{
+         @"clientHost" : host,
+     };
+ 
+     NSString *localizedContentTmpl;
+     localizedContentTmpl = LocalizedString(@"A VNC client disconnected from %@.", @"Localizable",
+                                            tvLocalizationBundle(), @"trollvncserver");
+ 
+     NSString *localizedContent = [NSString stringWithFormat:localizedContentTmpl, host];
+     dispatch_async(dispatch_get_main_queue(), ^(void) {
+         [mgr popBannerWithContent:localizedContent userInfo:userInfo];
+     });
+ }
  
  #pragma mark - Client Handlers
  
@@ -3607,7 +3269,7 @@ index be6cce3..72ae244 100644
  #if !TARGET_OS_SIMULATOR
  static BOOL gRestoreAssist = NO;
  #endif
-@@ -4029,73 +3658,67 @@ static BOOL gRestoreAssist = NO;
+ 
  static void clientGoneHook(rfbClientPtr cl) {
      // Free per-client state
      TVClientState *st = tvGetClientState(cl);
@@ -3640,14 +3302,14 @@ index be6cce3..72ae244 100644
  
      NSString *host = (cl && cl->host) ? [NSString stringWithUTF8String:cl->host] : @"";
 -    TVLog(@"Client %@ disconnected, active clients=%d", host, gClientCount);
--
++    TVLog(@"Client %@ disconnected, active clients=%d", host, gClientCount.load());
+ 
 -    if (gIsCaptureStarted && gClientCount == 0) {
 -        [[ScreenCapturer sharedCapturer] endCapture];
 -        gIsCaptureStarted = NO;
 -        TVLog(@"No clients remaining; screen capture stopped.");
 -    }
-+    TVLog(@"Client %@ disconnected, active clients=%d", host, gClientCount.load());
- 
+-
 -    if (gIsClipboardStarted && gClientCount == 0) {
 +    if (gIsClipboardStarted && gClientCount.load() == 0) {
          [[ClipboardManager sharedManager] stop];
@@ -3688,7 +3350,7 @@ index be6cce3..72ae244 100644
          CFRunLoopStop(CFRunLoopGetMain());
      }
  }
-@@ -4103,85 +3726,82 @@ static void clientGoneHook(rfbClientPtr cl) {
+ 
  static enum rfbNewClientAction newClientHook(rfbClientPtr cl) {
      cl->clientGoneHook = clientGoneHook;
      if (!cl->viewOnly && gViewOnly)
@@ -3784,7 +3446,58 @@ index be6cce3..72ae244 100644
  }
  
  #pragma mark - Clipboard Extension
-@@ -4240,88 +3860,88 @@ static void setXCutTextUTF8(char *str, int len, rfbClientPtr cl) {
+ 
+ static std::atomic<int> gClipboardSuppressSend(0); // >0 means suppress sending clipboard to clients
+ 
+ static void setXCutTextLatin1(char *str, int len, rfbClientPtr cl) {
+     (void)cl;
+     if (!str || len < 0)
+         len = 0;
+ 
+     TVLog(@"Clipboard: received client cut text (Latin-1) len=%d", len);
+     NSData *data = [NSData dataWithBytes:str length:(NSUInteger)len];
+     NSString *s = [[NSString alloc] initWithData:data encoding:NSISOLatin1StringEncoding];
+     if (!s)
+         s = @"";
+ 
+     dispatch_async(dispatch_get_main_queue(), ^{
+         gClipboardSuppressSend.fetch_add(1, std::memory_order_relaxed);
+ 
+         TVLog(@"Clipboard: applying client text to UIPasteboard (Latin-1), suppression now=%d",
+               gClipboardSuppressSend.load(std::memory_order_relaxed));
+         [[ClipboardManager sharedManager] setStringFromRemote:s];
+ 
+         gClipboardSuppressSend.fetch_sub(1, std::memory_order_relaxed);
+     });
+ }
+ 
+ static void setXCutTextUTF8(char *str, int len, rfbClientPtr cl) {
+     (void)cl;
+     if (!str || len < 0)
+         len = 0;
+ 
+     TVLog(@"Clipboard: received client cut text (UTF-8) len=%d", len);
+ 
+     NSData *data = [NSData dataWithBytes:str length:(NSUInteger)len];
+     NSString *s = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+     if (!s) {
+         // Fallback try Latin-1 if UTF-8 decode fails
+         s = [[NSString alloc] initWithData:data encoding:NSISOLatin1StringEncoding];
+         if (!s)
+             s = @"";
+     }
+ 
+     dispatch_async(dispatch_get_main_queue(), ^{
+         gClipboardSuppressSend.fetch_add(1, std::memory_order_relaxed);
+ 
+         TVLog(@"Clipboard: applying client text to UIPasteboard (UTF-8), suppression now=%d",
+               gClipboardSuppressSend.load(std::memory_order_relaxed));
+         [[ClipboardManager sharedManager] setStringFromRemote:s];
+ 
+         gClipboardSuppressSend.fetch_sub(1, std::memory_order_relaxed);
+     });
+ }
+ 
  static void sendClipboardToClients(NSString *_Nullable text) {
      if (!gScreen) {
          TVLog(@"Clipboard: screen not initialized; skipping send");
@@ -3875,12 +3588,95 @@ index be6cce3..72ae244 100644
  }
  
  #pragma mark - Server-Side Cursor
-@@ -4412,13 +4032,19 @@ static void prepareClipboardManager(void) {
+ 
+ NS_INLINE void setupXCursor(rfbScreenInfoPtr screen) {
+     int width = 13, height = 11;
+ 
+     const char cursor[] = "             "
+                           " xx       xx "
+                           "  xx     xx  "
+                           "   xx   xx   "
+                           "    xx xx    "
+                           "     xxx     "
+                           "    xx xx    "
+                           "   xx   xx   "
+                           "  xx     xx  "
+                           " xx       xx "
+                           "             ";
+     const char mask[] = "xxxx     xxxx"
+                         "xxxx     xxxx"
+                         " xxxx   xxxx "
+                         "  xxxx xxxx  "
+                         "   xxxxxxx   "
+                         "    xxxxx    "
+                         "   xxxxxxx   "
+@@ -4374,81 +4013,110 @@ NS_INLINE void setupAlphaCursor(rfbScreenInfoPtr screen, int mode) {
+         c->alphaSource = NULL;
+     }
+     if (mode == 0)
+         return;
+ 
+     c->alphaSource = (unsigned char *)malloc((size_t)c->width * (size_t)c->height);
+     if (!c->alphaSource)
+         return;
+ 
+     for (j = 0; j < c->height; j++) {
+         for (i = 0; i < c->width; i++) {
+             unsigned char value = (unsigned char)(0x100 * i / c->width);
+             rfbBool masked = (c->mask[(i / 8) + maskStride * j] << (i & 7)) & 0x80;
+             c->alphaSource[i + c->width * j] = (unsigned char)(masked ? (mode == 1 ? value : 0xff - value) : 0);
+         }
+     }
+ 
+     if (c->cleanupMask)
+         free(c->mask);
+ 
+     c->mask = (unsigned char *)rfbMakeMaskFromAlphaSource(c->width, c->height, c->alphaSource);
+     c->cleanupMask = TRUE;
  }
  
+ #pragma mark - Setups (Native)
+ 
+ static void prepareClipboardManager(void) {
+     // server->client sync; start/stop tied to client presence
+     if (gClipboardEnabled) {
+         [[ClipboardManager sharedManager] setOnChange:^(NSString *_Nullable text) {
+             // If we’re in suppression (coming from client->server), do nothing
+             if (gClipboardSuppressSend.load(std::memory_order_relaxed) > 0)
+                 return;
+             sendClipboardToClients(text);
+         }];
+     } else {
+         [[ClipboardManager sharedManager] setOnChange:nil];
+     }
+ }
+ 
++// Capture pacing is on unless explicitly disabled, so an A/B comparison can use
++// one identical binary instead of two builds.
++static BOOL captureGovernorRequested(void) {
++    const char *value = getenv("IPHONEBRIDGE_CAPTURE_GOVERNOR");
++    return !(value && value[0] == '0' && value[1] == '\0');
++}
++
  static void prepareScreenCapturer(void) {
++    // The configured maximum is the ceiling the governor may never exceed.
++    double ceiling = 0;
++    if (captureGovernorRequested()) {
++        ceiling = (gFpsMax > 0) ? gFpsMax : ((gFpsPref > 0) ? gFpsPref : 0);
++    }
++    gCaptureGovernor.configure(ceiling);
++    TVLog(@"Capture governor: %@ (ceiling %.0f fps)", ceiling > 0 ? @"enabled" : @"disabled", ceiling);
++
 +    [[ScreenCapturer sharedCapturer] setFramePublicationHandler:^{
 +        tryPublishPreparedFrame();
++        // One evaluation per display tick, on main, after this tick's outcome.
++        double governedFps = 0;
++        double now = (double)clock_gettime_nsec_np(CLOCK_UPTIME_RAW) / NSEC_PER_SEC;
++        if (gCaptureGovernor.evaluate(now, &governedFps)) {
++            NSInteger fps = (NSInteger)lround(governedFps);
++            [[ScreenCapturer sharedCapturer] setPreferredFrameRateWithMin:fps preferred:fps max:fps];
++            TVLog(@"Capture governor: pacing capture to %ld fps", (long)fps);
++        }
 +    }];
 +    [[ScreenCapturer sharedCapturer] setCaptureLifecycleHandler:^(BOOL active) {
 +        resetPreparedFrameSession(active);
@@ -3895,7 +3691,58 @@ index be6cce3..72ae244 100644
          handleFramebuffer(sampleBuffer);
      };
  }
-@@ -4506,40 +4132,42 @@ NS_INLINE int rotationForOrientation(UIInterfaceOrientation o) {
+ 
+ static void prepareBulletinManager(void) {
+     BulletinManager *mgr = [BulletinManager sharedManager];
+     [mgr revokeSingleNotification];
+ }
+ 
+ static void setupGeometry(void) {
+     NSDictionary *props = [[ScreenCapturer sharedCapturer] renderProperties];
+     gSrcWidth = [props[(__bridge NSString *)kIOSurfaceWidth] intValue];
+     gSrcHeight = [props[(__bridge NSString *)kIOSurfaceHeight] intValue];
+     if (gSrcWidth <= 0 || gSrcHeight <= 0) {
+         TVPrintError("Failed to get screen dimensions");
+         exit(EXIT_FAILURE);
+     }
+ 
+     // Apply output scaling if requested, then align (width multiple of 4)
+     int tmpW = (gScale > 0.0 && gScale < 1.0) ? MAX(1, (int)floor((double)gSrcWidth * gScale)) : gSrcWidth;
+     int tmpH = (gScale > 0.0 && gScale < 1.0) ? MAX(1, (int)floor((double)gSrcHeight * gScale)) : gSrcHeight;
+     alignDimensions(tmpW, tmpH, &gWidth, &gHeight);
+     gFBSize = (size_t)gWidth * (size_t)gHeight * (size_t)gBytesPerPixel;
+ 
+     // Allocate double buffers (tightly packed BGRA/ARGB32)
+     gFrontBuffer = calloc(1, gFBSize);
+     gBackBuffer = calloc(1, gFBSize);
+     if (!gFrontBuffer || !gBackBuffer) {
+         TVPrintError("Failed to allocate required frame buffers");
+         exit(EXIT_FAILURE);
+     }
+ }
+ 
+@@ -4485,134 +4153,149 @@ NS_INLINE UIInterfaceOrientation rotateOrientation(UIInterfaceOrientation o, int
+ 
+ // Map UIInterfaceOrientation to rotation quadrant (clockwise degrees/90)
+ NS_INLINE int rotationForOrientation(UIInterfaceOrientation o) {
+ #if !TARGET_IPHONE_SIMULATOR
+     if (gOrientationFixQuad != 0) {
+         o = rotateOrientation(o, gOrientationFixQuad);
+     }
+ #endif
+     switch (o) {
+     case UIInterfaceOrientationPortrait:
+     default:
+         return 0; // 0°
+     case UIInterfaceOrientationPortraitUpsideDown:
+         return 2; // 180°
+     case UIInterfaceOrientationLandscapeLeft:
+         return 1; // 90° CW
+     case UIInterfaceOrientationLandscapeRight:
+         return 3; // 270° CW
+     }
+ }
+ 
  static void setupOrientationObserver(void) {
      if (!gOrientationSyncEnabled)
          return;
@@ -3939,7 +3786,7 @@ index be6cce3..72ae244 100644
  }
  
  #pragma mark - Setups (RFB)
-@@ -4547,53 +4175,66 @@ static void setupOrientationObserver(void) {
+ 
  static void setupRfbScreen(int argc, const char *argv[]) {
      int argcCopy = argc; // rfbGetScreen may modify argc/argv
      char **argvCopy = (char **)argv;
@@ -4006,7 +3853,63 @@ index be6cce3..72ae244 100644
      gScreen->displayFinishedHook = displayFinishedHook;
      gScreen->setDesktopSizeHook = setDesktopSizeHook;
  }
-@@ -4964,32 +4605,38 @@ static void dropPrivileges(void) {
+ 
+ static void setupRfbEventHandlers(void) {
+     gScreen->ptrAddEvent = ptrAddEvent;
+     gScreen->kbdAddEvent = kbdAddEvent;
+     gScreen->kbdReleaseAllKeys = kbdReleaseAllKeys;
+ }
+ 
+ static rfbBool tvCheckPasswordByList(rfbClientPtr cl, const char *passwd, int len) {
+     // Check if client host is blocked
+     if (gBlockedHosts && cl && cl->host) {
+         NSString *host = [NSString stringWithUTF8String:cl->host];
+         BOOL isBlocked = NO;
+         @synchronized(gBlockedHosts) {
+             isBlocked = [gBlockedHosts containsObject:host];
+         }
+         if (isBlocked) {
+             TVLog(@"Rejected connection from blocked host: %@", host);
+             return FALSE; // Reject authentication
+         }
+@@ -4927,80 +4610,86 @@ static void rfbCustomLog(const char *format, ...) {
+     fflush(stderr);
+ 
+     if (fmt_copy)
+         free(fmt_copy);
+ 
+     va_end(args);
+     UNLOCK(logMutex);
+ }
+ 
+ static void setupRfbLogging(void) { rfbLog = rfbErr = rfbCustomLog; }
+ 
+ #pragma mark - Main Procedure
+ 
+ #define REQUIRED_UID 501
+ #define REQUIRED_GID 501
+ 
+ static void dropPrivileges(void) {
+     if (isatty(STDIN_FILENO)) {
+         return;
+     }
+ 
+     int rc;
+     if (getuid() != REQUIRED_UID) {
+         rc = setuid(REQUIRED_UID);
+         if (rc != 0) {
+             TVPrintError("Failed to set uid to %d: %d", REQUIRED_UID, rc);
+             exit(EXIT_FAILURE);
+         }
+     }
+ 
+     if (getgid() != REQUIRED_GID) {
+         rc = setgid(REQUIRED_GID);
+         if (rc != 0) {
+             TVPrintError("Failed to set gid to %d: %d", REQUIRED_GID, rc);
+             // exit(EXIT_FAILURE);
+         }
+     }
  }
  
  static void cleanupAndExit(int code) {
@@ -4045,17 +3948,18 @@ index be6cce3..72ae244 100644
  #ifdef THEBOOTSTRAP
  #define SINGLETON_PARENT_NAME "trollvncmanager"
  #define SINGLETON_MARKER_PATH "/var/mobile/Library/Caches/com.82flex.trollvnc.server.pid"
-@@ -5104,51 +4751,51 @@ static void ensureSingleton(const char *argv[]) {
- int main(int argc, const char *argv[]) {
  
-     /* Drop privileges: this program should run as mobile */
-     dropPrivileges();
+ static void monitorParentProcess(void) {
+     if (isatty(STDIN_FILENO)) {
+         return;
+     }
  
-     @autoreleasepool {
-         parseCLI(argc, argv);
+     static pid_t ppid = getppid();
+     if (ppid == 1) {
+         return;
+     }
  
- #ifdef THEBOOTSTRAP
-         monitorParentProcess();
+@@ -5114,41 +4803,41 @@ int main(int argc, const char *argv[]) {
          ensureSingleton(argv);
  #endif
      }

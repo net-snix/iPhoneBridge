@@ -1,3 +1,36 @@
+# Sustained-speed repair: capture pacing — 2026-09-12
+
+The long-session slowdown is resolved for phone-side delivery. Reducing the
+previously recorded hardware counters to effective clock and IPC identifies the
+mechanism: execution efficiency falls about 2.9x while work per update stays
+flat, with the final warm window at 2.016 GHz and IPC 1.94 — the A15 efficiency
+core's maximum clock and a 4-wide core's throughput. The one pipeline stage that
+runs on fixed-function hardware, `IOSurfaceAcceleratorTransferSurface`, does not
+slow at all (4.44 → 4.63 ms) while every CPU stage slows 2–3x, which excludes
+memory bandwidth, I/O, contention and accumulated daemon state.
+
+What the daemon controls is how much work it spends reaching that state. Capture
+ran at the 60 fps ceiling regardless of what encoding could absorb, so about 20
+captures per second were rendered, transferred and prepared purely to be
+discarded — pure heat, feeding the loop that costs the threads their performance
+cores. This is why added parallelism and raised QoS all failed: the binding
+constraint is energy, not scheduling.
+
+`src/CaptureGovernor.h` paces capture to the rate the pipeline actually
+sustains, backing off immediately on evidence of over-drive and probing upward
+only after a sustained clean period. On the unchanged heavy-motion fixture the
+phone-only sink improved from **20.18 to 31.21 updates/s overall** and from
+**18.7 to 29.8** in the final 30 seconds, with inter-update gap p95 falling from
+**69.3 ms to 35.6 ms**. The confirmation run held **30.0 updates/s for five
+consecutive minutes with no decline**, against a baseline that fell from 59 to
+17 within two minutes.
+
+Sustained 60 fps is not restored and is not reachable on this device with
+full-resolution CPU JPEG; the repair converts an unstable collapse with erratic
+timing into a stable, regular rate. Native visible speed, input latency and
+memory behaviour are not qualified by these runs. See the
+[cause, control law and measurements](docs/capture-pacing-2026-09-12.md).
+
 # Renderer memory repair — 2026-09-09
 
 The follow-up [renderer memory investigation](docs/renderer-memory-2026-09-09.md)

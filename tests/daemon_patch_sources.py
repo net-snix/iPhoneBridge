@@ -79,7 +79,7 @@ def replace_markers(template, replacements):
 
 def write_headers(patch, directory):
     hunks = new_side_hunks(patch)
-    for name in ("CaptureSchedule.h", "FrameUpdateRetry.h", "ClientSendLocks.h"):
+    for name in ("CaptureSchedule.h", "CaptureGovernor.h", "FrameUpdateRetry.h", "ClientSendLocks.h"):
         path = "src/" + name
         section = patch.split(f"diff --git a/{path} b/{path}\n", 1)[1].split("diff --git ", 1)[0]
         if "--- /dev/null\n" not in section or len(hunks.get(path, [])) != 1:

@@ -2,6 +2,12 @@
 
 ## 0.2.2 — Unreleased candidate
 
+- Pace screen capture to the rate the phone's encoder actually sustains, ending the
+  over-drive loop that discarded about a third of all captured frames and turned a
+  60 fps mirror into an erratic 17-19 fps one after a few minutes of use.
+- Hold a steady delivered rate instead of declining: 30.0 updates/s across five
+  consecutive minutes, with inter-update gap p95 cut from 69.3 ms to 35.6 ms.
+- Keep image quality, resolution, encoder settings and the wire format unchanged.
 - Bound WebKit's retained image-load history by giving the decoder its own document with a limited lifetime.
 - Keep the existing native JPEG decoder, image quality, framebuffer size and VNC connection.
 - Record window visibility during performance tests so covered-window throttling cannot be mistaken for active mirror performance.

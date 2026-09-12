@@ -31,9 +31,12 @@ class DaemonPublicationTests(unittest.TestCase):
         if compiler is None:
             raise RuntimeError("A C++ compiler is required for daemon correctness regressions")
         cls.binaries = {}
-        for name in ("daemon_retry_harness", "daemon_client_locks_harness", "daemon_capture_schedule_harness"):
+        for name in ("daemon_retry_harness", "daemon_client_locks_harness",
+                     "daemon_capture_schedule_harness", "daemon_capture_governor_harness"):
             binary = cls.directory / name
-            command = [compiler, "-std=c++11", "-Wall", "-Wextra", "-Werror", "-pthread",
+            # Match the daemon Makefile's -std=c++20 so these headers are
+            # compiled here exactly as they are in the device build.
+            command = [compiler, "-std=c++20", "-Wall", "-Wextra", "-Werror", "-pthread",
                        "-I", str(cls.directory), str(HERE / (name + ".cpp")), "-o", str(binary)]
             result = subprocess.run(command, capture_output=True, text=True, timeout=30)
             if result.returncode:
@@ -54,6 +57,9 @@ class DaemonPublicationTests(unittest.TestCase):
 
     def test_capture_cap_jitter_generations_fps_change_and_concurrent_request(self):
         self.check_binary(self.binaries["daemon_capture_schedule_harness"], "4 cap cases passed")
+
+    def test_governor_backoff_recovery_bounds_and_session_reset(self):
+        self.check_binary(self.binaries["daemon_capture_governor_harness"], "8 capture governor cases passed")
 
     @unittest.skipUnless(sys.platform == "darwin", "CoreVideo/vImage production regression requires macOS")
     def test_actual_prepare_publish_dirty_regions_rotation_and_lifecycle(self):

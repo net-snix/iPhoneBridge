@@ -6,15 +6,16 @@
     "commit": "a3e40816ea5b93a7c80c09625175893d15bd1070",
     "tree": "bf3930b0190726397625c4df05d4fc3b71993a41",
     "patch": "patches/trollvnc-loopback.patch",
-    "patch_sha256": "9b945a0391c385bea8641761c416b54d5b64d040ea04e6021849ab6d9d427504",
+    "patch_sha256": "1fb32c034de7fd4e24f186b5533b78f0169a17648ac1e011be836af7e3aa0e27",
     "patched_files_sha256": {
-      "src/trollvncserver.mm": "bd36a1bbb56a562590bb8a993c1f46cc2ffa69fd63bf7f6372be7d0901318661",
+      "src/trollvncserver.mm": "9c69c087b672dc8b60098af4e5cf29ac785c9afddfb4c2a0a8fe0511aa9aec2d",
       "Makefile": "22e15a75ef1799c86243ad0406193f74633483cce110519dc4a70906290349b4",
       "src/ScreenCapturer.mm": "647521b85e9e18644ed782aea10c8f0c04041b7bbe62409f011599e2ca3d7ed9",
       "src/FrameUpdateRetry.h": "7b1098669fe9361c2274b20e93d501428f14d0ad98b69929fdda45b7b5c5a7bc",
       "src/ClientSendLocks.h": "d999101e5f087e7f8b3a32fd757386b6c2b6e18d18164ef3adfee71e481df0f2",
       "src/CaptureSchedule.h": "c37cc1b5f0fcc50fd066a7656c605b127ed5d7e02e855159e0ec9a41b0df9e47",
-      "src/ScreenCapturer.h": "93c842854176a95fd65a7830116d51dc13e13f51f9f55e14438e55d54e0b83b2"
+      "src/ScreenCapturer.h": "93c842854176a95fd65a7830116d51dc13e13f51f9f55e14438e55d54e0b83b2",
+      "src/CaptureGovernor.h": "608c32ba10b696743a91e725ab7856ee61636659a881813395efa256d41b087f"
     }
   },
   "novnc": {
