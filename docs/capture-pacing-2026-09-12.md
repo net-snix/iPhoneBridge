@@ -142,13 +142,48 @@ heat removed, headroom returned.
 ## Further work
 
 The equilibrium is set by JPEG cost per frame, so raising it means spending
-fewer joules per frame rather than scheduling differently:
+fewer joules per frame rather than scheduling differently.
 
-- Hardware encode. `ScreenCapturer` already produces a `CMSampleBufferRef`
+### Hardware encode is feasible and removes the thermal cost (measured)
+
+A [feasibility probe](hardware-encode-probe-2026-09-12.json) ran the production
+capture path into a VideoToolbox session and discarded the output. Two results,
+both on the unchanged heavy-motion fixture at the unchanged 60 fps profile:
+
+- A **hardware HEVC session was created and driven from the daemon**. This was
+  the main risk: iOS normally restricts hardware encode to foreground apps, and
+  a refusal or a silent software fallback would have ended this direction.
+- **300 seconds at 59.1-59.3 encoded frames/s with no decline, zero encode
+  failures, and thermal state 0 throughout.**
+
+Against the matched cold JPEG run, same fixture and rate, both starting at
+thermal state 0:
+
+| Minute | 1 | 2 | 3 | 4 | 5 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| JPEG thermal state | 0 | 0 | 0,1 | 1,2 | **2** |
+| JPEG worker CPU per update | 7.94 ms | 7.90 ms | 7.88 ms | 8.04 ms | 8.82 ms |
+| Hardware thermal state | 0 | 0 | 0 | 0 | **0** |
+| Hardware submit CPU per frame | — | — | ~0.073 ms | — | — |
+
+The JPEG path drives the phone to the serious thermal category within four
+minutes from cold. The hardware path does not move it off nominal in five. Wire
+bytes fall from about 46 MB/s to 4.8 MB/s, which removes most of the SSH AES
+cost over USB as well.
+
+The cost is latency: submit-to-callback inside the encoder measured 20.4-20.6 ms
+mean and 24.6 ms maximum, roughly one frame of pipelining. That is a real trade,
+not a free win, and must be weighed against the frame interval and publication
+gap it replaces.
+
+These are cost and cadence measurements only. The encoded bytes were counted and
+discarded, never decoded, so nothing here establishes valid video output, and no
+transport, decode, display, input latency or pixel comparison was performed.
+
+- `ScreenCapturer` already produces a `CMSampleBufferRef`
   backed by a `CVPixelBuffer`, which is `VTCompressionSessionEncodeFrame` input.
-  A fixed-function encoder would not throttle, for the same reason
-  `surface_transfer` does not, and would cut wire bytes and the SSH AES cost
-  with them.
+  A fixed-function encoder does not throttle, for the same reason
+  `surface_transfer` does not.
 - Hardware-scaled capture. `-s` currently resamples on the CPU with
   `vImageScale_ARGB8888`. Making the destination IOSurface smaller and letting
   the accelerator scale during the transfer it already performs would cost no
