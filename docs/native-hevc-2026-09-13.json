@@ -1166,5 +1166,21 @@
     "mode": "attach without benchmark",
     "reconnected_visible": true,
     "left_on": "static disposable input fixture"
+  },
+  "final_source_package_validation": {
+    "source_commit": "4d616d1a28dc7db3e289aab19b4cef04ac1c2bf1",
+    "source_tree_sha256": "6a210a1e347babad15bdef7f1daa44b69a72619e3397abf5de76a9a194f15ea6",
+    "build_passed": true,
+    "stage_passed": true,
+    "setup_check_passed": true,
+    "binary_sha256": "458b7257831535eb3217cab167b9ff01423d73de53f2198d9f3f11d0192f4daa",
+    "offline_build_passed": true,
+    "offline_binary_sha256": "cde1096ccfe3dea4a684b97a251698daa8f04a1962822c4297e2912da95180d7",
+    "byte_identical_rebuild": false,
+    "runtime_qualified_binary_sha256": "f54afcea469950c1549454abd08cb17156e4bf90c9d961c56ef975b9567cdc7d",
+    "new_binary_equivalence": "All 27 Mach-O sections and all seven compiled objects match f54; only LC_UUID and the first code page SHA-1/SHA-256 signature hashes differ in the final and offline binaries.",
+    "scope": "Build and offline source verification at code commit4d616d1; subsequent report-only commits require manifest/staging refresh. Endurance identity remains f54.",
+    "macos_dependency_source_files": 158,
+    "macos_source_inventory_sha256": "7d01d0fb1cd797ab7bc69d88750271136b632b0eb035be65d9442ddf0a4e0dc8"
   }
 }

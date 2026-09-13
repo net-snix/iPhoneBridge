@@ -284,3 +284,15 @@ publication retain the explicit release boundaries in [RELEASING.md](RELEASING.m
 Raw reports and video are local under `work/native-hevc-qualification/`; the
 adjacent JSON retains hashes without device identifiers or private captures.
 Historical baselines live in the original checkout's corresponding directory.
+
+## Committed source and rebuild checks
+
+The native refactor was committed as `4d616d1`. The final device source package
+staged and rebuilt offline successfully, and the 158-file Mac dependency-source
+inventory passed its current runtime/source preflight. The initial committed
+phone rebuild (`458b7257…`) and offline rebuild have different whole-file hashes
+from the endurance-tested f54 artifact. Executable sections and initialized data
+match; the UUID and corresponding signature hashes account for the differences.
+This is source and binary-content evidence, not a second endurance measurement
+on those rebuilt file identities. The normal preview remains on the tested
+NV12/f54 combination. macOS bundle signing and public release remain pending.

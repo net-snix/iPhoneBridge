@@ -22,8 +22,9 @@ records govern teardown; unrelated services and the original checkout are preser
   leases, queue backpressure and five-second write-progress expiry.
 - Source build and staging checks verify exact native source inventories, retained
   upstream bytes, lock/recipe/helper hashes, Theos/SDK identity and final binaries.
-  The earlier colour-tagged source rebuilt offline successfully; the final
-  performance candidate still needs its committed source stage refreshed. Mac corresponding-source
+  The final committed source staged and rebuilt offline successfully. Whole-file
+  daemon hashes differ because of UUID/signature metadata; executable sections
+  and initialized data match the endurance-tested binary. Mac corresponding-source
   validation passes against the actual Python and USB build inputs, including
   the retained Tcl/Tk components. This is provenance proof,
   not a claim of byte-identical output across toolchains.
@@ -82,7 +83,7 @@ identity. The Mac explicitly requires hardware decoding.
 ## Release boundary
 
 Local source builds and daemon deployment do not prove the relocated app bundle.
-macOS signing, a clean-PATH packaged-app run, final corresponding-source assembly,
+macOS signing, a clean-PATH packaged-app run, combined release archive assembly,
 hosted CI and publication remain separate release checks in
 [RELEASING.md](docs/RELEASING.md). The existing explicit signing/push/merge
 permissions remain in force.
