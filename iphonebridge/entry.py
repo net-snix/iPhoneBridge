@@ -7,7 +7,7 @@ def main():
     root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(root))
     if sys.argv[1:2] == ["--module"]:
-        if len(sys.argv) < 3 or sys.argv[2] not in {"websockify", "iphonebridge.fixture_server"}:
+        if len(sys.argv) < 3 or sys.argv[2] != "iphonebridge.fixture_server":
             raise SystemExit("Unsupported bridge helper module")
         module = sys.argv[2]
         sys.argv = [module, *sys.argv[3:]]

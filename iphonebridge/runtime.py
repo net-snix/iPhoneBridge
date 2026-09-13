@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 import os
 from pathlib import Path
 import shutil
@@ -42,14 +41,6 @@ class Paths:
     @property
     def device(self):
         return self.contents / "Resources/device" if self.contents else self.root / "work/device"
-
-    @property
-    def novnc(self):
-        if self.contents:
-            return self.root / "novnc"
-        spec = json.loads((self.root / "dependency-lock.json").read_text())
-        path = Path(os.environ.get("IPHONEBRIDGE_NOVNC_SOURCE", spec["novnc"]["path"])).expanduser()
-        return path if path.is_absolute() else self.root / path
 
     def tool(self, name):
         if name not in USB_TOOLS:

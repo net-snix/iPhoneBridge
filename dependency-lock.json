@@ -1,39 +1,5 @@
 {
   "schema_version": 1,
-  "trollvnc": {
-    "url": "https://github.com/owngoal-dev/TrollVNC.git",
-    "path": "work/vendor/TrollVNC",
-    "commit": "a3e40816ea5b93a7c80c09625175893d15bd1070",
-    "tree": "bf3930b0190726397625c4df05d4fc3b71993a41",
-    "patch": "patches/trollvnc-loopback.patch",
-    "patch_sha256": "1fb32c034de7fd4e24f186b5533b78f0169a17648ac1e011be836af7e3aa0e27",
-    "patched_files_sha256": {
-      "src/trollvncserver.mm": "9c69c087b672dc8b60098af4e5cf29ac785c9afddfb4c2a0a8fe0511aa9aec2d",
-      "Makefile": "22e15a75ef1799c86243ad0406193f74633483cce110519dc4a70906290349b4",
-      "src/ScreenCapturer.mm": "647521b85e9e18644ed782aea10c8f0c04041b7bbe62409f011599e2ca3d7ed9",
-      "src/FrameUpdateRetry.h": "7b1098669fe9361c2274b20e93d501428f14d0ad98b69929fdda45b7b5c5a7bc",
-      "src/ClientSendLocks.h": "d999101e5f087e7f8b3a32fd757386b6c2b6e18d18164ef3adfee71e481df0f2",
-      "src/CaptureSchedule.h": "c37cc1b5f0fcc50fd066a7656c605b127ed5d7e02e855159e0ec9a41b0df9e47",
-      "src/ScreenCapturer.h": "93c842854176a95fd65a7830116d51dc13e13f51f9f55e14438e55d54e0b83b2",
-      "src/CaptureGovernor.h": "608c32ba10b696743a91e725ab7856ee61636659a881813395efa256d41b087f"
-    }
-  },
-  "novnc": {
-    "url": "https://github.com/novnc/noVNC.git",
-    "path": "work/vendor/noVNC",
-    "tag": "v1.7.0",
-    "commit": "63107bd06d9e1f6136ff21aeda8cd62cbf0d433e",
-    "tree": "cae4519a8bf3930266db05dc1808b93a11c24236",
-    "patch": "patches/novnc-image-lifecycle.patch",
-    "patch_sha256": "c501684eef3529357b2483e6df7538550c6c4e1a9737242a25a96e1bfada5c2a",
-    "patched_files_sha256": {
-      "core/display.js": "df88067c9a4bfbee13c9e10494d410592f38fa62c64d87295d63e81bb72d4ad7",
-      "core/image-context.js": "d5bc4a9b0b5b41d67fd1f4464ae3f9a7778cafc6c53a9147661272ef7b374d60",
-      "core/image-resource.js": "a83cf210a4b2f561ae67664d2100cb8b9b3bbfb377fbffb5949001ad5e94eade",
-      "core/rfb.js": "bb2e752c8724752a99a71ed8eb7aec5ed2614ff1eb48ba16e53f3aefc63c0039",
-      "tests/test.display.js": "a275c9c744e05a6f46796beb046bda8fe61d8cbdebb1b9d596646c5ee165bf77"
-    }
-  },
   "theos": {
     "path": "~/Code/oss/theos",
     "commit": "16362d3aa83a0acd56df4493d575d34306d42478",

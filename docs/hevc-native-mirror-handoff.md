@@ -1,5 +1,12 @@
 # Handoff: native HEVC mirror, full replacement
 
+Implementation follow-up: this document preserves the original proposal and
+baseline. The native replacement is staged on `refactor/native-hevc-mirror`;
+see [implementation decisions](native-hevc-implementation.md),
+[current qualification evidence](native-hevc-2026-09-13.md) and
+[validation status](../VALIDATION.md). Historical paths, build commands and
+running-artifact identities below are not the current native release procedure.
+
 Status 2026-09-13. Written for the agent picking this up cold. Read this first,
 then the evidence it points to. Everything below the "Findings" section is a
 starting plan, not a settled design: measure, and change it where the data says so.

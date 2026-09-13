@@ -79,7 +79,7 @@ async def key(name: str, width: int, height: int) -> CallToolResult:
 
 @server.tool(annotations=ToolAnnotations(read_only_hint=True, destructive_hint=False, open_world_hint=False))
 async def health() -> dict:
-    """Check the local VNC endpoint without input or service changes."""
+    """Check the native mirror endpoint without input or service changes."""
     return await asyncio.to_thread(control.health)
 
 

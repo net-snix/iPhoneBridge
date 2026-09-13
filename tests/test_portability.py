@@ -1,4 +1,7 @@
 import json
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -34,14 +37,17 @@ class PortabilityTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "not connected"):
             settings.select_device([first], second)
 
-    def test_source_novnc_override_does_not_change_bundled_resources(self):
-        source = self.root / "source"
-        source.mkdir()
-        (source / "dependency-lock.json").write_text(json.dumps({"novnc": {"path": "work/vendor/noVNC"}}))
-        paths = Paths.discover(source, environ={})
-        with patch.dict("os.environ", {"IPHONEBRIDGE_NOVNC_SOURCE": "custom/noVNC"}):
-            self.assertEqual(paths.novnc, source.resolve() / "custom/noVNC")
-            self.assertEqual(self.paths.novnc, self.paths.root / "novnc")
+    def test_relocated_fixture_helper_uses_isolated_bundled_entry(self):
+        entry = self.paths.root / "iphonebridge/entry.py"
+        entry.parent.mkdir(parents=True)
+        shutil.copy2(Path(__file__).resolve().parents[1] / "iphonebridge/entry.py", entry)
+        command = self.paths.python_module("iphonebridge.fixture_server", "--port", 18423)
+        self.assertEqual(command, [sys.executable, "-I", "-B", str(entry),
+                                   "--module", "iphonebridge.fixture_server", "--port", "18423"])
+        result = subprocess.run(self.paths.python_module("websockify"), cwd=self.root,
+                                capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unsupported bridge helper module", result.stderr)
 
     def test_configuration_blocks_active_changes_and_never_copies_keys(self):
         key = self.root / "key with spaces"

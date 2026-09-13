@@ -1,9 +1,8 @@
-"""Own one USB tunnel, device session and local viewer; never shared forwards."""
+"""Own the USB tunnel and native device session; never shared forwards."""
 from __future__ import annotations
 
 from contextlib import contextmanager
 import fcntl
-import http.client
 import json
 import os
 from pathlib import Path
@@ -14,13 +13,14 @@ import time
 import uuid
 
 from . import deployment, settings, transport
+from .mirror_protocol import Client
 from .runtime import PATHS
 
 ROOT = PATHS.root
 WORK = PATHS.data
 STATE = WORK / "state.json"
 REMOTE = deployment.REMOTE
-VNC_PORT, VIEW_PORT = 15901, 15801
+MIRROR_PORT = 15901
 DEVICE_PORT = 15901
 PEER = transport.PEER
 run = transport.run
@@ -150,16 +150,9 @@ def remote(command, connection=None):
 
 
 def handshake():
-    with socket.create_connection(("127.0.0.1", VNC_PORT), timeout=3) as sock:
-        data = b""
-        while len(data) < 12:
-            chunk = sock.recv(12 - len(data))
-            if not chunk:
-                raise RuntimeError("VNC endpoint closed before its greeting")
-            data += chunk
-    if not data.startswith(b"RFB "):
-        raise RuntimeError("Unexpected VNC endpoint")
-    return data.decode("ascii").strip()
+    client = Client(timeout=3)
+    client.close()
+    return "IPBM/1"
 
 
 def _new_session():
@@ -246,7 +239,7 @@ def deploy():
 
 
 def connect():
-    """Select USB device, validate, deploy, and start the local viewer."""
+    """Select USB device, validate, deploy and start the native mirror endpoint."""
     with locked():
         existing = state()
         if existing:
@@ -255,8 +248,7 @@ def connect():
                 return result
             raise RuntimeError("Previous bridge ownership is still recorded; run stop before connecting again")
         deployment.artifacts(PATHS)
-        for port in (VNC_PORT, VIEW_PORT):
-            available(port)
+        available(MIRROR_PORT)
         try:
             info = _new_session()
             info.update(deployment.deploy(info["connection"], PATHS))
@@ -264,7 +256,7 @@ def connect():
             save_state(info)  # Record remote intent before SSH can launch the daemon.
             command = shlex.join([f"{REMOTE}/device-session.sh", "run", info["token"], info["binary"]])
             spawn([*ssh_args(info), "-o", "ExitOnForwardFailure=yes", "-L",
-                   f"127.0.0.1:{VNC_PORT}:127.0.0.1:{DEVICE_PORT}", PEER, "exec " + command],
+                   f"127.0.0.1:{MIRROR_PORT}:127.0.0.1:{DEVICE_PORT}", PEER, "exec " + command],
                   "device", info, "ssh")
             for _ in range(30):
                 try:
@@ -275,16 +267,7 @@ def connect():
                         raise RuntimeError("Device daemon exited; inspect the app's device log")
                     time.sleep(0.2)
             else:
-                raise RuntimeError("Device VNC did not become ready")
-            webroot = prepare_viewer()
-            spawn(PATHS.python_module("websockify", "--web", str(webroot),
-                                      f"127.0.0.1:{VIEW_PORT}", f"127.0.0.1:{VNC_PORT}"),
-                  "viewer", info, "viewer")
-            deadline = time.monotonic() + 8
-            while not viewer_responding(timeout=1):
-                if not owned_process(info["viewer"]) or time.monotonic() >= deadline:
-                    raise RuntimeError("Viewer did not serve its page; inspect the app's viewer log")
-                time.sleep(0.1)
+                raise RuntimeError("Native device mirror did not become ready")
         except BaseException:
             _cleanup_failed_start()
             raise
@@ -295,56 +278,22 @@ start = connect
 
 
 def viewer_url():
-    return f"http://127.0.0.1:{VIEW_PORT}/"
-
-
-def viewer_responding(timeout=2):
-    """Prove a request handler serves the viewer, rather than just accepting TCP."""
-    connection = http.client.HTTPConnection("127.0.0.1", VIEW_PORT, timeout=timeout)
-    try:
-        connection.request("GET", "/", headers={"Connection": "close"})
-        response = connection.getresponse()
-        return response.status == 200 and b"<title>iPhoneBridge</title>" in response.read(4096)
-    except (OSError, http.client.HTTPException):
-        return False
-    finally:
-        connection.close()
-
-
-def prepare_viewer():
-    """Serve viewer assets only, with no absolute checkout dependencies in bundles."""
-    webroot = WORK / "webroot"
-    webroot.mkdir(parents=True, exist_ok=True, mode=0o700)
-    assets = {path.name: path for path in (ROOT / "viewer").iterdir() if path.is_file()}
-    assets["novnc"] = PATHS.novnc
-    for name, target in assets.items():
-        if not target.exists():
-            raise RuntimeError(f"Missing viewer resource: {name}")
-        link = webroot / name
-        if link.is_symlink():
-            if link.resolve() == target.resolve():
-                continue
-            link.unlink()  # Only this generated link, never its target.
-        elif link.exists():
-            raise RuntimeError(f"Unexpected file in generated viewer assets: {name}")
-        link.symlink_to(target)
-    return webroot
+    return "native://127.0.0.1:15901"
 
 
 def status():
     info = state()
     config = settings.load(PATHS)
-    services = {name: owned_process(info.get(name)) for name in ("usb", "ssh", "viewer")}
+    services = {name: owned_process(info.get(name)) for name in ("usb", "ssh")}
     running = all(services.values())
-    viewer_ready = services["viewer"] and viewer_responding()
     connected = False
     if running:
         try:
-            connected = viewer_ready and usb_owned(info) and bool(handshake())
+            connected = usb_owned(info) and bool(handshake())
         except (OSError, RuntimeError, subprocess.SubprocessError):
             pass
-    return {"running": running, "connected": connected, "viewer": viewer_url(),
-            "viewer_ready": viewer_ready,
+    return {"running": running, "connected": connected, "viewer": "native",
+            "endpoint": "127.0.0.1:15901", "protocol": "IPBM/1" if connected else None,
             "selected_udid": info.get("connection", {}).get("udid") or config["udid"],
             "services": services, "settings": config, "data_directory": str(WORK),
             "config_path": str(WORK / "config.json")}
@@ -361,7 +310,7 @@ def configure(**values):
 
 def health():
     result = status()
-    result["checks"] = {"viewer": {"ok": result["viewer_ready"]}}
+    result["checks"] = {"mirror": {"ok": result["connected"]}}
     try:
         discovered = devices()
         result["devices"] = discovered["devices"]

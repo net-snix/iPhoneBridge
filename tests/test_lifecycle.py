@@ -78,20 +78,22 @@ class LifecycleTests(unittest.TestCase):
             kill.assert_not_called()
         self.assertTrue(result["stopped"])
 
-    def test_connected_is_false_when_owned_viewer_resets_http_requests(self):
+    def test_owned_processes_need_a_valid_native_handshake(self):
         self.save()
         with patch.object(lifecycle, "owned_process", return_value=True), \
              patch.object(lifecycle, "usb_owned", return_value=True), \
-             patch.object(lifecycle, "handshake", return_value="RFB 003.008"), \
-             patch.object(lifecycle.http.client, "HTTPConnection") as connection:
-            connection.return_value.getresponse.side_effect = ConnectionResetError("reset")
+             patch.object(lifecycle, "handshake", side_effect=ConnectionResetError("reset")):
             result = lifecycle.status()
             self.assertTrue(result["running"])
-            self.assertFalse(result["viewer_ready"])
             self.assertFalse(result["connected"])
-            connection.return_value.request.assert_called_once_with(
-                "GET", "/", headers={"Connection": "close"})
-            connection.return_value.close.assert_called_once()
+            self.assertIsNone(result["protocol"])
+        with patch.object(lifecycle, "owned_process", return_value=True), \
+             patch.object(lifecycle, "usb_owned", return_value=True), \
+             patch.object(lifecycle, "handshake", return_value="IPBM/1"):
+            result = lifecycle.status()
+            self.assertTrue(result["connected"])
+            self.assertEqual(result["viewer"], "native")
+            self.assertEqual(set(result["services"]), {"usb", "ssh"})
 
 
 if __name__ == "__main__":

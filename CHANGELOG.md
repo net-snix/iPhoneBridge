@@ -1,5 +1,23 @@
 # Changelog
 
+## Native HEVC — Unreleased development branch
+
+- Replace phone JPEG/RFB streaming with a lean VideoToolbox HEVC daemon and a bounded
+  framed protocol over the existing owned USB tunnel.
+- Decode directly to smaller YUV buffers and display them in AppKit with
+  VideoToolbox and AVFoundation.
+- Render into leased encoder surfaces and preserve video references through
+  ordinary idle gaps, reducing capture work and static-response traffic.
+- Keep agent screenshots lossless, sourced directly from capture surfaces; report
+  native 1170×2532 portrait coordinates and reject stale geometry.
+- Arbitrate human and agent input with exclusive leases and release held input
+  when connections, geometry or focus change.
+- Measure fixture pixels after decode and record display submission separately,
+  including window visibility and bounded stream/decoder recovery checks.
+
+Qualification and release status are recorded in `VALIDATION.md`; historical
+JPEG measurements below do not describe this architecture.
+
 ## 0.2.2 — Unreleased candidate
 
 - Pace screen capture to the rate the phone's encoder actually sustains, ending the

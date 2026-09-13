@@ -8,8 +8,8 @@ from .runtime import PATHS, USB_TOOLS
 
 
 def self_test():
-    modules = ["PIL.Image", "_tkinter", "vncdotool.api", "twisted.internet.reactor", "websockify",
-               "mcp.server.mcpserver", "iphonebridge.mcp_server", "iphonebridge.fixture_server"]
+    modules = ["PIL.Image", "mcp.server.mcpserver", "iphonebridge.mirror_protocol",
+               "iphonebridge.mcp_server", "iphonebridge.fixture_server"]
     for name in modules:
         importlib.import_module(name)
     binary, script, manifest = deployment.artifacts(PATHS)

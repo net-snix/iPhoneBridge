@@ -1,3 +1,9 @@
+# Native HEVC performance
+
+Current implementation and qualification: [2026-09-13 native trials](docs/native-hevc-2026-09-13.md). The native path uses VideoToolbox HEVC encoding and direct hardware decode/display. Its evidence distinguishes delivered video, decoded barcode pixels, display submissions and physical scanout, including the limits of encoder hardware identification on iOS 15.1.1.
+
+The material below records the earlier RFB/JPEG/WebKit implementation. Its performance numbers and tuning recommendations are historical, not native defaults.
+
 # Sustained-speed repair: capture pacing — 2026-09-12
 
 The long-session slowdown is resolved for phone-side delivery. Reducing the

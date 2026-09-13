@@ -1,20 +1,245 @@
 #!/usr/bin/env python3
 """Package a verified app and complete corresponding source from a public commit."""
 import argparse
+import ast
 import hashlib
 import io
 import json
 from pathlib import Path
 import plistlib
+import re
 import shutil
 import subprocess
 import tarfile
+import tomllib
+from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
+PROJECT_TREES = ('Sources', 'iphonebridge', 'fixtures', 'licenses', 'assets', 'scripts')
+PROJECT_FILES = ('Package.swift', 'VERSION', 'LICENSE', 'THIRD_PARTY.md', 'pyproject.toml',
+                 'uv.lock', 'dependency-lock.json', 'device-sources.lock.json')
 
 
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def project_path(name):
+    path = Path(name)
+    return (name in PROJECT_FILES or path.parts[0] in PROJECT_TREES) and not (
+        '__pycache__' in path.parts or path.suffix == '.pyc' or path.name == '.DS_Store')
+
+
+def project_source_hashes(root):
+    paths = [root / name for name in PROJECT_FILES]
+    paths += [path for name in PROJECT_TREES for path in (root / name).rglob('*')
+              if path.is_file() and project_path(path.relative_to(root).as_posix())]
+    if (any((root / name).is_symlink() for name in PROJECT_TREES)
+            or any(path.is_symlink() or not path.resolve().is_relative_to(root.resolve()) for path in paths)):
+        raise RuntimeError('Project source must not contain symlinks')
+    return {path.relative_to(root).as_posix(): sha(path) for path in sorted(paths)}
+
+
+def committed_files(root, commit):
+    archive = subprocess.check_output(['git', 'archive', '--format=tar', commit], cwd=root)
+    with tarfile.open(fileobj=io.BytesIO(archive)) as files:
+        return {entry.name: files.extractfile(entry).read() for entry in files if entry.isfile()}
+
+
+def verify_clean_commit(root, commit):
+    head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+    dirty = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=normal'],
+                                    cwd=root, text=True).strip()
+    if head != commit or dirty:
+        raise RuntimeError('Release packaging requires the reviewed commit at a clean HEAD')
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def source_file(folder, name):
+    if not isinstance(name, str) or Path(name).is_absolute() or '..' in Path(name).parts:
+        raise RuntimeError(f'Missing or unsafe source file: {name}')
+    path = folder / name
+    if (not path.is_file() or path.is_symlink()
+            or not path.resolve().is_relative_to(folder.resolve())):
+        raise RuntimeError(f'Missing or unsafe source file: {name}')
+    return path
+
+
+def verify_committed_device(commit, files, manifest, source):
+    identity = manifest.get('source', {})
+    expected = {name.removeprefix('device/'): digest(data)
+                for name, data in files.items() if name.startswith('device/')}
+    if (identity.get('kind') != 'native' or identity.get('commit') != commit
+            or not expected or identity.get('files_sha256') != expected
+            or identity.get('tree_sha256') != digest(json.dumps(
+                expected, sort_keys=True, separators=(',', ':')).encode())):
+        raise RuntimeError('Device source inventory differs from the reviewed commit')
+    actual = {path.relative_to(source / 'device').as_posix(): sha(source_file(
+        source, path.relative_to(source).as_posix()))
+        for path in (source / 'device').rglob('*') if path.is_file()}
+    if actual != expected:
+        raise RuntimeError('Staged device source differs from the reviewed commit')
+    inputs = {'dependency-lock.json': 'dependency-lock.json',
+              'device-sources.lock.json': 'device-sources.lock.json',
+              'scripts/build-device-deps': 'scripts/build-device-deps',
+              'device-session.sh': 'iphonebridge/device-session.sh',
+              'LICENSE': 'LICENSE', 'THIRD_PARTY.md': 'THIRD_PARTY.md'}
+    for staged, original in inputs.items():
+        if original not in files or source_file(source, staged).read_bytes() != files[original]:
+            raise RuntimeError(f'Staged build input differs from the reviewed commit: {staged}')
+    project = json.loads(files['dependency-lock.json'])
+    if (manifest.get('device_sources') != json.loads(files['device-sources.lock.json'])
+            or manifest.get('build_recipe_sha256') != digest(files['scripts/build-device-deps'])
+            or manifest.get('script_sha256') != digest(files['iphonebridge/device-session.sh'])
+            or manifest.get('static_libraries') != {}
+            or manifest.get('toolchain', {}).get('theos_commit') != project['theos']['commit']
+            or manifest.get('toolchain', {}).get('sdk') != project['theos']['sdk']):
+        raise RuntimeError('Device manifest build inputs differ from the reviewed commit')
+
+
+def verify_committed_runtime(files, runtime):
+    expected = {name: digest(data) for name, data in files.items() if project_path(name)}
+    if (runtime.get('schema_version') != 2 or runtime.get('mirror_protocol') != 'IPBM/1'
+            or not all(name in expected for name in PROJECT_FILES)
+            or runtime.get('project_files_sha256') != expected):
+        raise RuntimeError('Runtime project source differs from the reviewed commit; rebuild the app')
+
+
+def archive_name(url):
+    name = unquote(Path(urlsplit(url).path).name)
+    if not name or name in ('.', '..') or '/' in name or '\\' in name:
+        raise RuntimeError('Invalid source archive URL')
+    return name
+
+
+def verify_archive(folder, url, expected, prefix='archives'):
+    path = source_file(folder, prefix + '/' + archive_name(url))
+    if not re.fullmatch(r'[0-9a-f]{64}', expected) or sha(path) != expected:
+        raise RuntimeError(f'Source archive differs from pinned provenance: {path.name}')
+
+
+def verify_python_sources(runtime, folder, files):
+    locked_bytes = source_file(folder, 'uv.lock').read_bytes()
+    if locked_bytes != files['uv.lock']:
+        raise RuntimeError('Mac source uv.lock differs from the reviewed runtime lock')
+    locked = {item['name']: item for item in tomllib.loads(locked_bytes.decode())['package']
+              if item['name'] != 'iphonebridge'}
+    distributions = runtime.get('python_packages', {}).get('distributions', {})
+    if not {'mcp', 'pillow'}.issubset(distributions):
+        raise RuntimeError('Runtime is missing required locked Python distributions')
+    for name, record in distributions.items():
+        if name not in locked or record.get('version') != locked[name]['version']:
+            raise RuntimeError(f'Runtime Python distribution differs from uv.lock: {name}')
+    for name, record in locked.items():
+        sdist = record.get('sdist', {})
+        # The cross-platform lock includes wheel-only packages (for example pywin32)
+        # that are not part of this macOS runtime and have no locked source archive.
+        if not sdist and name not in distributions:
+            continue
+        if not sdist.get('hash', '').startswith('sha256:') or not sdist.get('url'):
+            raise RuntimeError(f'Locked Python package lacks source provenance: {name}')
+        verify_archive(folder, sdist['url'], sdist['hash'].removeprefix('sha256:'), 'python-sdists')
+    origin = json.loads(source_file(folder, 'python-runtime-verification.json').read_text())
+    if (origin.get('python_version') != runtime.get('python_version')
+            or origin.get('build') != runtime.get('python_build')
+            or origin.get('target') != 'aarch64-apple-darwin'
+            or not runtime.get('python_original_executable_sha256')
+            or origin.get('python_executable_sha256') != runtime['python_original_executable_sha256']):
+        raise RuntimeError('CPython source identity differs from the bundled runtime')
+    metadata = json.loads(source_file(folder, 'PYTHON.json').read_text())
+    if (metadata.get('python_version') != runtime['python_version']
+            or metadata.get('target_triple') != origin['target']):
+        raise RuntimeError('CPython build metadata differs from the bundled runtime')
+    # Read the upstream recipe as data, never execute source-package Python code.
+    recipe = source_file(folder, f'archives/python-build-standalone-{runtime["python_build"]}.tar.gz')
+    with tarfile.open(recipe) as archive:
+        entries = [entry for entry in archive if entry.name.endswith('/pythonbuild/downloads.py')
+                   and entry.isfile()]
+        if len(entries) != 1:
+            raise RuntimeError('Missing unique CPython dependency recipe')
+        tree = ast.parse(archive.extractfile(entries[0]).read())
+    assignments = [node for node in tree.body if isinstance(node, ast.Assign)
+                   and any(isinstance(target, ast.Name) and target.id == 'DOWNLOADS'
+                           for target in node.targets)]
+    if len(assignments) != 1:
+        raise RuntimeError('Missing CPython recipe download identities')
+    downloads = ast.literal_eval(assignments[0].value)
+    native = json.loads(source_file(folder, 'python-native-sources.lock.json').read_text())
+    cpython = native.get('cpython-' + '.'.join(runtime['python_version'].split('.')[:2]), {})
+    if cpython.get('version') != runtime['python_version']:
+        raise RuntimeError('Missing matching CPython source archive')
+    # PBS labels Tcl/Tk as "system" links even though this standalone runtime
+    # redistributes those shared libraries and Tcl's bundled extension packages.
+    if metadata['build_info']['extensions'].get('_tkinter') and not {'tcl', 'tk'}.issubset(native):
+        raise RuntimeError('CPython source package omits bundled Tcl/Tk sources')
+    for name, record in native.items():
+        if downloads.get(name) != record:
+            raise RuntimeError(f'CPython native source differs from upstream build recipe: {name}')
+        verify_archive(folder, record['url'], record['sha256'])
+    required = {link['name'] for variants in metadata['build_info']['extensions'].values()
+                for extension in variants for link in extension.get('links', [])
+                if not link.get('system') and not link.get('framework')}
+    required.update(link['name'] for link in metadata['build_info']['core'].get('links', [])
+                    if not link.get('system') and not link.get('framework'))
+    supplied = {name for record in native.values() for name in record.get('library_names', [])}
+    if not required.issubset(supplied):
+        raise RuntimeError('CPython source package omits linked native libraries')
+
+
+def verify_usb_sources(runtime, folder):
+    sources = json.loads(source_file(folder, 'usb-sources.lock.json').read_text())
+    pinned = {item['name']: item for item in sources}
+    usb = runtime.get('usb', {})
+    if not usb or len(pinned) != len(sources) or set(pinned) != set(usb):
+        raise RuntimeError('USB source components differ from the bundled runtime')
+    for name, bundled in usb.items():
+        record, provenance = pinned[name], bundled.get('source', {})
+        if (record.get('version') != bundled.get('version')
+                or record.get('url') != provenance.get('url')
+                or record.get('sha256') != provenance.get('sha256')
+                or record.get('archive') != archive_name(record.get('url', ''))):
+            raise RuntimeError(f'USB source identity differs from the bundled runtime: {name}')
+        if sha(source_file(folder, f'formulas/{name}.rb')) != provenance.get('formula_sha256'):
+            raise RuntimeError(f'USB formula differs from the bundled build recipe: {name}')
+        verify_archive(folder, record['url'], record['sha256'])
+
+
+def verify_runtime_sources(runtime, folder, files):
+    verify_source_inventory(folder)
+    if sha(folder / 'SHA256SUMS.json') != runtime.get('macos_source_inventory_sha256'):
+        raise RuntimeError('Mac source inventory differs from the inventory sealed with the runtime')
+    for name in ('scripts/build-app', 'scripts/bundle-runtime', 'scripts/package-release', 'THIRD_PARTY.md'):
+        if source_file(folder, name).read_bytes() != files[name]:
+            raise RuntimeError(f'Mac source assembly input differs from the reviewed commit: {name}')
+    for name, data in files.items():
+        if name.startswith('licenses/') and source_file(folder, name).read_bytes() != data:
+            raise RuntimeError(f'Mac source notice differs from the reviewed commit: {name}')
+    verify_python_sources(runtime, folder, files)
+    verify_usb_sources(runtime, folder)
+
+
+def verify_source_inventory(folder):
+    """A release inventory covers every regular file and cannot escape its root."""
+    if not folder.is_dir() or folder.is_symlink():
+        raise RuntimeError(f'Corresponding-source directory is missing or symlinked: {folder}')
+    inventory = json.loads((folder / 'SHA256SUMS.json').read_text())
+    if not isinstance(inventory, dict) or not inventory:
+        raise RuntimeError(f'Empty corresponding-source inventory: {folder}')
+    actual = set()
+    for path in folder.rglob('*'):
+        if path.is_symlink():
+            raise RuntimeError(f'Symlink in corresponding source: {path}')
+        if path.is_file() and path != folder / 'SHA256SUMS.json':
+            actual.add(path.relative_to(folder).as_posix())
+    if actual != set(inventory):
+        raise RuntimeError(f'Corresponding-source inventory differs: {folder}')
+    for name, expected in inventory.items():
+        path = folder / name
+        if not path.resolve().is_relative_to(folder.resolve()) or sha(path) != expected:
+            raise RuntimeError(f'Changed corresponding source: {folder.name}/{name}')
 
 
 def main():
@@ -22,20 +247,31 @@ def main():
     parser.add_argument('--source-ref', required=True, help='Reviewed public Git commit or tag')
     args = parser.parse_args()
     commit = subprocess.check_output(['git', 'rev-parse', args.source_ref + '^{commit}'], cwd=ROOT, text=True).strip()
-    version = subprocess.check_output(['git', 'show', commit + ':VERSION'], cwd=ROOT, text=True).strip()
+    verify_clean_commit(ROOT, commit)
+    files = committed_files(ROOT, commit)
+    version = files['VERSION'].decode().strip()
     app = ROOT / 'iPhoneBridge.app'
     with (app / 'Contents/Info.plist').open('rb') as file:
         info = plistlib.load(file)
     if info['CFBundleShortVersionString'] != version:
         raise RuntimeError('App version differs from the reviewed source commit')
-    subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
+    device_manifest = json.loads((app / 'Contents/Resources/device/manifest.json').read_text())
     source_root = ROOT / 'work/release-sources'
     for component in ('device', 'macos'):
         folder = source_root / component
-        inventory = json.loads((folder / 'SHA256SUMS.json').read_text())
-        for name, expected in inventory.items():
-            if sha(folder / name) != expected:
-                raise RuntimeError(f'Changed corresponding source: {component}/{name}')
+        verify_source_inventory(folder)
+    staged_manifest = json.loads((source_root / 'device/build-manifest.json').read_text())
+    if staged_manifest != device_manifest:
+        raise RuntimeError('App daemon and corresponding-source manifest differ')
+    verify_committed_device(commit, files, device_manifest, source_root / 'device')
+    runtime = json.loads((app / 'Contents/Resources/runtime-manifest.json').read_text())
+    verify_committed_runtime(files, runtime)
+    if (runtime.get('device_sha256') != device_manifest['binary']['sha256']
+            or sha(app / 'Contents/Resources/device/trollvncserver') != runtime['device_sha256']
+            or sha(app / 'Contents/Resources/device/device-session.sh') != device_manifest['script_sha256']):
+        raise RuntimeError('Bundled device payload differs from the source/runtime manifests')
+    verify_runtime_sources(runtime, source_root / 'macos', files)
+    subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
     output = ROOT / 'work/releases' / ('v' + version)
     output.mkdir(parents=True, exist_ok=True)
     source = output / ('iPhoneBridge-' + version + '-source')
@@ -45,17 +281,21 @@ def main():
     project = source / 'project'
     project.mkdir()
     archive = subprocess.check_output(['git', 'archive', '--format=tar', commit], cwd=ROOT)
-    with tarfile.open(fileobj=io.BytesIO(archive)) as files:
-        files.extractall(project, filter='data')
+    with tarfile.open(fileobj=io.BytesIO(archive)) as project_archive:
+        project_archive.extractall(project, filter='data')
     for component in ('device', 'macos'):
         shutil.copytree(source_root / component, source / component)
+        verify_source_inventory(source / component)
+    verify_committed_device(commit, files, device_manifest, source / 'device')
+    verify_runtime_sources(runtime, source / 'macos', files)
     (source / 'README.md').write_text(
         f'# iPhoneBridge {version} corresponding source\n\n'
         f'Public project commit: `{commit}`.\n\n'
         '`project/` contains the complete app source and notices. '
-        '`device/` contains the daemon, linked libraries, patches, and offline rebuild recipe. '
+        '`device/` contains the native HEVC daemon, retained GPL capture/input source, '
+        'entitlements, notices, source inventory and offline rebuild recipe. '
         '`macos/` contains Python, all locked Python packages, native libraries, USB tools, '
-        'noVNC, exact recipes and replacement instructions. Read each directory README. '
+        'exact recipes and replacement instructions. Read each directory README. '
         'Apple SDKs and platform build prerequisites are not redistributed.\n')
     app_zip = output / f'iPhoneBridge-{version}-macOS-arm64.zip'
     subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(app), str(app_zip)], check=True)
