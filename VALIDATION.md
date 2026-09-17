@@ -1,5 +1,18 @@
 # Native HEVC validation — 2026-09-13
 
+## Codex integration update — 2026-09-17
+
+GPT-6 Astra at `xhigh` successfully used the native source MCP adapter for health,
+lossless screenshots, taps, dragging, typing, Backspace and scrolling. Seven
+fixture checks passed in eight executed input calls; an independent USB capture
+confirmed the final physical screen. All 139 Python tests pass, including
+generation-bound input and same-size rotation rejection. See
+[Astra MCP verification](docs/astra-mcp-2026-09-17.md) for exact identities,
+checks, a preflight daemon interruption and qualification limits. This update
+does not extend the native video or release qualifications recorded below.
+
+## Original native qualification
+
 The native replacement is being qualified in an isolated development branch.
 It is not yet a signed or published release. The detailed trial record, including
 failed candidates and mismatched baseline conditions, is

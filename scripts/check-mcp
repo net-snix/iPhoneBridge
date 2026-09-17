@@ -25,10 +25,14 @@ async def main():
             tools = await client.list_tools()
             names = sorted(tool.name for tool in tools.tools)
             assert names == ['drag', 'health', 'key', 'screenshot', 'tap', 'type_text'], names
+            for tool in tools.tools:
+                if tool.name in {'tap', 'drag', 'type_text', 'key'}:
+                    assert {'width', 'height', 'generation'} <= set(tool.input_schema['required']), tool.name
             result = await client.call_tool('screenshot', {})
             if result.is_error:
                 raise RuntimeError('; '.join(c.text for c in result.content if c.type == 'text'))
             metadata = result.structured_content
+            assert type(metadata['generation']) is int and metadata['generation'] > 0
             images = [c for c in result.content if c.type == 'image']
             assert len(images) == 1 and images[0].mime_type == 'image/png'
             with Image.open(io.BytesIO(base64.b64decode(images[0].data))) as frame:

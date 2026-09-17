@@ -2,7 +2,10 @@
 
 For an installed app, use `/Applications/iPhoneBridge.app/Contents/Helpers/bridge`.
 For a source checkout, use `./bridge` after following [BUILDING.md](BUILDING.md).
-The examples below use the source launcher; both expose the same commands.
+The examples below use the source launcher. Input requires the `generation` from
+the screenshot as well as its dimensions. Older installed builds can expose the
+same commands without this check; use the updated source MCP adapter until a
+matching app is packaged.
 
 Screenshots preserve the captured RGB values exactly and declare `color_space:
 sRGB` in metadata and the PNG. The retained capture API produces SDR sRGB;
@@ -23,15 +26,16 @@ stills are read directly from the capture surface and never decoded from HEVC.
 and default SSH keys/agent. Stop before changing connection settings. No private
 key is included with the app or copied onto the phone.
 
-Use coordinates and dimensions from a fresh screenshot:
+Use coordinates, dimensions and generation from a fresh screenshot. In these
+examples `2` stands for that screenshot's generation, not a fixed device value:
 
 ```sh
-./bridge tap 270 920 --size 1170 2532
-./bridge drag 150 1365 1010 1365 --duration 0.8 --size 1170 2532
-printf '%s' 'Bridge test 123' | ./bridge type --size 1170 2532
-./bridge key enter --size 1170 2532
-./bridge navigate home --size 1170 2532
-./bridge navigate app-switcher --size 1170 2532
+./bridge tap 270 920 --size 1170 2532 --generation 2
+./bridge drag 150 1365 1010 1365 --duration 0.8 --size 1170 2532 --generation 2
+printf '%s' 'Bridge test 123' | ./bridge type --size 1170 2532 --generation 2
+./bridge key enter --size 1170 2532 --generation 2
+./bridge navigate home --size 1170 2532 --generation 2
+./bridge navigate app-switcher --size 1170 2532 --generation 2
 ```
 
 These are examples, not coordinates to reuse blindly. `swipe` aliases `drag`.
@@ -40,7 +44,9 @@ tab/newline. `key home` is a keyboard key; `navigate home` presses the phone's H
 button. CLI input returns a fresh image; native navigation uses the existing live
 native socket without spawning a CLI process. The native portrait size on the
 tested phone is 1170×2532, replacing the old aligned 1172×2536 RFB framebuffer.
-Landscape dimensions are 2532×1170. Always use the returned dimensions.
+Landscape dimensions are 2532×1170. Always use the returned dimensions and
+generation. Even a 180° rotation keeps the dimensions but invalidates the old
+generation; stale input is rejected before a touch or key is sent.
 
 MCP tools are `screenshot`, `tap`, `drag`, `type_text`, `key`, and `health`.
 Images include their actual dimensions, generation, capture timestamp and a local
@@ -53,6 +59,49 @@ calling client's history. Agent actions hold an exclusive input lease through
 post-action capture. Human gestures and typing use the same ownership policy;
 an overlapping action reports that input is busy. Disconnect and lease timeout
 release held keys and touches. Rotation during a gesture rejects its generation.
+
+## GPT-6 Astra through Codex
+
+The native checkout's `.codex/config.toml` selects `gpt-6-astra`, `xhigh` reasoning
+and Standard processing. Codex loads project configuration only for trusted
+projects; confirm the model selected by the actual task as well. iPhoneBridge
+does not call an OpenAI API or need its own model credential.
+
+Keep the installed native app running and register this native checkout's adapter
+from the repository root after installing the locked Python dependencies:
+
+```sh
+uv sync --locked
+codex mcp add iphonebridge -- "$PWD/bridge" mcp
+codex mcp get iphonebridge --json
+```
+
+The adapter talks to the existing `IPBM/1` endpoint and does not start or replace
+phone services. The old RFB checkout is incompatible with that endpoint. Restart
+the MCP connection or open a new Codex task after changing its registration.
+Keep the configured source checkout available while it is registered.
+
+Use one screenshot → action → image inspection sequence at a time. Pass `width`,
+`height` and `generation` from the inspected image on every input tool call. If
+input is busy, wait for the current operator. If an action may have been applied,
+inspect a new screenshot before deciding whether another action is appropriate.
+Do not parallelize phone input across workers. A successful transport response
+alone does not establish the requested visible result.
+
+Check discovery and an actual lossless PNG without sending input:
+
+```sh
+.venv/bin/python scripts/check-mcp --command "$PWD/bridge"
+```
+
+The native app and source adapter are separate artifacts. Once a matching app is
+packaged and qualified, register its installed helper as shown in the README.
+Keep the native protocol aligned when rolling back configuration; pointing an
+RFB adapter at a running native daemon is not a valid rollback.
+
+See [Astra migration guidance](https://developers.openai.com/api/docs/guides/latest-model#gpt-6-astra-update-api-and-model-parameters),
+[Codex configuration](https://learn.chatgpt.com/docs/config-file/config-basic),
+and [MCP configuration](https://learn.chatgpt.com/docs/extend/mcp).
 
 ## Recovery and diagnostics
 

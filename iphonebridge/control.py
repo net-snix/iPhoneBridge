@@ -94,9 +94,7 @@ class _Session:
         return output.getvalue(), geometry, pts_ns
 
     def size(self):
-        geometry = self.call("probe")
-        self.generation = geometry.generation
-        return geometry.size
+        return self.call("probe").size
 
     def release(self, method, *args):
         # Attempt release even after the action deadline. Disconnect is a second
@@ -131,10 +129,18 @@ def _point(x, y, width, height):
         raise BridgeInputError("Coordinates must be integer pixels inside the expected framebuffer")
 
 
-def _check_frame(session, width, height):
-    actual = session.size()
+def _check_frame(session, width, height, generation):
+    geometry = session.call("probe")
+    actual = geometry.size
     if actual != (width, height):
         raise BridgeInputError(f"Framebuffer changed: expected {width}x{height}, actual {actual[0]}x{actual[1]}; take a new screenshot")
+    if geometry.generation != generation:
+        raise BridgeInputError(
+            f"Framebuffer generation changed: expected {generation}, actual {geometry.generation}; take a new screenshot"
+        )
+    # Keep the screenshot's generation pinned, including after asynchronous
+    # geometry updates; the daemon rejects rotation during the operation.
+    session.generation = generation
 
 
 def _save(session, action):
@@ -158,8 +164,10 @@ def screenshot():
         return _save(session, "screenshot")
 
 
-def _mutate(action, width, height, operation):
+def _mutate(action, width, height, generation, operation):
     _dimensions(width, height)
+    if type(generation) is not int or not 1 <= generation <= 0xFFFFFFFF:
+        raise BridgeInputError("generation must be an integer from 1 to 4294967295 from the latest screenshot")
     with _session() as session:
         try:
             session.call("acquire")
@@ -168,7 +176,7 @@ def _mutate(action, width, height, operation):
                 raise BridgeActionError("Phone input is in use; wait for the current gesture to finish") from None
             raise
         try:
-            _check_frame(session, width, height)
+            _check_frame(session, width, height, generation)
             try:
                 operation(session)
                 time.sleep(0.25)
@@ -186,7 +194,7 @@ def _mutate(action, width, height, operation):
                 pass
 
 
-def tap(x: int, y: int, width: int, height: int):
+def tap(x: int, y: int, width: int, height: int, *, generation: int):
     _dimensions(width, height)
     _point(x, y, width, height)
 
@@ -197,10 +205,11 @@ def tap(x: int, y: int, width: int, height: int):
         finally:
             session.release("pointer", session.generation, 0, x, y)
 
-    return _mutate("tap", width, height, operation)
+    return _mutate("tap", width, height, generation, operation)
 
 
-def drag(x1: int, y1: int, x2: int, y2: int, width: int, height: int, duration: float = 0.5):
+def drag(x1: int, y1: int, x2: int, y2: int, width: int, height: int, duration: float = 0.5,
+         *, generation: int):
     _dimensions(width, height)
     _point(x1, y1, width, height)
     _point(x2, y2, width, height)
@@ -221,7 +230,7 @@ def drag(x1: int, y1: int, x2: int, y2: int, width: int, height: int, duration: 
         finally:
             session.release("pointer", session.generation, 0, x, y)
 
-    return _mutate("drag", width, height, operation)
+    return _mutate("drag", width, height, generation, operation)
 
 
 def _press(session, usage):
@@ -243,7 +252,7 @@ def _type_character(session, char):
         session.release("key", session.generation, keyboard.SHIFT, False)
 
 
-def type_text(text: str, width: int, height: int):
+def type_text(text: str, width: int, height: int, *, generation: int):
     """Type ASCII with the US layout. Text is never written to action metadata."""
     if not isinstance(text, str) or not 1 <= len(text) <= 256:
         raise BridgeInputError("text must contain 1–256 characters")
@@ -254,16 +263,16 @@ def type_text(text: str, width: int, height: int):
         for char in text:
             _type_character(session, char)
 
-    return _mutate("type", width, height, operation)
+    return _mutate("type", width, height, generation, operation)
 
 
-def key(name: str, width: int, height: int):
+def key(name: str, width: int, height: int, *, generation: int):
     if not isinstance(name, str) or name.lower() not in KEYS:
         raise BridgeInputError("Supported keys: " + ", ".join(KEYS))
-    return _mutate("key", width, height, lambda session: _press(session, KEYS[name.lower()]))
+    return _mutate("key", width, height, generation, lambda session: _press(session, KEYS[name.lower()]))
 
 
-def navigate(name: str, width: int, height: int):
+def navigate(name: str, width: int, height: int, *, generation: int):
     if name not in ("home", "app-switcher"):
         raise BridgeInputError("Supported navigation actions: home, app-switcher")
 
@@ -271,7 +280,7 @@ def navigate(name: str, width: int, height: int):
         session.call("button", session.generation, 1 if name == "home" else 2)
         time.sleep(0.5)
 
-    return _mutate(name, width, height, operation)
+    return _mutate(name, width, height, generation, operation)
 
 
 def health():

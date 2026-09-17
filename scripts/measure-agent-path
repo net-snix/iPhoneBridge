@@ -52,7 +52,7 @@ report["framebuffer"] = {"probe": list(size), "capture": list(full_size), "png_b
                          "luminance_range": list(luminance), "capture_pts_ns": pts_ns}
 if tuple(size) != tuple(full_size) or luminance[0] == luminance[1]:
     raise SystemExit("Probe size and captured frame disagree, or the frame is flat; do not trust these numbers")
-_, report["action_with_size_probe"] = timed(lambda: action(lambda s: control._check_frame(s, *size)), repeat=3)
+_, report["action_with_size_probe"] = timed(lambda: action(lambda s: control._check_frame(s, *size, geometry.generation)), repeat=3)
 _, report["action_with_full_frame_check"] = timed(lambda: action(lambda s: s.frame()), repeat=3)
 _, report["screenshot"] = timed(lambda: captured.append(control.screenshot()["path"]), repeat=3)
 for path in captured:

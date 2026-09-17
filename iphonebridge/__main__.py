@@ -35,6 +35,8 @@ def main():
     for subparser in (tap, drag, typing, key, navigate):
         subparser.add_argument("--size", nargs=2, type=int, required=True,
                                metavar=("WIDTH", "HEIGHT"), help="Exact latest screenshot size")
+        subparser.add_argument("--generation", type=int, required=True,
+                               help="Generation from the same latest screenshot")
     args = parser.parse_args()
     if args.command == "mirror":
         app = lifecycle.PATHS.contents.parent if lifecycle.PATHS.contents else lifecycle.ROOT / "iPhoneBridge.app"
@@ -72,15 +74,16 @@ def main():
         if args.command == "screenshot":
             result = control.screenshot()
         elif args.command == "tap":
-            result = control.tap(args.x, args.y, *args.size)
+            result = control.tap(args.x, args.y, *args.size, generation=args.generation)
         elif args.command in ("drag", "swipe"):
-            result = control.drag(args.x1, args.y1, args.x2, args.y2, *args.size, args.duration)
+            result = control.drag(args.x1, args.y1, args.x2, args.y2, *args.size, args.duration,
+                                  generation=args.generation)
         elif args.command == "type":
-            result = control.type_text(sys.stdin.read(257), *args.size)
+            result = control.type_text(sys.stdin.read(257), *args.size, generation=args.generation)
         elif args.command == "navigate":
-            result = control.navigate(args.name, *args.size)
+            result = control.navigate(args.name, *args.size, generation=args.generation)
         else:
-            result = control.key(args.name, *args.size)
+            result = control.key(args.name, *args.size, generation=args.generation)
     print(json.dumps(result, indent=2))
     if args.command == "health" and not result["healthy"]:
         sys.exit(1)

@@ -2,6 +2,9 @@
 
 ## Native HEVC — Unreleased development branch
 
+- Pin the project's Codex baseline to GPT-6 Astra and document native MCP setup.
+- Require screenshot generation on CLI/MCP input, rejecting stale coordinates
+  even when a rotation keeps the same framebuffer dimensions.
 - Replace phone JPEG/RFB streaming with a lean VideoToolbox HEVC daemon and a bounded
   framed protocol over the existing owned USB tunnel.
 - Decode directly to smaller YUV buffers and display them in AppKit with

@@ -67,6 +67,10 @@ Open the app first, or run the helper's `connect` command. Starting MCP alone do
 
 Always take a fresh screenshot, use its **raw pixel dimensions**, and inspect the returned image after an action. Input calls require those dimensions; stale orientation is rejected. The CLI also exposes `navigate home` and `navigate app-switcher`. See [CLI and MCP usage](docs/USAGE.md) for examples and recovery.
 
+The current native source adapter also requires the screenshot's **generation**
+on every input call, rejecting rotations that preserve width and height. For
+GPT-6 Astra setup with this adapter, follow [Codex setup](docs/USAGE.md#gpt-6-astra-through-codex).
+
 ## How it fits together
 
 ```mermaid
