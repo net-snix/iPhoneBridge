@@ -1,5 +1,17 @@
 # Native HEVC validation — 2026-09-13
 
+## 0.3.0 prerelease scope — 2026-09-25
+
+The native HEVC implementation and generation-bound input are merged into `main`.
+The release packages those sources as version 0.3.0, build 5. Hosted Python tests,
+Swift tests and release compilation passed on the merged implementation.
+
+No iPhone was connected during release preparation, so the physical-device
+results below remain dated evidence from September 13 and 17. This prerelease
+does not claim new cable-pull, rotation, lock/unlock, encoder-invalidation or
+physical-trackpad qualification, or that the 60 ms input-latency target is met.
+The release notes record checks performed on the final packaged artifacts.
+
 ## Codex integration update — 2026-09-17
 
 GPT-6 Astra at `xhigh` successfully used the native source MCP adapter for health,
@@ -13,8 +25,8 @@ does not extend the native video or release qualifications recorded below.
 
 ## Original native qualification
 
-The native replacement is being qualified in an isolated development branch.
-It is not yet a signed or published release. The detailed trial record, including
+At the time of this qualification, the native replacement was an isolated
+development branch rather than a published release. The detailed trial record, including
 failed candidates and mismatched baseline conditions, is
 [Native HEVC qualification](docs/native-hevc-2026-09-13.md).
 
@@ -97,7 +109,7 @@ identity. The Mac explicitly requires hardware decoding.
 
 Local source builds and daemon deployment do not prove the relocated app bundle.
 macOS signing, a clean-PATH packaged-app run, combined release archive assembly,
-hosted CI and publication remain separate release checks in
+hosted CI and publication are separate release checks in
 [RELEASING.md](docs/RELEASING.md). The existing explicit signing/push/merge
 permissions remain in force.
 

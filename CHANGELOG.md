@@ -1,6 +1,9 @@
 # Changelog
 
-## Native HEVC — Unreleased development branch
+## 0.3.0 — 2026-09-25
+
+Native HEVC prerelease. Physical recovery checks and the input-latency target
+remain open; see `VALIDATION.md` for the evidence and limits.
 
 - Pin the project's Codex baseline to GPT-6 Astra and document native MCP setup.
 - Require screenshot generation on CLI/MCP input, rejecting stale coordinates

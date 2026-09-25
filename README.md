@@ -31,7 +31,7 @@
 | 📦 **Self-contained app** | Python, USB utilities, and phone daemon are bundled. No Homebrew or checkout needed to run. |
 | 🤖 **Agent access** | Six MCP tools for screenshots, taps, drags, text, keys, and health. |
 
-This development branch replaces the video path with VideoToolbox HEVC encoding on the phone and native hardware decoding on the Mac. Decoded YUV buffers go directly to the native display layer. It targets sustained 60 fps at full resolution. Qualification and the distinction between decoded frames, display submissions, and physical screen output are recorded in [performance evidence and limits](PERFORMANCE.md). Published releases may still use the previous architecture.
+Version 0.3.0 replaces the video path with VideoToolbox HEVC encoding on the phone and native hardware decoding on the Mac. Decoded YUV buffers go directly to the native display layer. It targets sustained 60 fps at full resolution. The [0.3.0 prerelease](https://github.com/net-snix/iPhoneBridge/releases/tag/v0.3.0) includes this native architecture; the latest stable release remains 0.2.0. Qualification and the distinction between decoded frames, display submissions, and physical screen output are recorded in [performance evidence and limits](PERFORMANCE.md).
 
 ## Get connected
 
@@ -40,7 +40,7 @@ This development branch replaces the video path with VideoToolbox HEVC encoding 
 3. Open iPhoneBridge. It selects the only connected iPhone automatically and starts the mirror.
 4. For multiple devices or a custom SSH key, use **iPhoneBridge → Settings…**. Select the phone and an existing key, then choose **Save & Connect**. Only the key's path is saved.
 
-The initial release is **ad-hoc signed, without Apple notarization**. macOS may require **System Settings → Privacy & Security → Open Anyway** after the first launch attempt. See [Apple's instructions](https://support.apple.com/102445). Source builds are available if you prefer to build it yourself.
+The app is **ad-hoc signed, without Apple notarization**. macOS may require **System Settings → Privacy & Security → Open Anyway** after the first launch attempt. See [Apple's instructions](https://support.apple.com/102445). Source builds are available if you prefer to build it yourself.
 
 Keep the phone awake and unlocked. Use **View → Reconnect** after reconnecting a cable. To close a phone app, open App Switcher, find its card, and drag it upward off the screen. Home follows the phone's native behavior: from the switcher, it may first return to the selected app.
 
@@ -67,7 +67,7 @@ Open the app first, or run the helper's `connect` command. Starting MCP alone do
 
 Always take a fresh screenshot, use its **raw pixel dimensions**, and inspect the returned image after an action. Input calls require those dimensions; stale orientation is rejected. The CLI also exposes `navigate home` and `navigate app-switcher`. See [CLI and MCP usage](docs/USAGE.md) for examples and recovery.
 
-The current native source adapter also requires the screenshot's **generation**
+The 0.3.0 native adapter also requires the screenshot's **generation**
 on every input call, rejecting rotations that preserve width and height. For
 GPT-6 Astra setup with this adapter, follow [Codex setup](docs/USAGE.md#gpt-6-astra-through-codex).
 
