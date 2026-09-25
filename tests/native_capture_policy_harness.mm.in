@@ -1,0 +1,131 @@
+// Execute the production captureTick method with deterministic capture/encoder peers.
+#import <Foundation/Foundation.h>
+#include "MirrorCapture.h"
+#include <cassert>
+#include <cstdio>
+#include <map>
+using namespace ipbm;
+static uint64_t currentNs=2000000000;
+static uint64_t nowNs() { return currentNs; }
+
+@interface MirrorConnection : NSObject
+@property(nonatomic) BOOL closed;
+@property(nonatomic) size_t queuedBytes;
+@end
+@implementation MirrorConnection
+@end
+
+@interface ProbeCapture : NSObject
+@property(nonatomic) BOOL dirty,lastForced;
+@property(nonatomic) unsigned calls;
+- (MirrorFramePtr)captureForced:(BOOL)force;
+@end
+@implementation ProbeCapture
+- (MirrorFramePtr)captureForced:(BOOL)force {
+    ++_calls;_lastForced=force;
+    if(!_dirty && !force) return {};
+    auto frame=std::make_shared<MirrorFrame>();
+    frame->surface=std::make_shared<MirrorSurface>();
+    assert(frame->surface->claim());frame->pts=nowNs();return frame;
+}
+@end
+
+@interface ProbeEncoder : NSObject {
+@public MirrorFramePtr lastFrame;
+}
+@property(nonatomic) BOOL ready,acceptSubmission,lastForced;
+@property(nonatomic) NSUInteger pending,submissions;
+- (BOOL)prepare;
+- (BOOL)submit:(MirrorFramePtr)frame geometry:(Geometry)geometry keyframe:(BOOL)force;
+@end
+@implementation ProbeEncoder
+- (BOOL)prepare { _ready=YES;return YES; }
+- (BOOL)submit:(MirrorFramePtr)frame geometry:(Geometry)geometry keyframe:(BOOL)force {
+    ++_submissions;_lastForced=force;lastFrame=frame;return _acceptSubmission;
+}
+@end
+
+@interface ProbeServer : NSObject {
+@public
+    RecentTimings<InputTiming> _inputTimings;
+    NSMutableDictionary<NSNumber*,MirrorConnection*> *_peers;
+    uint64_t _videoPeer,_retryEncoderAt,_lastSubmit,_skipped,_errors,_afterIdleCount;
+    ProbeCapture *_capture;
+    ProbeEncoder *_encoder;
+    BOOL _forceKeyframe,_forceCapture,_awaitKeyframe;
+    std::map<uint64_t,uint32_t> _stills;
+    Geometry _geometry;
+}
+- (void)captureTick;
+- (void)changedGeometry;
+- (void)deliverStill:(MirrorFramePtr)frame;
+- (void)reconcileCapture;
+@end
+@implementation ProbeServer
+- (void)changedGeometry {
+    _geometry.changed();_forceKeyframe=YES;_forceCapture=YES;_awaitKeyframe=YES;
+}
+- (void)deliverStill:(MirrorFramePtr)frame { _stills.clear(); }
+- (void)reconcileCapture {}
+// Replaced with the method from device/src/MirrorServer.mm by the test runner.
+@@CAPTURE_TICK@@
+@end
+
+static ProbeServer *server() {
+    ProbeServer *s=[ProbeServer new];
+    s->_peers=[@{@1:[MirrorConnection new]} mutableCopy];s->_videoPeer=1;
+    s->_capture=[ProbeCapture new];s->_capture.dirty=YES;
+    s->_encoder=[ProbeEncoder new];s->_encoder.ready=YES;s->_encoder.acceptSubmission=YES;
+    s->_lastSubmit=nowNs()-500000000;return s;
+}
+
+int main() {
+    @autoreleasepool {
+        ProbeServer *idle=server();
+        [idle captureTick];
+        assert(idle->_encoder.submissions==1 && !idle->_encoder.lastForced);
+        assert(!idle->_capture.lastForced && !idle->_forceKeyframe);
+        assert(idle->_encoder->lastFrame->timing.afterIdle && idle->_afterIdleCount==1);
+        assert(idle->_encoder->lastFrame->timing.submitGap==500000000);
+
+        ProbeServer *quiet=server();quiet->_capture.dirty=NO;
+        [quiet captureTick];
+        assert(quiet->_capture.calls==1 && !quiet->_capture.lastForced);
+        assert(quiet->_encoder.submissions==0 && !quiet->_forceKeyframe && !quiet->_afterIdleCount);
+
+        // A pending join, explicit request or generation recovery survives an idle gap.
+        ProbeServer *requested=server();requested->_forceKeyframe=YES;requested->_forceCapture=YES;
+        requested->_capture.dirty=NO;
+        [requested captureTick];
+        assert(requested->_encoder.submissions==1 && requested->_encoder.lastForced);
+        assert(requested->_capture.lastForced && !requested->_forceKeyframe && !requested->_forceCapture);
+
+        // A skipped dependency still forces recovery when congestion/pending pressure clears.
+        for(bool pending:{false,true}) {
+            ProbeServer *congested=server();
+            if(pending) congested->_encoder.pending=3;
+            else congested->_peers[@1].queuedBytes=VideoHighWater;
+            [congested captureTick];
+            assert(congested->_skipped==1 && congested->_forceKeyframe);
+            assert(congested->_encoder.submissions==0 && congested->_capture.calls==0);
+            congested->_encoder.pending=0;congested->_peers[@1].queuedBytes=0;
+            [congested captureTick];
+            assert(congested->_encoder.submissions==1 && congested->_encoder.lastForced);
+        }
+
+        ProbeServer *failed=server();failed->_encoder.acceptSubmission=NO;
+        [failed captureTick];
+        assert(failed->_errors==1 && failed->_forceKeyframe && failed->_forceCapture && failed->_awaitKeyframe);
+        assert(failed->_afterIdleCount==0); // Only accepted submissions count.
+        failed->_encoder.acceptSubmission=YES;failed->_capture.dirty=NO;
+        [failed captureTick];
+        assert(failed->_encoder.submissions==2 && failed->_encoder.lastForced && failed->_capture.lastForced);
+
+        ProbeServer *recreated=server();recreated->_encoder.ready=NO;recreated->_capture.dirty=NO;
+        [recreated captureTick];
+        assert(recreated->_encoder.submissions==1 && recreated->_encoder.lastForced);
+        assert(recreated->_capture.lastForced && recreated->_awaitKeyframe);
+        assert(!recreated->_encoder->lastFrame->timing.afterIdle);
+        std::puts("native idle and recovery capture policy passed");
+    }
+}

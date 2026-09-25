@@ -1,0 +1,364 @@
+{
+  "date": "2026-09-11",
+  "decision": "do_not_adopt_four_workers_sustained_speed_gate_failed",
+  "binary_sha256": "f02fb9aca1adc6c64df6ecbe76ec9a18c80bc44e660b260eb0252d8ec10c8d40",
+  "library_sha256": "88b0b411a19c3792076e6729722c35eab5f079016058b8894c644464d90f6718",
+  "implementation": "Exact D daemon and four codec archives; only private library worker count changed from two to four. No E worker policy or hardware instrumentation. One admitted pipeline and four fixed result slots.",
+  "result_capacity_bound_bytes": 4194304,
+  "total_daemon_memory_measured": false,
+  "host_qualification": {
+    "ubsan_groups_passed": 29,
+    "wire_comparisons_against_two_workers": 93,
+    "wire_bytes_compared": 263360496,
+    "default_two_tokens_unchanged": true,
+    "four_reader_order_lifetime_and_failure_checks_passed": true,
+    "maximum_legal_test_retained_result_bytes": 2969600,
+    "asan_qualified": false
+  },
+  "measurement": {
+    "seconds_per_run": 300,
+    "windows_per_run": 30,
+    "profile": {
+      "bits_per_pixel": 32,
+      "depth": 24,
+      "big_endian": 0,
+      "true_colour": 255,
+      "red_max": 255,
+      "green_max": 255,
+      "blue_max": 255,
+      "red_shift": 0,
+      "green_shift": 8,
+      "blue_shift": 16,
+      "preferred_encoding": 7,
+      "tight_quality_level": 6,
+      "tight_compress_level": 2,
+      "turbo_quality_level": 79,
+      "turbo_subsampling": 0,
+      "width": 1172,
+      "height": 2536,
+      "copy_rect": -1,
+      "last_rect": -1,
+      "new_fb_size": -1,
+      "extended_desktop_size": 0,
+      "cursor_shape": 0,
+      "cursor_position": 0,
+      "extended_clipboard": 0
+    },
+    "context": "Same heavy-motion fixture, one Tight sink and native viewer closed. Immediate warm follow-up after restoration/restart. No other phone/input/profiler activity during or between passes. Both restore normal daemon.",
+    "metric_note": "FBU rates are completed paired network updates, not physical display FPS. Worker JPEG CPU covers all paired tjCompress jobs. Wall intervals can overlap; their sum is not subtracted from enclosing send time. Metric means use count-weighted rounded window means.",
+    "comparison_limits": "Similar measured CPU cost, same quality and job count do not establish matched physical thermal state, image pixels, instructions, core placement, clock frequency or power. No strict causal gain or RSS claim is made."
+  },
+  "runs": {
+    "first": {
+      "collected_restored_and_qualified": true,
+      "single_client_profile_unchanged": true,
+      "paired_jobs": 764893,
+      "minutes": [
+        {
+          "minute": 1,
+          "updates_per_second": 59.483333333333334,
+          "capture_starts_per_second": 59.666666666666664,
+          "thermal_states": [
+            0,
+            1
+          ],
+          "jobs_per_update": 42.98879237881759,
+          "cpu_and_wall_ms_per_update": {
+            "coordinator_cpu": 1.1377241622303165,
+            "worker_jpeg_cpu": 11.015459347436257,
+            "coordinator_plus_worker_jpeg_cpu": 12.153183509666574,
+            "send_wall": 4.840527999159428,
+            "worker_jpeg_wall_sum": 11.576819315214346
+          },
+          "count_weighted_window_metric_means_ms": {
+            "capture_callback_ms": 9.996291916736519,
+            "render_display_ms": 3.412244354883851,
+            "surface_transfer_ms": 4.433776930609961,
+            "prepare_ms": 1.8257603582423734,
+            "capture_gap_ms": 16.756165101983793,
+            "request_gap_ms": 16.81054370972261,
+            "finish_to_send_ms": 11.97108629484305,
+            "publication_queue_ms": 0.013166303922667414
+          }
+        },
+        {
+          "minute": 2,
+          "updates_per_second": 59.25,
+          "capture_starts_per_second": 59.68333333333333,
+          "thermal_states": [
+            1,
+            2
+          ],
+          "jobs_per_update": 43.00028129395218,
+          "cpu_and_wall_ms_per_update": {
+            "coordinator_cpu": 1.133396122362869,
+            "worker_jpeg_cpu": 11.017079356962025,
+            "coordinator_plus_worker_jpeg_cpu": 12.150475479324895,
+            "send_wall": 4.8363399682137835,
+            "worker_jpeg_wall_sum": 11.573798534739803
+          },
+          "count_weighted_window_metric_means_ms": {
+            "capture_callback_ms": 10.029565579447082,
+            "render_display_ms": 3.4433066732062776,
+            "surface_transfer_ms": 4.443857185309784,
+            "prepare_ms": 1.8358548514573991,
+            "capture_gap_ms": 16.755500307176764,
+            "request_gap_ms": 16.87786323488045,
+            "finish_to_send_ms": 12.04159729957806,
+            "publication_queue_ms": 0.013013657243319269
+          }
+        },
+        {
+          "minute": 3,
+          "updates_per_second": 59.43333333333333,
+          "capture_starts_per_second": 59.666666666666664,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_update": 43.0002804262479,
+          "cpu_and_wall_ms_per_update": {
+            "coordinator_cpu": 1.132295863151991,
+            "worker_jpeg_cpu": 10.99195094167134,
+            "coordinator_plus_worker_jpeg_cpu": 12.124246804823331,
+            "send_wall": 4.842828356421761,
+            "worker_jpeg_wall_sum": 11.557792000280427
+          },
+          "count_weighted_window_metric_means_ms": {
+            "capture_callback_ms": 9.978923884389834,
+            "render_display_ms": 3.4061176141136933,
+            "surface_transfer_ms": 4.427549375699888,
+            "prepare_ms": 1.8246696976483765,
+            "capture_gap_ms": 16.75731603351955,
+            "request_gap_ms": 16.8233128996074,
+            "finish_to_send_ms": 11.980394701429773,
+            "publication_queue_ms": 0.012932535726303982
+          }
+        },
+        {
+          "minute": 4,
+          "updates_per_second": 59.31666666666667,
+          "capture_starts_per_second": 59.68333333333333,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_update": 43.00028097780275,
+          "cpu_and_wall_ms_per_update": {
+            "coordinator_cpu": 1.13015548721551,
+            "worker_jpeg_cpu": 10.997111537510536,
+            "coordinator_plus_worker_jpeg_cpu": 12.127267024726047,
+            "send_wall": 4.833119790671537,
+            "worker_jpeg_wall_sum": 11.555473762292777
+          },
+          "count_weighted_window_metric_means_ms": {
+            "capture_callback_ms": 10.02640475286233,
+            "render_display_ms": 3.441494462184874,
+            "surface_transfer_ms": 4.437399666666667,
+            "prepare_ms": 1.8343283837535016,
+            "capture_gap_ms": 16.756166043004747,
+            "request_gap_ms": 16.860102472604662,
+            "finish_to_send_ms": 12.026611070525428,
+            "publication_queue_ms": 0.013076505001404889
+          }
+        },
+        {
+          "minute": 5,
+          "updates_per_second": 59.0,
+          "capture_starts_per_second": 59.53333333333333,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_update": 43.00084745762712,
+          "cpu_and_wall_ms_per_update": {
+            "coordinator_cpu": 1.7108644994350284,
+            "worker_jpeg_cpu": 15.293636699999999,
+            "coordinator_plus_worker_jpeg_cpu": 17.00450119943503,
+            "send_wall": 7.921992159887005,
+            "worker_jpeg_wall_sum": 17.030167448870056
+          },
+          "count_weighted_window_metric_means_ms": {
+            "capture_callback_ms": 12.39625222066648,
+            "render_display_ms": 4.824962771860987,
+            "surface_transfer_ms": 4.481044192825112,
+            "prepare_ms": 2.650054851457399,
+            "capture_gap_ms": 16.799352211646134,
+            "request_gap_ms": 16.947591355932204,
+            "finish_to_send_ms": 9.024843511299435,
+            "publication_queue_ms": 0.03271842299435029
+          }
+        }
+      ]
+    },
+    "warm": {
+      "collected_restored_and_qualified": true,
+      "single_client_profile_unchanged": true,
+      "paired_jobs": 618648,
+      "minutes": [
+        {
+          "minute": 1,
+          "updates_per_second": 59.416666666666664,
+          "capture_starts_per_second": 59.666666666666664,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_update": 42.988779803646565,
+          "cpu_and_wall_ms_per_update": {
+            "coordinator_cpu": 1.1468880389901823,
+            "worker_jpeg_cpu": 11.093589255259467,
+            "coordinator_plus_worker_jpeg_cpu": 12.24047729424965,
+            "send_wall": 4.875481016830294,
+            "worker_jpeg_wall_sum": 11.665244684712482
+          },
+          "count_weighted_window_metric_means_ms": {
+            "capture_callback_ms": 10.002383081866443,
+            "render_display_ms": 3.419401178941473,
+            "surface_transfer_ms": 4.429710383646038,
+            "prepare_ms": 1.8297294285714287,
+            "capture_gap_ms": 16.758629728974576,
+            "request_gap_ms": 16.829602524544182,
+            "finish_to_send_ms": 11.95530224466891,
+            "publication_queue_ms": 0.013432647349228612
+          }
+        },
+        {
+          "minute": 2,
+          "updates_per_second": 59.5,
+          "capture_starts_per_second": 59.68333333333333,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_update": 43.00028011204482,
+          "cpu_and_wall_ms_per_update": {
+            "coordinator_cpu": 1.13068167535014,
+            "worker_jpeg_cpu": 10.996742214005602,
+            "coordinator_plus_worker_jpeg_cpu": 12.127423889355741,
+            "send_wall": 4.827035575910364,
+            "worker_jpeg_wall_sum": 11.548332240056023
+          },
+          "count_weighted_window_metric_means_ms": {
+            "capture_callback_ms": 10.037716666666666,
+            "render_display_ms": 3.433806744966443,
+            "surface_transfer_ms": 4.424212824384788,
+            "prepare_ms": 1.847612376292983,
+            "capture_gap_ms": 16.754150125663223,
+            "request_gap_ms": 16.80601619047619,
+            "finish_to_send_ms": 11.978981400560224,
+            "publication_queue_ms": 0.012984776106442577
+          }
+        },
+        {
+          "minute": 3,
+          "updates_per_second": 52.05,
+          "capture_starts_per_second": 58.15,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_update": 43.00032020493116,
+          "cpu_and_wall_ms_per_update": {
+            "coordinator_cpu": 1.782969847262248,
+            "worker_jpeg_cpu": 16.720845457252643,
+            "coordinator_plus_worker_jpeg_cpu": 18.503815304514887,
+            "send_wall": 9.732771725584374,
+            "worker_jpeg_wall_sum": 19.516260798591098
+          },
+          "count_weighted_window_metric_means_ms": {
+            "capture_callback_ms": 12.684201075114679,
+            "render_display_ms": 4.851312890872445,
+            "surface_transfer_ms": 4.443985197235818,
+            "prepare_ms": 2.909449084365102,
+            "capture_gap_ms": 17.199271109200343,
+            "request_gap_ms": 19.211881332052513,
+            "finish_to_send_ms": 9.478384420614598,
+            "publication_queue_ms": 0.04065876439321166
+          }
+        },
+        {
+          "minute": 4,
+          "updates_per_second": 32.61666666666667,
+          "capture_starts_per_second": 49.833333333333336,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_update": 43.00051098620337,
+          "cpu_and_wall_ms_per_update": {
+            "coordinator_cpu": 3.739998755237609,
+            "worker_jpeg_cpu": 34.37526967296883,
+            "coordinator_plus_worker_jpeg_cpu": 38.115268428206434,
+            "send_wall": 25.20521467705672,
+            "worker_jpeg_wall_sum": 44.56831672457843
+          },
+          "count_weighted_window_metric_means_ms": {
+            "capture_callback_ms": 18.184009966555184,
+            "render_display_ms": 8.091527728055077,
+            "surface_transfer_ms": 4.411332223752152,
+            "prepare_ms": 5.198111945592287,
+            "capture_gap_ms": 20.063795451505015,
+            "request_gap_ms": 30.652839703628004,
+            "finish_to_send_ms": 5.449280383239652,
+            "publication_queue_ms": 0.11674589075114972
+          }
+        },
+        {
+          "minute": 5,
+          "updates_per_second": 36.21666666666667,
+          "capture_starts_per_second": 52.95,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_update": 43.00046019328118,
+          "cpu_and_wall_ms_per_update": {
+            "coordinator_cpu": 3.3944780147261846,
+            "worker_jpeg_cpu": 31.23266900414174,
+            "coordinator_plus_worker_jpeg_cpu": 34.62714701886792,
+            "send_wall": 22.634818236079152,
+            "worker_jpeg_wall_sum": 40.31333177220432
+          },
+          "count_weighted_window_metric_means_ms": {
+            "capture_callback_ms": 17.629601699716712,
+            "render_display_ms": 7.449142806626314,
+            "surface_transfer_ms": 4.581514426386233,
+            "prepare_ms": 4.861829824784963,
+            "capture_gap_ms": 18.887163267233237,
+            "request_gap_ms": 27.61001785549931,
+            "finish_to_send_ms": 4.973785029912563,
+            "publication_queue_ms": 0.10208323350207087
+          }
+        }
+      ]
+    }
+  },
+  "conclusion": "First run minute means stay 59.00\u201359.48 updates/s, but warm minutes four/five fall to 32.62/36.22. JPEG CPU and capture callback costs rise together. Publication accounting passes. A benefit in selected comparable-cost send intervals is insufficient for adoption.",
+  "source_root": "work/renderer-memory-20260909",
+  "source_sha256": {
+    "jpeg-four-worker-device-build/diagnostic-build-manifest.json": "ef2afa3d18a071362076610b9bd8df9c6ed6638cb37cd76f411efae22218b90b",
+    "offmain-publication-sink-5095/run.json": "4ef37d01609ec31f81b2901710fdde163198285a256a6e92bd720db36f0fe705",
+    "offmain-publication-sink-5095/timing.json": "cbe3015879bd82556c194bd455b5d53ac709af54e62dc66f33149119e152e00f",
+    "offmain-publication-sink-5095/pipeline-summary.json": "d8f2249acdf60c5c516206a8719fbfaad67dd2c295efaf8604bac70dae7a6803",
+    "offmain-publication-timing/runner-validation-v2/saved-d-candidate-validation.json": "e63f28d4eaa13f5e1913c27ca0284fb5e1e3bb009d07a4a057328789796bb1c2",
+    "jpeg-worker-hardware-sink-2864/run.json": "ca49a002868a8fcf42cc2ea1fb62abb788ca1d1cd274557489923b50f6d27a6d",
+    "jpeg-worker-hardware-sink-2864/timing.json": "37462c4c06b187321f5a0af473a98066ae4abe0be277016081efb3ce77941769",
+    "jpeg-worker-hardware-sink-2864/pipeline-summary.json": "170de3c73bdb0917cceae1fbaaf1198bca652095c7cd7af211fed8c273399a6f",
+    "jpeg-worker-hardware-sink-2864/publication-validation.json": "e36f16e7b0e4bec5482dcae61b87d160805ddbc3db1d8a3cf6ae9f2cce6df0c5",
+    "jpeg-worker-hardware-warm-sink-2864/run.json": "ca49a002868a8fcf42cc2ea1fb62abb788ca1d1cd274557489923b50f6d27a6d",
+    "jpeg-worker-hardware-warm-sink-2864/timing.json": "36de44f71abeeac4df938f25d8bd360f82456976f071378b9181c10a1efb8efc",
+    "jpeg-worker-hardware-warm-sink-2864/pipeline-summary.json": "59f49ee5949aa70254783d1e5a8073a3e7fcd476a691b5cb333917a7cc8f1ec1",
+    "jpeg-worker-hardware-warm-sink-2864/publication-validation.json": "1a286756919377e7aa365bda4b0b2ba8e7a43305c487c37e044abc0bc175156a",
+    "jpeg-four-worker-sink-f02f/run.json": "d2c6c5246cecf7947145a6e80dcb2cf77d7a8769a697e94d3ffb33aa34517952",
+    "jpeg-four-worker-sink-f02f/timing.json": "27f3a29c91503c07c776c68454391ede8f630a064fd7fa86b03c8add17de3346",
+    "jpeg-four-worker-sink-f02f/pipeline-summary.json": "a5c6f8c60bc35181de3c02eb967802a39610c64787b6a4221a449a29a129bb13",
+    "jpeg-four-worker-sink-f02f/publication-validation.json": "461dbf5ed0cacc327f62a3845a6f1e7c1962bca6389ba5bbc18fc023f06df468",
+    "jpeg-four-worker-warm-sink-f02f/run.json": "d2c6c5246cecf7947145a6e80dcb2cf77d7a8769a697e94d3ffb33aa34517952",
+    "jpeg-four-worker-warm-sink-f02f/timing.json": "9f5f483e7f3152efb30976c7001fa2be1845dbf2aea50ab94843a47d8f60ac6e",
+    "jpeg-four-worker-warm-sink-f02f/publication-validation.json": "49540857499a961f38edc0590b7ed1aff16721c7aeab21d79c0eb6b759db1349",
+    "jpeg-four-worker-warm-sink-f02f/pipeline-summary.json": "031aad0fedcf2be3d14a7c10fdddce57990fb43a275c2f5aa3c006ce4fe8c65e",
+    "jpeg-cpu-efficiency-review/f-four-worker-analysis.json": "333ee280cb2eed3debf51480cbc4da4c82a4aa50c2d9f4d37b224cd32417e5fa",
+    "jpeg-cpu-efficiency-review/f-four-worker-analysis.md": "adf3b945821fe17a0aececc5d827ddc21dbd84a061937474025e97582cc86fcc",
+    "jpeg-four-worker-candidate/verification.json": "0ec7beb7562b9893ff399baaadff0139b35e74c408f49ebe6330af32e120253d",
+    "jpeg-four-worker-candidate/README.md": "bb816f96b033e2d5242c566444a042d657dcda7c3ee6bf91a1c21ca02fb9cd2b",
+    "jpeg-four-worker-candidate/independent-review.md": "d2e0477293e67f777d6126932a50ca5a8a178c8a38924fc0f4b7003d749464a0",
+    "build-jpeg-four-worker-diagnostic.py": "089afa8de5204a576c9a22a2752aa83f8b01a5e3c390e5dc670a837a8904acbb",
+    "run-jpeg-four-worker-timing-sink.py": "9ed5d2dee6ce69c9619b2f1d026c5755a923c81c56d1cc3b6aa2c27b8b32964e",
+    "jpeg-four-worker-device-build/runner-verification.json": "ca5a30e608c853033c363e8481ed3011c4635c92831953ba33da90f807e24636",
+    "jpeg-four-worker-device-build/runtime-preflight.json": "cce277c5b315240d17fef89a21d30b8df56d219361f50a85f134ece43f3309a8",
+    "jpeg-four-worker-device-build/paired-run-context.json": "6ee36389a853167132b1185e5e782d7ed746b603ab40b9d11afd6922e0f79cdf"
+  }
+}

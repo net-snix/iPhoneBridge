@@ -1,0 +1,477 @@
+{
+  "schema_version": 1,
+  "trial_date": "2026-09-11",
+  "status": "warm_delivery_decline_persists_not_promoted",
+  "candidate": {
+    "binary_sha256": "d03d4c280f4bb5938e1570d696f4f5e5af636ce5491a01e5ef59bc79c5d1f8e3",
+    "libvncserver_sha256": "58c669f2e7385a2229e63d7e24882bbaad560b12ab43a248dee171d1cc29acdc",
+    "build_manifest_sha256": "933a9928826d199c56a3a3d3ee97f6dd7a6bbcadcd1a3005423f76915eaa26e0",
+    "source_manifest_sha256": "24197edc1ff8375baa12ea9b9edc68902ccc1f5fb75b57dc76a1c13404ec2dbe",
+    "patch_sha256": "b675da377d9181abc16d36180f766a4859ab0458b9910960eda2b82420206f25",
+    "verification_sha256": "38c3e6116a5aa57d2e235a45d10e9b1cc1e6a9696877a5bf01679c445ea057e2",
+    "host_groups_passed": [
+      "identity",
+      "budget",
+      "failures",
+      "lifecycle",
+      "compatibility",
+      "fbu"
+    ],
+    "asan_passed": false,
+    "source_verified_after_build": true,
+    "change": "Keep the two bounded JPEG workers active across the complete framebuffer update, draining before non-JPEG bytes, cursor restoration, completion and every abort."
+  },
+  "cpu_scope": "Coordinator CPU plus worker CPU inside tjCompress; excludes worker housekeeping and other process threads. Combined CPU is not serial frame time.",
+  "wall_scope": "Worker wall intervals overlap. Capture/publication metrics use their own event counts.",
+  "measurements": {
+    "cold_sink": {
+      "raw_directory": "work/renderer-memory-20260909/jpeg-fbu-pipeline-sink-d03d",
+      "source_sha256": {
+        "run.json": "340e0f6c7a3f6dd43a9e5a5d3ccb15df6d8d880d3f640008e004f0a7bd169c58",
+        "timing.json": "1331709a083f07a7509520c9fad02f018b9e443af48c5eb16948578286fcba4d",
+        "pipeline-summary.json": "1d8c5f33267ed677405d89e577a23624fb307f170ccac8bf1252e7f39a21dd3f",
+        "sink.json": "6fb8d3c48e3e698faf2d0379c5ae4bfd9a87bae08b7f395c05d8f86bedf21537"
+      },
+      "restored": true,
+      "duration_seconds": 300,
+      "single_client": true,
+      "profile": {
+        "bits_per_pixel": 32,
+        "depth": 24,
+        "big_endian": 0,
+        "true_colour": 255,
+        "red_max": 255,
+        "green_max": 255,
+        "blue_max": 255,
+        "red_shift": 0,
+        "green_shift": 8,
+        "blue_shift": 16,
+        "preferred_encoding": 7,
+        "tight_quality_level": 6,
+        "tight_compress_level": 2,
+        "turbo_quality_level": 79,
+        "turbo_subsampling": 0,
+        "width": 1172,
+        "height": 2536,
+        "copy_rect": -1,
+        "last_rect": -1,
+        "new_fb_size": -1,
+        "extended_desktop_size": 0,
+        "cursor_shape": 0,
+        "cursor_position": 0,
+        "extended_clipboard": 0
+      },
+      "minutes": [
+        {
+          "minute": 1,
+          "fps": 59.36666666666667,
+          "capture_fps": 59.7,
+          "thermal_states": [
+            0
+          ],
+          "jobs_per_fbu": 42.988770353733855,
+          "coordinator_cpu": 0.9747247035373385,
+          "worker_jpeg_cpu": 7.903229801235262,
+          "coordinator_plus_worker_jpeg_cpu": 8.8779545047726,
+          "send_wall": 5.150482654969118,
+          "worker_jpeg_wall_sum": 7.988593671813588,
+          "finish_to_request_ms": 6.233632431218417,
+          "request_to_send_ms": 5.458706799550814,
+          "finish_to_send_ms": 11.693448385285032,
+          "publication_queue_ms": 3.035690137563167,
+          "publish_attempt_ms": 0.02677020290990487,
+          "capture_callback_ms": 9.917745417481152
+        },
+        {
+          "minute": 2,
+          "fps": 59.53333333333333,
+          "capture_fps": 59.733333333333334,
+          "thermal_states": [
+            0
+          ],
+          "jobs_per_fbu": 43.00839865621501,
+          "coordinator_cpu": 0.9611698054311311,
+          "worker_jpeg_cpu": 7.902463994400896,
+          "coordinator_plus_worker_jpeg_cpu": 8.863633799832028,
+          "send_wall": 5.128871783314669,
+          "worker_jpeg_wall_sum": 7.979347961366181,
+          "finish_to_request_ms": 6.250085767077267,
+          "request_to_send_ms": 5.418745711086227,
+          "finish_to_send_ms": 11.668743645016797,
+          "publication_queue_ms": 2.717622788353863,
+          "publish_attempt_ms": 0.026553793659217877,
+          "capture_callback_ms": 9.875464720982142
+        },
+        {
+          "minute": 3,
+          "fps": 59.46666666666667,
+          "capture_fps": 59.71666666666667,
+          "thermal_states": [
+            1
+          ],
+          "jobs_per_fbu": 43.02522421524664,
+          "coordinator_cpu": 0.9734307250560539,
+          "worker_jpeg_cpu": 7.88797964573991,
+          "coordinator_plus_worker_jpeg_cpu": 8.861410370795964,
+          "send_wall": 5.140574350336323,
+          "worker_jpeg_wall_sum": 7.974563802690583,
+          "finish_to_request_ms": 6.210843273542602,
+          "request_to_send_ms": 5.465663021300448,
+          "finish_to_send_ms": 11.676564321748879,
+          "publication_queue_ms": 3.074850327914798,
+          "publish_attempt_ms": 0.026807252194576463,
+          "capture_callback_ms": 9.902485383756629
+        },
+        {
+          "minute": 4,
+          "fps": 59.4,
+          "capture_fps": 59.733333333333334,
+          "thermal_states": [
+            1,
+            2
+          ],
+          "jobs_per_fbu": 43.00841750841751,
+          "coordinator_cpu": 0.9652943136924803,
+          "worker_jpeg_cpu": 7.936283693602693,
+          "coordinator_plus_worker_jpeg_cpu": 8.901578007295175,
+          "send_wall": 5.147564932659932,
+          "worker_jpeg_wall_sum": 8.012927629068463,
+          "finish_to_request_ms": 6.21836326318743,
+          "request_to_send_ms": 5.468853894500561,
+          "finish_to_send_ms": 11.68750361952862,
+          "publication_queue_ms": 2.998330953984287,
+          "publish_attempt_ms": 0.026679704508541024,
+          "capture_callback_ms": 9.87524740513393
+        },
+        {
+          "minute": 5,
+          "fps": 59.46666666666667,
+          "capture_fps": 59.75,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_fbu": 43.02466367713004,
+          "coordinator_cpu": 1.0378861193946187,
+          "worker_jpeg_cpu": 8.756023623038116,
+          "coordinator_plus_worker_jpeg_cpu": 9.793909742432735,
+          "send_wall": 5.667121109585201,
+          "worker_jpeg_wall_sum": 8.851062896300448,
+          "finish_to_request_ms": 5.732250330717489,
+          "request_to_send_ms": 5.416943948991031,
+          "finish_to_send_ms": 11.149150224215246,
+          "publication_queue_ms": 5.571325856462013,
+          "publish_attempt_ms": 0.029431146325789328,
+          "capture_callback_ms": 10.001169428172943
+        }
+      ],
+      "complete_paired_fbu": 17834,
+      "sink_duration_seconds": 310
+    },
+    "native_preflight": {
+      "raw_directory": "work/renderer-memory-20260909/jpeg-fbu-native-d03d",
+      "source_sha256": {
+        "run.json": "a1953aedf6c5ccd2e8525862819a630c157d167a9d613622e54912d8d453299e",
+        "preflight-timing.json": "a7af7f5306ee9c1b06493f312ad85dcf994af611560507a4ad365419c51c5420",
+        "preflight-pipeline-summary.json": "522b8a3c6ea448b14e73bf6c8afce1c4fc66ad82eb4807a93b63240dc08e0273"
+      },
+      "restored": true,
+      "duration_seconds": 300,
+      "single_client": true,
+      "profile": {
+        "bits_per_pixel": 32,
+        "depth": 24,
+        "big_endian": 0,
+        "true_colour": 255,
+        "red_max": 255,
+        "green_max": 255,
+        "blue_max": 255,
+        "red_shift": 0,
+        "green_shift": 8,
+        "blue_shift": 16,
+        "preferred_encoding": 7,
+        "tight_quality_level": 6,
+        "tight_compress_level": 2,
+        "turbo_quality_level": 79,
+        "turbo_subsampling": 0,
+        "width": 1172,
+        "height": 2536,
+        "copy_rect": -1,
+        "last_rect": -1,
+        "new_fb_size": -1,
+        "extended_desktop_size": -1,
+        "cursor_shape": -1,
+        "cursor_position": 0,
+        "extended_clipboard": 0
+      },
+      "minutes": [
+        {
+          "minute": 1,
+          "fps": 59.333333333333336,
+          "capture_fps": 59.71666666666667,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_fbu": 42.97668539325843,
+          "coordinator_cpu": 0.970588702247191,
+          "worker_jpeg_cpu": 7.88800211264045,
+          "coordinator_plus_worker_jpeg_cpu": 8.858590814887641,
+          "send_wall": 5.132110183426966,
+          "worker_jpeg_wall_sum": 7.969690832584269,
+          "finish_to_request_ms": 7.514044978914815,
+          "request_to_send_ms": 4.216626718179263,
+          "finish_to_send_ms": 11.723754874964877,
+          "publication_queue_ms": 2.9024071312166337,
+          "publish_attempt_ms": 0.025829330627099665,
+          "capture_callback_ms": 9.881320329424902
+        },
+        {
+          "minute": 2,
+          "fps": 59.46666666666667,
+          "capture_fps": 59.75,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_fbu": 43.000280269058294,
+          "coordinator_cpu": 1.005352832399103,
+          "worker_jpeg_cpu": 8.426453421244394,
+          "coordinator_plus_worker_jpeg_cpu": 9.431806253643497,
+          "send_wall": 5.454686102578475,
+          "worker_jpeg_wall_sum": 8.513377844170403,
+          "finish_to_request_ms": 7.201112463565022,
+          "request_to_send_ms": 4.159962626121077,
+          "finish_to_send_ms": 11.361073710762332,
+          "publication_queue_ms": 4.606735496076233,
+          "publish_attempt_ms": 0.027447073726916623,
+          "capture_callback_ms": 9.938757754532775
+        },
+        {
+          "minute": 3,
+          "fps": 59.53333333333333,
+          "capture_fps": 59.75,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_fbu": 43.00027995520717,
+          "coordinator_cpu": 1.064033110862262,
+          "worker_jpeg_cpu": 9.082064933090706,
+          "coordinator_plus_worker_jpeg_cpu": 10.146098043952968,
+          "send_wall": 5.865444820548713,
+          "worker_jpeg_wall_sum": 9.179131970884658,
+          "finish_to_request_ms": 6.798876129303106,
+          "request_to_send_ms": 4.130693923873496,
+          "finish_to_send_ms": 10.929589420654912,
+          "publication_queue_ms": 5.892633381858903,
+          "publish_attempt_ms": 0.029402825774923202,
+          "capture_callback_ms": 9.981735136642499
+        },
+        {
+          "minute": 4,
+          "fps": 58.36666666666667,
+          "capture_fps": 59.733333333333334,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_fbu": 43.00028555111365,
+          "coordinator_cpu": 1.8753801670474015,
+          "worker_jpeg_cpu": 16.154252354654485,
+          "coordinator_plus_worker_jpeg_cpu": 18.029632521701885,
+          "send_wall": 10.809499423472301,
+          "worker_jpeg_wall_sum": 16.7500584614506,
+          "finish_to_request_ms": 3.5726474842946887,
+          "request_to_send_ms": 2.750778857795545,
+          "finish_to_send_ms": 6.323427221587664,
+          "publication_queue_ms": 4.54863990288489,
+          "publish_attempt_ms": 0.04189753471227178,
+          "capture_callback_ms": 11.719649065029305
+        },
+        {
+          "minute": 5,
+          "fps": 47.483333333333334,
+          "capture_fps": 59.61666666666667,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_fbu": 43.01404001404001,
+          "coordinator_cpu": 2.298554813267813,
+          "worker_jpeg_cpu": 18.73931272165672,
+          "coordinator_plus_worker_jpeg_cpu": 21.037867534924533,
+          "send_wall": 14.506474263601264,
+          "worker_jpeg_wall_sum": 21.07139103018603,
+          "finish_to_request_ms": 2.429048982098982,
+          "request_to_send_ms": 4.122597535977536,
+          "finish_to_send_ms": 6.5516451737451735,
+          "publication_queue_ms": 4.453694826010544,
+          "publish_attempt_ms": 0.03032658662644545,
+          "capture_callback_ms": 14.290974084428292
+        }
+      ],
+      "complete_paired_fbu": 17051,
+      "qualification": "Daemon timing only. Window was partly offscreen and changed geometry; no controlled 22-minute visible, memory, image-quality or input trial ran."
+    },
+    "warm_sink": {
+      "raw_directory": "work/renderer-memory-20260909/jpeg-fbu-pipeline-hot-sink-d03d",
+      "source_sha256": {
+        "run.json": "340e0f6c7a3f6dd43a9e5a5d3ccb15df6d8d880d3f640008e004f0a7bd169c58",
+        "timing.json": "8feec75f80ee764caf902a14b7ff868daabde9bdca677a2108e2f828a949a915",
+        "pipeline-summary.json": "10459a1a7d69d9117cbcb80bb24483f0f51d9fde5e04f31ada1adb90112c930f",
+        "sink.json": "f57dac38c7b1a9731cffd0d76a7eac9b64a18d2bc4b2ec3887fb132c1528438f"
+      },
+      "restored": true,
+      "duration_seconds": 300,
+      "single_client": true,
+      "profile": {
+        "bits_per_pixel": 32,
+        "depth": 24,
+        "big_endian": 0,
+        "true_colour": 255,
+        "red_max": 255,
+        "green_max": 255,
+        "blue_max": 255,
+        "red_shift": 0,
+        "green_shift": 8,
+        "blue_shift": 16,
+        "preferred_encoding": 7,
+        "tight_quality_level": 6,
+        "tight_compress_level": 2,
+        "turbo_quality_level": 79,
+        "turbo_subsampling": 0,
+        "width": 1172,
+        "height": 2536,
+        "copy_rect": -1,
+        "last_rect": -1,
+        "new_fb_size": -1,
+        "extended_desktop_size": 0,
+        "cursor_shape": 0,
+        "cursor_position": 0,
+        "extended_clipboard": 0
+      },
+      "minutes": [
+        {
+          "minute": 1,
+          "fps": 59.516666666666666,
+          "capture_fps": 59.733333333333334,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_fbu": 42.99719966395968,
+          "coordinator_cpu": 1.0075714990198823,
+          "worker_jpeg_cpu": 8.335467828619434,
+          "coordinator_plus_worker_jpeg_cpu": 9.343039327639318,
+          "send_wall": 5.405730010361243,
+          "worker_jpeg_wall_sum": 8.42180620890507,
+          "finish_to_request_ms": 6.013257569308316,
+          "request_to_send_ms": 5.380111128219484,
+          "finish_to_send_ms": 11.39449593951274,
+          "publication_queue_ms": 4.374980106412769,
+          "publish_attempt_ms": 0.027964441434151784,
+          "capture_callback_ms": 9.961193613281251
+        },
+        {
+          "minute": 2,
+          "fps": 56.916666666666664,
+          "capture_fps": 59.71666666666667,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_fbu": 43.016691068814055,
+          "coordinator_cpu": 1.6795556881405564,
+          "worker_jpeg_cpu": 14.087226681112739,
+          "coordinator_plus_worker_jpeg_cpu": 15.766782369253294,
+          "send_wall": 9.806010979795023,
+          "worker_jpeg_wall_sum": 14.902901437774524,
+          "finish_to_request_ms": 3.610149238653001,
+          "request_to_send_ms": 4.151450043923865,
+          "finish_to_send_ms": 7.761596571010249,
+          "publication_queue_ms": 4.7153081961932655,
+          "publish_attempt_ms": 0.03622278117269812,
+          "capture_callback_ms": 11.711497803516606
+        },
+        {
+          "minute": 3,
+          "fps": 43.65,
+          "capture_fps": 59.6,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_fbu": 43.000381825124094,
+          "coordinator_cpu": 2.3268797285223366,
+          "worker_jpeg_cpu": 19.62351720580374,
+          "coordinator_plus_worker_jpeg_cpu": 21.95039693432608,
+          "send_wall": 15.419144031691486,
+          "worker_jpeg_wall_sum": 22.49136554639175,
+          "finish_to_request_ms": 1.9281579457808324,
+          "request_to_send_ms": 5.559806827033219,
+          "finish_to_send_ms": 7.4879655211912945,
+          "publication_queue_ms": 6.079762655951014,
+          "publish_attempt_ms": 0.02698443447761194,
+          "capture_callback_ms": 14.775657510489513
+        },
+        {
+          "minute": 4,
+          "fps": 33.18333333333333,
+          "capture_fps": 59.4,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_fbu": 43.009542943244604,
+          "coordinator_cpu": 2.655462628829734,
+          "worker_jpeg_cpu": 22.015797477649425,
+          "coordinator_plus_worker_jpeg_cpu": 24.671260106479156,
+          "send_wall": 18.468617365143142,
+          "worker_jpeg_wall_sum": 26.00400837970869,
+          "finish_to_request_ms": 1.8754675037669513,
+          "request_to_send_ms": 9.797145886489202,
+          "finish_to_send_ms": 11.672594525364138,
+          "publication_queue_ms": 10.732764422110552,
+          "publish_attempt_ms": 0.026197203903849626,
+          "capture_callback_ms": 15.336325112233446
+        },
+        {
+          "minute": 5,
+          "fps": 35.916666666666664,
+          "capture_fps": 59.45,
+          "thermal_states": [
+            2
+          ],
+          "jobs_per_fbu": 43.01716937354988,
+          "coordinator_cpu": 2.6127582389791186,
+          "worker_jpeg_cpu": 22.103392373085846,
+          "coordinator_plus_worker_jpeg_cpu": 24.716150612064965,
+          "send_wall": 17.654883028306266,
+          "worker_jpeg_wall_sum": 25.681802284454754,
+          "finish_to_request_ms": 1.8588571415313226,
+          "request_to_send_ms": 8.326419517401392,
+          "finish_to_send_ms": 10.185276881670532,
+          "publication_queue_ms": 9.060056824732682,
+          "publish_attempt_ms": 0.026444076448144293,
+          "capture_callback_ms": 14.974107989907484
+        }
+      ],
+      "complete_paired_fbu": 13751,
+      "sink_duration_seconds": 310
+    }
+  },
+  "native_vs_sink_profile_differences": {
+    "extended_desktop_size": {
+      "native": -1,
+      "sink": 0
+    },
+    "cursor_shape": {
+      "native": -1,
+      "sink": 0
+    }
+  },
+  "warm_final_conditional_arithmetic": {
+    "cycle_ms": 27.840159909976798,
+    "fps_if_all_gap_removed_and_send_cost_unchanged": 56.64155341027687,
+    "fps_if_request_to_send_removed_but_request_return_and_send_cost_unchanged": 51.24594215647604,
+    "meaning": "Conditional arithmetic bounds only, not measured improvement or prediction of changed scheduling."
+  },
+  "interpretation": [
+    "Cold C held about59.4FPS, but the warm sink still declined to33-36FPS; capture stayed near60FPS. This rules out the Mac renderer as a necessary cause of the observed delivery decline.",
+    "The nominal thermal state was2 throughout native and warm sink reports despite large changes in codec CPU cost. No physical temperature, clock frequency, core placement or effective QoS was measured.",
+    "Later CPU cost differs from prior B and native C. These runs do not establish a thermally matched batching speedup or regression.",
+    "Publication queue delay supports testing post-unlock off-main publication, but aggregate delays do not causally pair each wake with the next send. Send cost itself must also fall to sustain60FPS in the warm final interval.",
+    "Every completed device trial restored the verified normal daemon. No candidate promotion or sustained native qualification is claimed."
+  ]
+}

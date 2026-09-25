@@ -1,0 +1,517 @@
+{
+  "date": "2026-09-11",
+  "status": "diagnostic_evidence_only_not_performance_qualification",
+  "binary_sha256": "286419fd2c7b70e5e705a949908bd552401e47b572bf76975bfb3cc820fb71b5",
+  "library_sha256": "61fcaabefc984bb1dfdb6b036d7466b74e2b22e189810806fb5e8a0e3815b4c5",
+  "method": {
+    "measurement_seconds_per_run": 300,
+    "windows": 30,
+    "worker_count": 2,
+    "samples": "First eligible JPEG job per existing worker in each 10-second window; 60 jobs and 60 no-work controls per run. Independent CPU and counter edges bracket the original per-job CPU scope.",
+    "profile": {
+      "bits_per_pixel": 32,
+      "depth": 24,
+      "big_endian": 0,
+      "true_colour": 255,
+      "red_max": 255,
+      "green_max": 255,
+      "blue_max": 255,
+      "red_shift": 0,
+      "green_shift": 8,
+      "blue_shift": 16,
+      "preferred_encoding": 7,
+      "tight_quality_level": 6,
+      "tight_compress_level": 2,
+      "turbo_quality_level": 79,
+      "turbo_subsampling": 0,
+      "width": 1172,
+      "height": 2536,
+      "copy_rect": -1,
+      "last_rect": -1,
+      "new_fb_size": -1,
+      "extended_desktop_size": 0,
+      "cursor_shape": 0,
+      "cursor_position": 0,
+      "extended_clipboard": 0
+    },
+    "environment": "Native viewer closed; one Tight sink; same heavy-motion fixture. Warm run immediately followed first run with normal daemon restoration and diagnostic restart between runs. No UI, second client or profiler during either collection.",
+    "raw_source_root": "work/renderer-memory-20260909",
+    "interpretation_limits": [
+      "Whole-pipeline CPU totals include every paired JPEG job; sparse counter totals do not.",
+      "No job geometry or pixels were logged; instruction changes cannot establish matched image work.",
+      "Counter and CPU endpoints are non-atomic and can include kernel/probe work. Raw controls were not subtracted and do not bound all instrumentation overhead.",
+      "Effective cycles per CPU nanosecond is not a literal clock frequency and does not identify core residency or DVFS.",
+      "Requested worker policy samples do not report scheduling overrides. Thermal state is categorical.",
+      "Five-minute runs do not qualify sustained native display speed, input latency or memory."
+    ]
+  },
+  "runs": {
+    "first": {
+      "restored": true,
+      "single_client": true,
+      "profile_changed": false,
+      "qualification": {
+        "worker": true,
+        "publication": true,
+        "policy_samples": 60,
+        "actual_job_pairs": 60,
+        "control_pairs": 60,
+        "pending_pairs": 0,
+        "invalid_pairs": 0,
+        "error_pairs": 0,
+        "zero_cpu_pairs": 0,
+        "successful_cpu_reads": 240,
+        "successful_counter_reads": 240,
+        "policy_control_job_order_pairs": 60,
+        "positive_monotonic_pairs": 120,
+        "within_sample_endpoint_order": 180,
+        "between_window_worker_monotonicity": 58
+      },
+      "worker_policy_values": {
+        "pthread_qos_result": [
+          0
+        ],
+        "pthread_requested_qos": [
+          21
+        ],
+        "pthread_relative_priority": [
+          0
+        ],
+        "mach_result": [
+          0
+        ],
+        "mach_info_count": [
+          28
+        ],
+        "mach_info_valid": [
+          true
+        ],
+        "mach_pth_curpri": [
+          31
+        ],
+        "mach_pth_priority": [
+          31
+        ],
+        "mach_pth_maxpriority": [
+          63
+        ],
+        "mach_pth_policy": [
+          1
+        ]
+      },
+      "raw_control_percent_of_sampled_jobs": {
+        "instructions": 0.10464103698395526,
+        "cycles": 0.21508840966757165,
+        "cpu_ns": 0.38512148536808066,
+        "wall_ns": 0.5879648694318618
+      },
+      "minutes": [
+        {
+          "minute": 1,
+          "updates_per_second": 59.36666666666667,
+          "capture_starts_per_second": 59.68333333333333,
+          "thermal_states": [
+            0
+          ],
+          "all_jobs_per_update": 42.988770353733855,
+          "all_jobs_mean_ms_per_update": {
+            "coordinator_cpu": 0.9625206476698484,
+            "worker_jpeg_cpu": 7.938331051656373,
+            "coordinator_plus_worker_jpeg_cpu": 8.900851699326221,
+            "send_wall": 5.163624517405951,
+            "worker_jpeg_wall_sum": 8.021486124929815
+          },
+          "sampled_jobs": 12,
+          "sampled_job_raw_sums": {
+            "instructions": 21156582,
+            "cycles": 6828948,
+            "cpu_ns": 3012207,
+            "wall_ns": 3025417
+          },
+          "sampled_job_effective_cycles_per_cpu_ns": 2.267091205883261,
+          "sampled_job_cycles_per_instruction": 0.32278125077103664,
+          "sampled_job_instructions_per_cpu_ns": 7.023614910927436,
+          "control_raw_sums": {
+            "instructions": 26787,
+            "cycles": 16573,
+            "cpu_ns": 12043,
+            "wall_ns": 19583
+          }
+        },
+        {
+          "minute": 2,
+          "updates_per_second": 59.45,
+          "capture_starts_per_second": 59.71666666666667,
+          "thermal_states": [
+            0
+          ],
+          "all_jobs_per_update": 43.00028034763106,
+          "all_jobs_mean_ms_per_update": {
+            "coordinator_cpu": 0.9568874275301373,
+            "worker_jpeg_cpu": 7.901117243622092,
+            "coordinator_plus_worker_jpeg_cpu": 8.858004671152228,
+            "send_wall": 5.1405125105130365,
+            "worker_jpeg_wall_sum": 7.984691738435661
+          },
+          "sampled_jobs": 12,
+          "sampled_job_raw_sums": {
+            "instructions": 29097259,
+            "cycles": 8867295,
+            "cpu_ns": 3491540,
+            "wall_ns": 3496332
+          },
+          "sampled_job_effective_cycles_per_cpu_ns": 2.5396515577653416,
+          "sampled_job_cycles_per_instruction": 0.3047467460766665,
+          "sampled_job_instructions_per_cpu_ns": 8.333646184778063,
+          "control_raw_sums": {
+            "instructions": 26449,
+            "cycles": 16732,
+            "cpu_ns": 12000,
+            "wall_ns": 18376
+          }
+        },
+        {
+          "minute": 3,
+          "updates_per_second": 59.35,
+          "capture_starts_per_second": 59.7,
+          "thermal_states": [
+            0,
+            1
+          ],
+          "all_jobs_per_update": 43.00028081999439,
+          "all_jobs_mean_ms_per_update": {
+            "coordinator_cpu": 0.9592930421229992,
+            "worker_jpeg_cpu": 7.881350200224656,
+            "coordinator_plus_worker_jpeg_cpu": 8.840643242347657,
+            "send_wall": 5.127136697276047,
+            "worker_jpeg_wall_sum": 7.965595573715248
+          },
+          "sampled_jobs": 12,
+          "sampled_job_raw_sums": {
+            "instructions": 24817763,
+            "cycles": 7786964,
+            "cpu_ns": 2927209,
+            "wall_ns": 2954168
+          },
+          "sampled_job_effective_cycles_per_cpu_ns": 2.6602008944356212,
+          "sampled_job_cycles_per_instruction": 0.3137657491531368,
+          "sampled_job_instructions_per_cpu_ns": 8.478302369253443,
+          "control_raw_sums": {
+            "instructions": 27738,
+            "cycles": 17823,
+            "cpu_ns": 10669,
+            "wall_ns": 17167
+          }
+        },
+        {
+          "minute": 4,
+          "updates_per_second": 59.5,
+          "capture_starts_per_second": 59.71666666666667,
+          "thermal_states": [
+            1,
+            2
+          ],
+          "all_jobs_per_update": 43.00028011204482,
+          "all_jobs_mean_ms_per_update": {
+            "coordinator_cpu": 0.9724235722689075,
+            "worker_jpeg_cpu": 8.042062661904762,
+            "coordinator_plus_worker_jpeg_cpu": 9.014486234173669,
+            "send_wall": 5.224478889635854,
+            "worker_jpeg_wall_sum": 8.126882621568628
+          },
+          "sampled_jobs": 12,
+          "sampled_job_raw_sums": {
+            "instructions": 24512400,
+            "cycles": 7630521,
+            "cpu_ns": 2586665,
+            "wall_ns": 2590792
+          },
+          "sampled_job_effective_cycles_per_cpu_ns": 2.949945586305146,
+          "sampled_job_cycles_per_instruction": 0.31129228472120235,
+          "sampled_job_instructions_per_cpu_ns": 9.47644940492874,
+          "control_raw_sums": {
+            "instructions": 26420,
+            "cycles": 15411,
+            "cpu_ns": 11039,
+            "wall_ns": 16124
+          }
+        },
+        {
+          "minute": 5,
+          "updates_per_second": 59.55,
+          "capture_starts_per_second": 59.766666666666666,
+          "thermal_states": [
+            2
+          ],
+          "all_jobs_per_update": 43.00027987685419,
+          "all_jobs_mean_ms_per_update": {
+            "coordinator_cpu": 1.03002344304506,
+            "worker_jpeg_cpu": 8.823011155611532,
+            "coordinator_plus_worker_jpeg_cpu": 9.85303459865659,
+            "send_wall": 5.698470706689057,
+            "worker_jpeg_wall_sum": 8.916093732997481
+          },
+          "sampled_jobs": 12,
+          "sampled_job_raw_sums": {
+            "instructions": 29067244,
+            "cycles": 8748485,
+            "cpu_ns": 3702873,
+            "wall_ns": 3708043
+          },
+          "sampled_job_effective_cycles_per_cpu_ns": 2.3626208622331903,
+          "sampled_job_cycles_per_instruction": 0.3009740104703425,
+          "sampled_job_instructions_per_cpu_ns": 7.849916537780259,
+          "control_raw_sums": {
+            "instructions": 27228,
+            "cycles": 19200,
+            "cpu_ns": 14792,
+            "wall_ns": 21500
+          }
+        }
+      ]
+    },
+    "warm": {
+      "restored": true,
+      "single_client": true,
+      "profile_changed": false,
+      "qualification": {
+        "worker": true,
+        "publication": true,
+        "policy_samples": 60,
+        "actual_job_pairs": 60,
+        "control_pairs": 60,
+        "pending_pairs": 0,
+        "invalid_pairs": 0,
+        "error_pairs": 0,
+        "zero_cpu_pairs": 0,
+        "successful_cpu_reads": 240,
+        "successful_counter_reads": 240,
+        "policy_control_job_order_pairs": 60,
+        "positive_monotonic_pairs": 120,
+        "within_sample_endpoint_order": 180,
+        "between_window_worker_monotonicity": 58
+      },
+      "worker_policy_values": {
+        "pthread_qos_result": [
+          0
+        ],
+        "pthread_requested_qos": [
+          21
+        ],
+        "pthread_relative_priority": [
+          0
+        ],
+        "mach_result": [
+          0
+        ],
+        "mach_info_count": [
+          28
+        ],
+        "mach_info_valid": [
+          true
+        ],
+        "mach_pth_curpri": [
+          31
+        ],
+        "mach_pth_priority": [
+          31
+        ],
+        "mach_pth_maxpriority": [
+          63
+        ],
+        "mach_pth_policy": [
+          1
+        ]
+      },
+      "raw_control_percent_of_sampled_jobs": {
+        "instructions": 0.10343549176005234,
+        "cycles": 0.1820735045335874,
+        "cpu_ns": 0.2972666896749921,
+        "wall_ns": 0.44742425422540694
+      },
+      "minutes": [
+        {
+          "minute": 1,
+          "updates_per_second": 59.36666666666667,
+          "capture_starts_per_second": 59.68333333333333,
+          "thermal_states": [
+            2
+          ],
+          "all_jobs_per_update": 42.988770353733855,
+          "all_jobs_mean_ms_per_update": {
+            "coordinator_cpu": 0.9784379705221786,
+            "worker_jpeg_cpu": 7.9751047596855695,
+            "coordinator_plus_worker_jpeg_cpu": 8.953542730207749,
+            "send_wall": 5.193873194553621,
+            "worker_jpeg_wall_sum": 8.06106514093206
+          },
+          "sampled_jobs": 12,
+          "sampled_job_raw_sums": {
+            "instructions": 27047142,
+            "cycles": 8743142,
+            "cpu_ns": 3509499,
+            "wall_ns": 3533669
+          },
+          "sampled_job_effective_cycles_per_cpu_ns": 2.491279239572372,
+          "sampled_job_cycles_per_instruction": 0.32325566967482183,
+          "sampled_job_instructions_per_cpu_ns": 7.7068384974607484,
+          "control_raw_sums": {
+            "instructions": 26807,
+            "cycles": 15918,
+            "cpu_ns": 10250,
+            "wall_ns": 16876
+          }
+        },
+        {
+          "minute": 2,
+          "updates_per_second": 59.46666666666667,
+          "capture_starts_per_second": 59.75,
+          "thermal_states": [
+            2
+          ],
+          "all_jobs_per_update": 43.00084080717489,
+          "all_jobs_mean_ms_per_update": {
+            "coordinator_cpu": 1.0465209007847533,
+            "worker_jpeg_cpu": 8.912049472253363,
+            "coordinator_plus_worker_jpeg_cpu": 9.958570373038118,
+            "send_wall": 5.762845947869955,
+            "worker_jpeg_wall_sum": 9.01030977998879
+          },
+          "sampled_jobs": 12,
+          "sampled_job_raw_sums": {
+            "instructions": 28812802,
+            "cycles": 8952052,
+            "cpu_ns": 3696209,
+            "wall_ns": 3716373
+          },
+          "sampled_job_effective_cycles_per_cpu_ns": 2.4219550355512904,
+          "sampled_job_cycles_per_instruction": 0.3106970297439312,
+          "sampled_job_instructions_per_cpu_ns": 7.795230735058542,
+          "control_raw_sums": {
+            "instructions": 26954,
+            "cycles": 16964,
+            "cpu_ns": 12669,
+            "wall_ns": 19417
+          }
+        },
+        {
+          "minute": 3,
+          "updates_per_second": 59.483333333333334,
+          "capture_starts_per_second": 59.75,
+          "thermal_states": [
+            2
+          ],
+          "all_jobs_per_update": 43.00028019052956,
+          "all_jobs_mean_ms_per_update": {
+            "coordinator_cpu": 1.1274382807509105,
+            "worker_jpeg_cpu": 9.822837444382179,
+            "coordinator_plus_worker_jpeg_cpu": 10.95027572513309,
+            "send_wall": 6.335184873634071,
+            "worker_jpeg_wall_sum": 9.93753477248529
+          },
+          "sampled_jobs": 12,
+          "sampled_job_raw_sums": {
+            "instructions": 25621580,
+            "cycles": 7813316,
+            "cpu_ns": 3457543,
+            "wall_ns": 3550961
+          },
+          "sampled_job_effective_cycles_per_cpu_ns": 2.2597885261296824,
+          "sampled_job_cycles_per_instruction": 0.30495059243028727,
+          "sampled_job_instructions_per_cpu_ns": 7.410343125161423,
+          "control_raw_sums": {
+            "instructions": 27084,
+            "cycles": 17539,
+            "cpu_ns": 13374,
+            "wall_ns": 21041
+          }
+        },
+        {
+          "minute": 4,
+          "updates_per_second": 57.13333333333333,
+          "capture_starts_per_second": 59.666666666666664,
+          "thermal_states": [
+            2
+          ],
+          "all_jobs_per_update": 43.00029171528588,
+          "all_jobs_mean_ms_per_update": {
+            "coordinator_cpu": 2.131482765752626,
+            "worker_jpeg_cpu": 17.72215209334889,
+            "coordinator_plus_worker_jpeg_cpu": 19.853634859101515,
+            "send_wall": 13.097447555717618,
+            "worker_jpeg_wall_sum": 19.412508563302215
+          },
+          "sampled_jobs": 12,
+          "sampled_job_raw_sums": {
+            "instructions": 28415734,
+            "cycles": 10773791,
+            "cpu_ns": 6712124,
+            "wall_ns": 7306665
+          },
+          "sampled_job_effective_cycles_per_cpu_ns": 1.6051239518221059,
+          "sampled_job_cycles_per_instruction": 0.3791487842615644,
+          "sampled_job_instructions_per_cpu_ns": 4.23349360053539,
+          "control_raw_sums": {
+            "instructions": 27190,
+            "cycles": 17653,
+            "cpu_ns": 17001,
+            "wall_ns": 26750
+          }
+        },
+        {
+          "minute": 5,
+          "updates_per_second": 51.733333333333334,
+          "capture_starts_per_second": 59.516666666666666,
+          "thermal_states": [
+            2
+          ],
+          "all_jobs_per_update": 43.00032216494845,
+          "all_jobs_mean_ms_per_update": {
+            "coordinator_cpu": 2.2879917280927837,
+            "worker_jpeg_cpu": 19.32761387564433,
+            "coordinator_plus_worker_jpeg_cpu": 21.615605603737112,
+            "send_wall": 15.909536699742269,
+            "worker_jpeg_wall_sum": 22.52917373872423
+          },
+          "sampled_jobs": 12,
+          "sampled_job_raw_sums": {
+            "instructions": 21437739,
+            "cycles": 11059568,
+            "cpu_ns": 5485915,
+            "wall_ns": 5965457
+          },
+          "sampled_job_effective_cycles_per_cpu_ns": 2.0159933210777052,
+          "sampled_job_cycles_per_instruction": 0.515892464219291,
+          "sampled_job_instructions_per_cpu_ns": 3.907778191969799,
+          "control_raw_sums": {
+            "instructions": 27812,
+            "cycles": 18123,
+            "cpu_ns": 14665,
+            "wall_ns": 23625
+          }
+        }
+      ]
+    }
+  },
+  "conclusion": "Warm delivery declined from 59.37 to 51.73 updates/s as whole JPEG CPU/update rose from 7.98 to 19.33 ms. Across selected jobs, CPU/instruction rose 97.22% despite fewer instructions/job, with unchanged sampled worker policy. This supports an execution-efficiency component and a bounded parallelism experiment; it does not prove the underlying hardware cause or that four workers fix it.",
+  "source_sha256": {
+    "jpeg-worker-hardware-sink-2864/run.json": "ca49a002868a8fcf42cc2ea1fb62abb788ca1d1cd274557489923b50f6d27a6d",
+    "jpeg-worker-hardware-sink-2864/timing.json": "37462c4c06b187321f5a0af473a98066ae4abe0be277016081efb3ce77941769",
+    "jpeg-worker-hardware-sink-2864/worker-validation.json": "a6141fe411db8efa0b558d3ca94cf5202d208df2919e2aa16af777fb4ff14b3b",
+    "jpeg-worker-hardware-sink-2864/publication-validation.json": "e36f16e7b0e4bec5482dcae61b87d160805ddbc3db1d8a3cf6ae9f2cce6df0c5",
+    "jpeg-worker-policy-device-build/diagnostic-build-manifest.json": "035c39fceb802362e4be782492cbaf7b4837a7be348c5091fb239f427667ceae",
+    "jpeg-worker-hardware-warm-sink-2864/run.json": "ca49a002868a8fcf42cc2ea1fb62abb788ca1d1cd274557489923b50f6d27a6d",
+    "jpeg-worker-hardware-warm-sink-2864/timing.json": "36de44f71abeeac4df938f25d8bd360f82456976f071378b9181c10a1efb8efc",
+    "jpeg-worker-hardware-warm-sink-2864/worker-validation.json": "e4e11ae74186e71fea2f8e35daabe970761d9a34e59bf11a5cbcf345417cd946",
+    "jpeg-worker-hardware-warm-sink-2864/publication-validation.json": "1a286756919377e7aa365bda4b0b2ba8e7a43305c487c37e044abc0bc175156a",
+    "jpeg-cpu-efficiency-review/e-worker-hardware-analysis.json": "d5bfc7e348492842d99e18be4526a10f1f5c11fe3414267daabab682e4726086",
+    "jpeg-cpu-efficiency-review/e-worker-hardware-analysis.md": "c17f4e4bf7139baea16f93a74173fede7e5847ef7d55e27def933571923fd80e",
+    "run-jpeg-worker-timing-sink.py": "2a657181c5ac380032400662bf2d0f3b8461033784fe73d27b2f793aded65683",
+    "jpeg-worker-policy-device-build/motion-preflight.json": "0f12dce5a284429d1ce15cd00e433e0044456545fbcf514ccf3db4ef641f18dd",
+    "jpeg-worker-policy-device-build/runner-verification.json": "263d866f6fb0229d0d0c5f1069c9c9f32c5a138d08d6ba18bd5b7f98c2f3b215",
+    "jpeg-worker-diagnostic-validation/manifest.json": "bb90e5967fef4f04f3cb1d0479191fd60750f4970f4a1f21484606809537848b",
+    "jpeg-worker-hardware-candidate/manifest.json": "c49f4df3186ea1296f310668e848d85489cfc53e77be8538d3414f699ef1221d",
+    "jpeg-worker-hardware-sink-2864/pipeline-summary.json": "170de3c73bdb0917cceae1fbaaf1198bca652095c7cd7af211fed8c273399a6f",
+    "jpeg-worker-hardware-warm-sink-2864/pipeline-summary.json": "59f49ee5949aa70254783d1e5a8073a3e7fcd476a691b5cb333917a7cc8f1ec1"
+  }
+}

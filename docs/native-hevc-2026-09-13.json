@@ -1,0 +1,1186 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-13",
+  "status": "sustained_performance_passed_with_remaining_qualification_limits",
+  "candidate_1": {
+    "phone_sha256": "f7b3ecb13346a143041f9e912163e2224a897fd431c475113c038eb11ceb0700",
+    "heavy_300s": {
+      "measurement": "complete native HEVC delivery; independent decoder validation required",
+      "status": "complete",
+      "frames": 16353,
+      "fps": 54.51,
+      "gap_ms": {
+        "50": 16.81158300198149,
+        "95": 32.9004579980392,
+        "99": 34.19966700312216,
+        "100": 78.68574999884004
+      },
+      "formats": 145,
+      "annex_b_sha256": "e55976ef991a9f2835126e1f280d5e7fc964890d28abcc726b50c1da19953012",
+      "error": null,
+      "thermal_states": [
+        0,
+        1
+      ],
+      "per_minute_fps": [
+        54.266666666666666,
+        53.3,
+        54.53333333333333,
+        55.266666666666666,
+        55.18333333333333
+      ],
+      "raw_report_sha256": "5f067dc2336d012da984bf2e5bc59648c3d60058a4f37047ea66f4d75ec926bd",
+      "throughput_gate_passed": false
+    },
+    "thermal_states": [
+      0,
+      1
+    ],
+    "per_minute_fps": [
+      54.266666666666666,
+      53.3,
+      54.53333333333333,
+      55.266666666666666,
+      55.18333333333333
+    ],
+    "raw_report_sha256": "5f067dc2336d012da984bf2e5bc59648c3d60058a4f37047ea66f4d75ec926bd",
+    "ffmpeg_exit_code": 0,
+    "ffmpeg_errors_bytes": 0,
+    "throughput_gate_passed": false,
+    "heavy_warm_300s": {
+      "measurement": "complete native HEVC delivery; independent decoder validation required",
+      "status": "complete",
+      "frames": 16418,
+      "fps": 54.72666666666667,
+      "gap_ms": {
+        "50": 16.796709001937415,
+        "95": 32.79416700388538,
+        "99": 34.1450830019312,
+        "100": 76.48429099936038
+      },
+      "formats": 143,
+      "annex_b_sha256": "f11e7b91e01472136791c0e6e79d07ae6a8fe646d821ccfd239730a8c89da0fd",
+      "error": null,
+      "thermal_states": [
+        1
+      ],
+      "per_minute_fps": [
+        55.11666666666667,
+        54.61666666666667,
+        54.416666666666664,
+        54.916666666666664,
+        54.56666666666667
+      ],
+      "raw_report_sha256": "7caf3efc64317f5f2db25e024a6ddde989bf3456e4c6917c6526512d103efe9f",
+      "throughput_gate_passed": false
+    }
+  },
+  "limits": [
+    "Initial governor and hardware-probe repeats used light motion, not heavy; not matched heavy baselines.",
+    "No physical monitor scanout timing.",
+    "Old canvas and native decoder input observations use different timing granularity.",
+    "Native Mac 22-minute, input-latency and physical recovery qualification remains incomplete.",
+    "Native lossless sRGB stills do not equal system Display P3 captures."
+  ],
+  "lossless_usb_comparison": {
+    "measurement": "independent USB pixel comparison on static input fixture",
+    "native_size": [
+      1170,
+      2532
+    ],
+    "usb_size": [
+      1170,
+      2532
+    ],
+    "native_before_after_equal": true,
+    "pixel_exact": false,
+    "diff_bbox": [
+      0,
+      0,
+      1170,
+      2532
+    ],
+    "max_channel_error": 77,
+    "artifact_sha256": {
+      "native_before": "79c2ab7ebb058819fbd40d0b62d9065554923c21e6a31668378bfebdf9322ba6",
+      "usb": "8f2782091af3abff77fa71159244e534331a98ec2e9b967d0eed204192d78fa3",
+      "native_after": "79c2ab7ebb058819fbd40d0b62d9065554923c21e6a31668378bfebdf9322ba6"
+    }
+  },
+  "static_20s": {
+    "measurement": "complete native HEVC delivery; independent decoder validation required",
+    "status": "complete",
+    "frames": 1,
+    "frames_per_second": [
+      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "received_bytes": {
+      "GEOMETRY": 28,
+      "FORMAT": 117,
+      "VIDEO": 220856
+    },
+    "annex_b_sha256": "f70405df8655c7ab3f622d38a9c253c86a30eda25e85dcfa21df840a0d5fae14"
+  },
+  "session_f7b3": {
+    "status": "complete",
+    "checks": [
+      {
+        "name": "read_only_health",
+        "status": "passed",
+        "details": {
+          "portrait_size": [
+            1170,
+            2532
+          ],
+          "generation": 5
+        },
+        "elapsed_ms": 1.76
+      },
+      {
+        "name": "competing_input_lease_denied",
+        "status": "passed",
+        "details": {},
+        "elapsed_ms": 0.68
+      },
+      {
+        "name": "stale_generation_rejected",
+        "status": "passed",
+        "details": {},
+        "elapsed_ms": 0.66
+      },
+      {
+        "name": "explicit_input_release_handoff",
+        "status": "passed",
+        "details": {},
+        "elapsed_ms": 1.81
+      },
+      {
+        "name": "input_lease_released_on_tcp_disconnect",
+        "status": "passed",
+        "details": {
+          "acquire_attempts": 1,
+          "disconnect_kind": "scripted TCP close"
+        },
+        "elapsed_ms": 1.51
+      },
+      {
+        "name": "video_join_format_and_idr",
+        "status": "passed",
+        "details": {
+          "generation": 6,
+          "pts_ns": 611551363750250,
+          "nal_types": [
+            20,
+            39
+          ],
+          "portrait_size": [
+            1170,
+            2532
+          ],
+          "quarter_turns": 0
+        },
+        "elapsed_ms": 116.45
+      },
+      {
+        "name": "competing_video_subscriber_denied",
+        "status": "passed",
+        "details": {},
+        "elapsed_ms": 0.52
+      },
+      {
+        "name": "request_keyframe_followed_by_format_and_new_idr",
+        "status": "passed",
+        "details": {
+          "generation": 6,
+          "pts_ns": 611551425783708,
+          "nal_types": [
+            20
+          ],
+          "portrait_size": [
+            1170,
+            2532
+          ],
+          "quarter_turns": 0
+        },
+        "elapsed_ms": 50.77
+      },
+      {
+        "name": "video_reconnect_format_and_idr",
+        "status": "passed",
+        "details": {
+          "generation": 7,
+          "pts_ns": 611551533110250,
+          "nal_types": [
+            20,
+            39
+          ],
+          "portrait_size": [
+            1170,
+            2532
+          ],
+          "quarter_turns": 0,
+          "disconnect_kind": "scripted TCP close and new connection"
+        },
+        "elapsed_ms": 87.68
+      }
+    ],
+    "measurement": "Session ownership and protocol recovery; no accepted touch/key events or video decode",
+    "coverage_limits": {
+      "disconnect": "scripted TCP socket close only; physical USB cable pull not tested",
+      "phone_lock_unlock": "not tested",
+      "physical_orientation_change": "not tested",
+      "VideoToolbox_invalidation": "not induced or verified",
+      "held_touch_or_key_release": "not tested; only empty input-lease cleanup is exercised",
+      "video_pixels": "NAL framing/IDR ordering only; independent decode and visual proof required"
+    }
+  },
+  "mcp": {
+    "tools": [
+      "drag",
+      "health",
+      "key",
+      "screenshot",
+      "tap",
+      "type_text"
+    ],
+    "native_png_verified": true,
+    "portrait_size": [
+      1170,
+      2532
+    ]
+  },
+  "candidate_2": {
+    "daemon_sha256": "866a3e3610df1e8834b4ede94decae81df30ef62804d99ae583eea99061ca4e2",
+    "fps": 59.416666666666664,
+    "frames": 17825,
+    "thermal_states": [
+      0,
+      1
+    ],
+    "per_minute_fps": [
+      59.31666666666667,
+      59.45,
+      59.416666666666664,
+      59.46666666666667,
+      59.43333333333333
+    ],
+    "annex_b_sha256": "5c7d0193a4a507115e1778f0ace8d308ff1579ab58a04353c90af2ec14fde94e",
+    "ffmpeg_exit_code": 0,
+    "ffmpeg_error_bytes": 0,
+    "raw_report_sha256": "f7c122e015f29d3d86d671cd266a771f255108b27efa969e4da35a78b2ef4e53"
+  },
+  "p3_probe_comparison": {
+    "measurement": "raw RGB Display P3 capture probe vs independent USB",
+    "daemon_sha256": "dbbcd554d64e45bff8d0e0e00ae419704e667b62699a88a7ac33c52d3747037d",
+    "sizes": [
+      [
+        1170,
+        2532
+      ],
+      [
+        1170,
+        2532
+      ],
+      [
+        1170,
+        2532
+      ],
+      [
+        1170,
+        2532
+      ],
+      [
+        1170,
+        2532
+      ],
+      [
+        1170,
+        2532
+      ],
+      [
+        1170,
+        2532
+      ]
+    ],
+    "usb_stable": true,
+    "native_stable": true,
+    "comparisons": [
+      {
+        "pixel_exact": false,
+        "diff_bbox": [
+          0,
+          57,
+          1170,
+          2532
+        ],
+        "max_channel_error": 117
+      },
+      {
+        "pixel_exact": false,
+        "diff_bbox": [
+          0,
+          57,
+          1170,
+          2532
+        ],
+        "max_channel_error": 117
+      },
+      {
+        "pixel_exact": false,
+        "diff_bbox": [
+          0,
+          57,
+          1170,
+          2532
+        ],
+        "max_channel_error": 117
+      },
+      {
+        "pixel_exact": false,
+        "diff_bbox": [
+          0,
+          57,
+          1170,
+          2532
+        ],
+        "max_channel_error": 117
+      },
+      {
+        "pixel_exact": false,
+        "diff_bbox": [
+          0,
+          57,
+          1170,
+          2532
+        ],
+        "max_channel_error": 117
+      }
+    ],
+    "artifact_sha256": [
+      "0f4231179d265aa49b84314e97fd9a49154630a81cab7dc658d9b53b1841fd22",
+      "c2a2e371f90d8d0d7ef351dfef3638a4f07349d55f5d518e08f791c05e5f8955",
+      "c2a2e371f90d8d0d7ef351dfef3638a4f07349d55f5d518e08f791c05e5f8955",
+      "c2a2e371f90d8d0d7ef351dfef3638a4f07349d55f5d518e08f791c05e5f8955",
+      "c2a2e371f90d8d0d7ef351dfef3638a4f07349d55f5d518e08f791c05e5f8955",
+      "c2a2e371f90d8d0d7ef351dfef3638a4f07349d55f5d518e08f791c05e5f8955",
+      "0f4231179d265aa49b84314e97fd9a49154630a81cab7dc658d9b53b1841fd22"
+    ]
+  },
+  "p3_source_probe_comparison": {
+    "measurement": "source IOSurface copy bypassing accelerator vs independent USB",
+    "daemon_sha256": "97d6a7bab2a50230bac3dc0f5ba5585d42a0e7a0e01c207a94e181b0b01e5233",
+    "native_artifact_sha256": "8a2885f573cfee5a78d6d0a6015c565da9cb9286e2f11df160f54084bb436b30",
+    "usb_artifact_sha256": "e32182630a4a338ecff8a2701a3b38a19505292659e7c317399cbb61073bf2ff",
+    "pixel_exact": false,
+    "max_channel_error": 117,
+    "samples": {
+      "(200, 700)": {
+        "native": [
+          255,
+          0,
+          0
+        ],
+        "usb": [
+          255,
+          0,
+          0
+        ]
+      },
+      "(600, 700)": {
+        "native": [
+          0,
+          255,
+          0
+        ],
+        "usb": [
+          0,
+          255,
+          0
+        ]
+      },
+      "(900, 700)": {
+        "native": [
+          0,
+          0,
+          255
+        ],
+        "usb": [
+          0,
+          0,
+          255
+        ]
+      },
+      "(200, 1100)": {
+        "native": [
+          255,
+          0,
+          0
+        ],
+        "usb": [
+          234,
+          51,
+          35
+        ]
+      },
+      "(600, 1100)": {
+        "native": [
+          0,
+          255,
+          0
+        ],
+        "usb": [
+          117,
+          251,
+          76
+        ]
+      },
+      "(900, 1100)": {
+        "native": [
+          1,
+          0,
+          254
+        ],
+        "usb": [
+          0,
+          0,
+          245
+        ]
+      }
+    }
+  },
+  "governor_heavy_300s": {
+    "measurement": "complete RFB delivery; no image decode, pixel inspection, or input",
+    "status": "complete",
+    "elapsed_seconds": 300.0014848330029,
+    "data_updates": 8993,
+    "data_update_fps": 29.97651829958772,
+    "data_update_gaps_ms": {
+      "50": 33.54693749861326,
+      "95": 39.87080855185923,
+      "99": 43.521444439538755,
+      "100": 74.94820799911395
+    },
+    "raw_report_sha256": "2ba9c31cb4a0c65005a653a2534464a1d8e5101ffdfe133a8f879470a11a7e2d",
+    "per_minute_fps": [
+      29.966666666666665,
+      29.933333333333334,
+      29.983333333333334,
+      30.0,
+      30.0
+    ]
+  },
+  "candidate_3": {
+    "phone_sha256": "b47f70a26791c08af9170cdc0d959e5bf390d6c163796a01e887d1e8ab5f453d",
+    "mac_sha256": "20d8d19673e3b17a8737f1e807c95d1793c7306ddf57a03515bb0e23ada45bff",
+    "declared_hevc_color": {
+      "primaries": 1,
+      "transfer": 13,
+      "matrix": 1
+    },
+    "source_cadence_investigation": {
+      "final-colour-smoke": {
+        "status": "complete",
+        "frames": 298,
+        "fps": 29.8,
+        "formats": 5,
+        "gap_ms": {
+          "50": 33.54949999629753,
+          "95": 53.50462500064168,
+          "99": 57.32470799557632,
+          "100": 81.28495799610391
+        },
+        "raw_report_sha256": "2896372ae73a619c6b58a1436c52d9c97269ff9b2650ba9e9521078f30a0051f"
+      },
+      "final-heavy-300s": {
+        "status": "complete",
+        "frames": 8991,
+        "fps": 29.97,
+        "formats": 289,
+        "gap_ms": {
+          "50": 33.69341699726647,
+          "95": 49.84524999599671,
+          "99": 60.27870799880475,
+          "100": 81.1372919997666
+        },
+        "raw_report_sha256": "feeeff6d32241613d867291559eb1ff38c166400d74e040134037ee5938d48df"
+      },
+      "final-reloaded-smoke": {
+        "status": "complete",
+        "frames": 297,
+        "fps": 29.7,
+        "formats": 6,
+        "gap_ms": {
+          "50": 33.66233300039312,
+          "95": 55.67199999495642,
+          "99": 67.11324999923818,
+          "100": 75.41170799959218
+        },
+        "raw_report_sha256": "9c786e58b7b9bdb3cc2c021ecdfe03b12ed196390dc53bf09ff5741d61487617"
+      },
+      "866a-current-state-smoke": {
+        "status": "complete",
+        "frames": 297,
+        "fps": 29.7,
+        "formats": 7,
+        "gap_ms": {
+          "50": 33.593792002648115,
+          "95": 55.14191700058291,
+          "99": 63.07945799926529,
+          "100": 76.99520899768686
+        },
+        "raw_report_sha256": "685e3a0616c06bf81b54121ed0202f47652216df5a3450193b5945798dd0fe2b"
+      },
+      "final-foreground-smoke": {
+        "status": "complete",
+        "frames": 590,
+        "fps": 59.0,
+        "formats": 5,
+        "gap_ms": {
+          "50": 16.684624999470543,
+          "95": 18.948624994663987,
+          "99": 32.24895799939986,
+          "100": 40.61766700033331
+        },
+        "raw_report_sha256": "96e5bbab55182d20a342c72c6657eb0914503f6e26f2adfcfd5c9e2eb7d3f183"
+      },
+      "conclusion": "Both daemon versions and a page reload stayed at 30 animation steps/s; Home then reopening Safari restored 59 fps on unchanged b47f."
+    },
+    "colour_smoke_native_decode": {
+      "assumedColorFields": [],
+      "colorContract": {
+        "matrixCodePoint": 1,
+        "primariesCodePoint": 1,
+        "space": "sRGB",
+        "transferCodePoint": 13
+      },
+      "declaredColor": {
+        "matrix": "ITU_R_709_2",
+        "primaries": "ITU_R_709_2",
+        "transfer": "IEC_sRGB"
+      },
+      "decodedColor": {
+        "matrix": "ITU_R_709_2",
+        "primaries": "ITU_R_709_2",
+        "transfer": "IEC_sRGB"
+      },
+      "decodedColorSpaceResolved": true,
+      "decodedFrames": 298,
+      "errors": 0,
+      "hardwareDecoderRequired": true,
+      "height": 2532,
+      "inputFrames": 298,
+      "width": 1170
+    },
+    "heavy_300s": {
+      "status": "complete",
+      "frames": 17812,
+      "fps": 59.373333333333335,
+      "gap_ms": {
+        "50": 16.683333000401035,
+        "95": 19.028291004360653,
+        "99": 32.291541996528395,
+        "100": 50.361749999865424
+      },
+      "received_bytes": {
+        "GEOMETRY": 28,
+        "FORMAT": 18150,
+        "VIDEO": 1502447606
+      },
+      "annex_b_sha256": "410d749d65cf3e4a1d6792012eccde4225d8e695e04cf2a44281b67b7b8c8099",
+      "per_minute_fps": [
+        59.2,
+        59.266666666666666,
+        59.53333333333333,
+        59.46666666666667,
+        59.4
+      ],
+      "thermal_states": [
+        0,
+        1
+      ],
+      "maximum_encode_errors": 0,
+      "maximum_color_errors": 0,
+      "raw_report_sha256": "952054547388bd9233f48f49eb718a07048feeea1c51e09ceae470cad826cf49",
+      "ffmpeg_exit_code": 0,
+      "ffmpeg_errors_bytes": 0,
+      "throughput_thermal_gate_passed": true
+    },
+    "warm_300s": {
+      "status": "complete",
+      "frames": 17812,
+      "fps": 59.373333333333335,
+      "gap_ms": {
+        "50": 16.68079199589556,
+        "95": 19.006000002264045,
+        "99": 32.20770799816819,
+        "100": 48.481459001777694
+      },
+      "received_bytes": {
+        "GEOMETRY": 28,
+        "FORMAT": 18029,
+        "VIDEO": 1502357789
+      },
+      "annex_b_sha256": "9d94678fd20b1465f6e88e738145989b8171f39461941f7246948a9d8b0ed841",
+      "per_minute_fps": [
+        59.25,
+        59.43333333333333,
+        59.36666666666667,
+        59.38333333333333,
+        59.43333333333333
+      ],
+      "thermal_states": [
+        1
+      ],
+      "maximum_encode_errors": 0,
+      "maximum_color_errors": 0,
+      "raw_report_sha256": "27cfa28aa295586e963bc37d58dc6d1c3ffe023280149423c534c848737d4e69",
+      "ffmpeg_exit_code": 0,
+      "ffmpeg_errors_bytes": 0,
+      "throughput_thermal_gate_passed": true
+    },
+    "mac_sha256_scope": "Initial colour decode preview only; later native endurance/input builds are identified separately."
+  },
+  "source_preflight": {
+    "measurement": "corresponding-source preflight against current build inputs; no runtime assembled or signed",
+    "passed": true,
+    "macos_source_inventory_sha256": "7d01d0fb1cd797ab7bc69d88750271136b632b0eb035be65d9442ddf0a4e0dc8",
+    "python_version": "3.13.11",
+    "python_build": "20260114",
+    "actual_python_packages": 37,
+    "usb_versions": {
+      "libimobiledevice": "1.4.0",
+      "libplist": "2.7.0",
+      "libimobiledevice-glue": "1.3.2",
+      "libusbmuxd": "2.1.1",
+      "openssl@3": "3.6.2"
+    },
+    "original_python_executable_sha256": "6d559550fa4c3c439ab50c7193e9a2955c88bb2e5783e2abcee57a2712ffdcfc"
+  },
+  "offline_rebuild": {
+    "completed": true,
+    "device_binary_sha256": "5aabf985276369fa92a3b89634737864903abda4d67f233f54eb0ac1f67d8881",
+    "byte_reproducibility_claimed": false,
+    "log_sha256": "d1189fca86b2b3cd97984ce61849cde5428c36b5c5dbf66980c38dcb43673e73"
+  },
+  "tests": {
+    "python": 133,
+    "swift": 56,
+    "native_phone_harnesses_included_in_python": 8
+  },
+  "native_endurance_attempts": [
+    {
+      "label": "endurance-final",
+      "mac_sha256": "20d8d19673e3b17a8737f1e807c95d1793c7306ddf57a03515bb0e23ada45bff",
+      "phone_sha256": "b47f70a26791c08af9170cdc0d959e5bf390d6c163796a01e887d1e8ab5f453d",
+      "status": "interrupted",
+      "passed": false,
+      "qualifies_22_minute_gate": false,
+      "wall_seconds": 91.79819354199572,
+      "observed_seconds": 60.0,
+      "failed_windows": [
+        {
+          "label": "native-endurance-dcedc458aab0-001",
+          "decoded_whole_window_fps": 0.0,
+          "display_whole_window_fps": 0.0,
+          "failures": [
+            "{'reason': 'No live fixture barcode observed.'}",
+            "Invalid or missing decoded motion barcode observations",
+            "decoded frame rate fell below 55 fps",
+            "Invalid or missing displaySubmitted motion barcode observations",
+            "displaySubmitted frame rate fell below 55 fps"
+          ]
+        },
+        {
+          "label": "native-endurance-dcedc458aab0-002",
+          "decoded_whole_window_fps": 0.0,
+          "display_whole_window_fps": 0.0,
+          "failures": [
+            "{'reason': 'No live fixture barcode observed.'}",
+            "Invalid or missing decoded motion barcode observations",
+            "decoded frame rate fell below 55 fps",
+            "Invalid or missing displaySubmitted motion barcode observations",
+            "displaySubmitted frame rate fell below 55 fps"
+          ]
+        }
+      ],
+      "memory": {
+        "passed": true,
+        "maximumRssMiB": 113.234375,
+        "baselineMedianRssMiB": 112.78125,
+        "finalMedianRssMiB": 112.859375,
+        "medianGrowthMiB": 0.078125,
+        "sampleCount": 20,
+        "baselineStartSeconds": 21.687715416748688,
+        "medianIntervalSeconds": 21.687715416748688,
+        "maximumAllowedRssMiB": 512,
+        "maximumAllowedMedianGrowthMiB": 64
+      },
+      "raw_report_sha256": "de15504f4ac00203adab7eafc8e3f9bfdb57b455b31d86f6d0b0a3e17bb7462b"
+    },
+    {
+      "label": "endurance-final-v2",
+      "mac_sha256": "2b6dc0c1ead0c7abe4979ccda76c1274fe5888d1ae2f0ee091d880e2c7604756",
+      "phone_sha256": "b47f70a26791c08af9170cdc0d959e5bf390d6c163796a01e887d1e8ab5f453d",
+      "status": "interrupted",
+      "passed": false,
+      "qualifies_22_minute_gate": false,
+      "wall_seconds": 672.8757380829993,
+      "observed_seconds": 630.0,
+      "failed_windows": [
+        {
+          "label": "native-endurance-20ffc9536ec5-003",
+          "decoded_whole_window_fps": 54.266666666666666,
+          "display_whole_window_fps": 54.266666666666666,
+          "failures": [
+            "decoded frame rate fell below 55 fps",
+            "displaySubmitted frame rate fell below 55 fps"
+          ]
+        }
+      ],
+      "memory": {
+        "passed": true,
+        "maximumRssMiB": 116.84375,
+        "baselineMedianRssMiB": 112.6015625,
+        "finalMedianRssMiB": 110.4609375,
+        "medianGrowthMiB": -2.140625,
+        "sampleCount": 151,
+        "baselineStartSeconds": 60,
+        "medianIntervalSeconds": 60,
+        "maximumAllowedRssMiB": 512,
+        "maximumAllowedMedianGrowthMiB": 64
+      },
+      "raw_report_sha256": "cb32bcdd6cd807c0fabdfaa2134be052d119fad1997d74448dc9976044c43ffd"
+    }
+  ],
+  "native_input_30": {
+    "completedTrials": 30,
+    "p50": 108.9402291662991,
+    "p95": 116.59042708203197,
+    "displaySubmittedP50": 109.03612500801682,
+    "displaySubmittedP95": 116.68871458135546,
+    "visibleQualification": true,
+    "measurement": "decoded pixels and display submission; physical scanout is not measured",
+    "mac_sha256": "2b6dc0c1ead0c7abe4979ccda76c1274fe5888d1ae2f0ee091d880e2c7604756",
+    "phone_sha256": "b47f70a26791c08af9170cdc0d959e5bf390d6c163796a01e887d1e8ab5f453d",
+    "target_ms": 60,
+    "target_passed": false,
+    "raw_report_sha256": "6a7971c671f9bf78497f57ecc169e4ab7ec4217519da69fa46b1a1e496a35f09"
+  },
+  "native_control_ping_30": {
+    "median_ms": 1.4241039999999998,
+    "minimum_ms": 0.949667,
+    "maximum_ms": 1.772208,
+    "conditions": "native preview video subscribed; input fixture without animation"
+  },
+  "held_input_tcp_disconnect": {
+    "held-touch-disconnect": {
+      "measurement": "Held touch released by closing only the test-owned control TCP socket; native preview remains connected",
+      "before": "fixture Taps: 0; Last touch 102,651 CSS px",
+      "pointer_native_pixels": [
+        271,
+        917
+      ],
+      "geometry": {
+        "width": 1170,
+        "height": 2532,
+        "generation": 8
+      },
+      "new_client_acquire": "passed",
+      "after_independent_native_window_observation": "Taps: 1; Last touch 90,258 CSS px",
+      "passed": true,
+      "limits": [
+        "Scripted TCP control socket close; physical USB cable pull not exercised."
+      ]
+    },
+    "held-key-disconnect": {
+      "measurement": "Held left Shift released by closing only the test-owned control TCP socket",
+      "key_usage": 225,
+      "new_client_acquire": "passed",
+      "visible_keyup": "Last key: keyup Shift observed in native window",
+      "passed": true,
+      "phone_sha256": "9fb24cad0553c63a273f3cc426c77f432c572e6c8b2b95b3543d4f12b286578a",
+      "mac_sha256": "f2ffd54896aab3a7e2e26d8c3685f6b48a4f4dbd460173267b58dda81b36cfd4",
+      "limits": [
+        "Only the test-owned control TCP socket was closed; physical cable pull not tested."
+      ]
+    }
+  },
+  "timing_candidate": {
+    "phone_sha256": "9fb24cad0553c63a273f3cc426c77f432c572e6c8b2b95b3543d4f12b286578a",
+    "status": "deployed; stage timing measurement pending",
+    "history_capacity": 40,
+    "encode_policy_changed": false
+  },
+  "performance_iterations": {
+    "direct_render": {
+      "phone_sha256": "cc2ff58291a2b64ed23f114f2d19b5582b959255c7a8a11b7b6dd5c6f0d7c39e",
+      "comparison": "Fresh encoder sessions, unchanged static page, same Mac ed50 process,30trials each",
+      "capture_to_queue_median_ms": [
+        36.560979,
+        32.58
+      ],
+      "total_median_ms": [
+        106.17083333432674,
+        102.5701875090599
+      ],
+      "total_p95_ms": [
+        114.22806249931455,
+        112.49749166220427
+      ],
+      "pixel_comparison": "BGRA channels below y150 exact; full images differ at minute digit",
+      "proof": {
+        "file": "timed-input-matched-return-analysis.json",
+        "sha256": "6771fbecaf5a8a4f9c72327b81dd807d81a7f5103b4ab4fcb7d40c86152d61ec"
+      },
+      "pixel_proof": {
+        "file": "direct-render-pixel-comparison.json",
+        "sha256": "d3538610e04a2e27e29edc0a9d4c52b529b696582083de75d448718be28c5c7a"
+      }
+    },
+    "idle_reference": {
+      "phone_sha256": "f54afcea469950c1549454abd08cb17156e4bf90c9d961c56ef975b9567cdc7d",
+      "comparison": "Fresh encoder sessions, unchanged static page, same Mac3c633 process,30trials each",
+      "total_median_ms": [
+        99.87797916680574,
+        96.89297917485237
+      ],
+      "total_p95_ms": [
+        116.34997500330209,
+        110.57049583643673
+      ],
+      "response_bytes": [
+        4437827,
+        1777723
+      ],
+      "limitation": "Pre-capture wait also varied; cannot attribute full latency difference to idle policy. Payload p95 increased.",
+      "proof": {
+        "file": "timed-input-idle-matched-analysis.json",
+        "sha256": "109418f061c64d4a10938c99c03228a7878aa5b53a9d8ee26954b4656f82a568"
+      },
+      "chain_proof": {
+        "file": "f54af-idle-reference-20s.json",
+        "sha256": "aa2f0f048d479524e62bb48d4ad037db5ec01df5d4db2edc35594440a412825b"
+      },
+      "hardware_decode_proof": {
+        "file": "f54af-idle-reference-mac-decode.json",
+        "sha256": "41ceee84582df0be63197265108f2f77ff0c6ecd611b0917f2fa5d2de15bcaca"
+      },
+      "full_ffmpeg_exit_code": 0,
+      "full_ffmpeg_stderr_bytes": 0,
+      "heavy_300s_and_immediate_warm_300s": [
+        {
+          "report": "f54af-heavy-300s.json",
+          "report_sha256": "2f0a9075ae1f64b5ea498ac7be45002d14995c80eb93a4e67eaa911a937ca897",
+          "annex_b_sha256": "6525b0df2c04c9899b94eda86cd08247e20b4031ad9bcd08ea4ee7dc998f9659",
+          "frames": 17738,
+          "fps": 59.126666666666665,
+          "minute_fps": [
+            59.05,
+            59.11666666666667,
+            59.166666666666664,
+            59.15,
+            59.15
+          ],
+          "thermal_states": [
+            0
+          ],
+          "encode_error_delta": 0,
+          "submission_skip_delta": 0,
+          "color_error_delta": 0,
+          "full_ffmpeg_exit_code": 0,
+          "full_ffmpeg_stderr_bytes": 0
+        },
+        {
+          "report": "f54af-heavy-immediate-warm-300s.json",
+          "report_sha256": "d7a7897cee0fac474e316ae62f83cdf77e93a52ff65d5d986c9b5e9838ea9cd1",
+          "annex_b_sha256": "2f4638491eefbd40809feb3a48b0b8403ca61eaf9cb0f200434eb22ed4a2d8a3",
+          "frames": 17730,
+          "fps": 59.1,
+          "minute_fps": [
+            59.06666666666667,
+            59.06666666666667,
+            59.1,
+            59.15,
+            59.11666666666667
+          ],
+          "thermal_states": [
+            0
+          ],
+          "encode_error_delta": 0,
+          "submission_skip_delta": 0,
+          "color_error_delta": 0,
+          "full_ffmpeg_exit_code": 0,
+          "full_ffmpeg_stderr_bytes": 0
+        }
+      ]
+    },
+    "native_input_followup": {
+      "file": "native-ui-input-v5.json",
+      "sha256": "3cebee941f5169d6319d0bad010089e7f53ca3da2c5f4e55877343d59b39b58d"
+    },
+    "mac_format_cache": {
+      "initial_cache_sha256": "3c63384ae203e6133a9366049192f20b46ee682abeaaba7e08488f9d1885190d",
+      "initial_result": "No material format-cost reduction:170to167 Running TimerFired samples; cost moved to explicitmatcher",
+      "revised_sha256": "9550f0d48b30c195b96cb6c76590bcb6e0cbf709e9e3691ecb1c37156f00db5f",
+      "revised_result": "Discarded after no material improvement:format/sample preparation union176to180 Running TimerFired samples; total1721to1685 and main492to489. Metadata IPC moved into sample creation.",
+      "comparison_proof": {
+        "file": "mac-3c633-vs-9550f-f54af-profile-comparison.json",
+        "sha256": "7f5dd2d495f0c9ba4674b3c1df83af25c9f8ef14161697ee6a9583d2a41ccf52"
+      },
+      "source_status": "Both cache candidates and cache-only epoch plumbing removed; prior capture/input/recovery fixes retained."
+    },
+    "hardware_identity_probe": {
+      "phone_sha256": "8a15cad217c2c6af1138cfc43a288cf3213bb21f1367725c120f725ada25e447",
+      "status": "Rejected and exactly rolled back to f54",
+      "selected_id": "com.apple.videotoolbox.videoencoder.hevc",
+      "verification": "unverified",
+      "reason": "iOS15.1.1 encoder list omitted required Boolean hardware metadata; direct hardware requirement/readback keys require newer iOS. Do not infer hardware from missing metadata or frame rate.",
+      "proof": {
+        "file": "8a15-live-encoder-proof.json",
+        "sha256": "a7f2842931e7308eda501c76c5c806bde894e3cb620addd9ced85bbea5be6e85"
+      },
+      "rollback_proof": {
+        "file": "8a15-hardware-identity-rollback.json",
+        "sha256": "50de08d5b032dd437c16a1354f9687600a21971da39f5e77134d23a65b1fcc4b"
+      }
+    },
+    "mac_nv12": {
+      "status": "retained",
+      "mac_sha256": "595bc42b61deb727c8aa096d9f6117ac3977c6190e76120ae18487b962df4211",
+      "phone_sha256": "f54afcea469950c1549454abd08cb17156e4bf90c9d961c56ef975b9567cdc7d",
+      "pixel_format": "420v",
+      "profile": {
+        "artifact": {
+          "file": "mac-ed50-vs-595bc-f54af-nv12-profile-comparison.json",
+          "sha256": "7589d7fa55257704fd6a89cc2281d27ceb54fbc50227643f0ba3b8f74d6b0dba"
+        },
+        "scope": "One matched 30-second visible heavy-fixture pair on the same f54af phone build; BGRA ed50 app PID46360 versus NV12 595bc app PID47619. App-process samples only, excluding VTDecoderXPCService, WindowServer, phone, and other host processes.",
+        "delta": {
+          "runningTimerSamples": {
+            "baseline": 1889,
+            "candidate": 1527,
+            "difference": -362,
+            "percentChange": -19.163578613022757
+          },
+          "runningTimerSamplesPerObservedSecond": {
+            "baseline": 62.47106092177801,
+            "candidate": 50.5411572227119,
+            "difference": -11.92990369906611,
+            "percentChange": -19.096688167348262
+          },
+          "mainThreadSamples": {
+            "baseline": 587,
+            "candidate": 457,
+            "difference": -130,
+            "percentChange": -22.146507666098803
+          },
+          "converterThreadSamples": {
+            "baseline": 160,
+            "candidate": 145,
+            "difference": -15,
+            "percentChange": -9.375
+          },
+          "totalDecodeSurfaceMappedBytes": {
+            "baseline": 48103424,
+            "candidate": 18612224,
+            "difference": -29491200,
+            "percentChange": -61.30790190735696
+          },
+          "group.formatCreate": {
+            "baseline": 195,
+            "candidate": 142,
+            "difference": -53,
+            "percentChange": -27.179487179487182
+          },
+          "group.formatMatch": {
+            "baseline": 15,
+            "candidate": 10,
+            "difference": -5,
+            "percentChange": -33.333333333333336
+          },
+          "group.formatsTotal": {
+            "baseline": 210,
+            "candidate": 152,
+            "difference": -58,
+            "percentChange": -27.61904761904762
+          },
+          "group.sampleCreate": {
+            "baseline": 15,
+            "candidate": 10,
+            "difference": -5,
+            "percentChange": -33.333333333333336
+          },
+          "group.barcode": {
+            "baseline": 0,
+            "candidate": 0,
+            "difference": 0,
+            "percentChange": null
+          },
+          "group.messageParsing": {
+            "baseline": 32,
+            "candidate": 29,
+            "difference": -3,
+            "percentChange": -9.375
+          }
+        },
+        "limitations": [
+          "Timer sample weights are counts; no verified timer period or CPU-duration weight is supplied, so no CPU milliseconds or CPU-percent estimate is made.",
+          "Per-observed-second values are timer-sample densities, not CPU time.",
+          "No exact profiled-window frame count is available. Adjacent barcode runs are separate cadence evidence and do not normalize sample counts.",
+          "One matched pair supports a measured sample-count reduction; it is not a repeated-run estimate or proof of total system CPU savings.",
+          "Mapped IOSurface bytes are address-space storage for four named decoded buffers, not private RSS or physical footprint.",
+          "Physical-footprint peak covers each process lifetime and is not a matched-window peak.",
+          "Profile sampling has barcode benchmarking disabled for both binaries.",
+          "Some private system frames remain unnamed; no precise private converter implementation cost is inferred."
+        ]
+      },
+      "quality_manifest": {
+        "file": "nv12-595bc-quality-artifact-manifest.json",
+        "sha256": "d61141fd873512e7f02f49ff1e63161a293ae6696bf557184f4d501350ac42ae"
+      },
+      "live_colour_check": {
+        "passed": true,
+        "method": "CUA screenshot of the running native AVSampleBufferDisplayLayer preview",
+        "observed": [
+          "primary swatches",
+          "grey ramp",
+          "thin lines",
+          "legible text"
+        ],
+        "limitations": [
+          "Visual inspection, not quantitative display colourimetry",
+          "Captured source remains SDR sRGB; exact Display P3 preservation unpassed"
+        ]
+      },
+      "final_input": {
+        "artifact": {
+          "file": "timed-input-nv12-final-30.json",
+          "sha256": "f906ac04ff61f4fbec1295f7f3b9459370edf245608e5b481122ef0efb47cb99"
+        },
+        "trials": 30,
+        "decoded_p50_ms": 93.70856250822544,
+        "decoded_p95_ms": 135.76642499491572,
+        "display_submitted_p50_ms": 93.88693749904633,
+        "display_submitted_p95_ms": 135.94843958392738,
+        "diagnostics": {
+          "barcodeDuplicates": 0,
+          "barcodeMissing": 0,
+          "ingressDrops": 0,
+          "keyframeIngressDrops": 0,
+          "recoveryRequests": 0,
+          "scanMaxMs": 0.026333320420235395,
+          "scanMeanMs": 0.011188170080253433,
+          "scannedFrames": 31
+        },
+        "target_ms": 60,
+        "passed_target": false,
+        "limit": "Final candidate observation; not a matched comparison or physical scanout",
+        "exact_pts_stage_analysis": {
+          "file": "timed-input-nv12-final-pts-stage-comparison.json",
+          "sha256": "033f04e5ea3569986f6b598e9bc72638674baa465e2d197a0d95dfad7d5d4f66"
+        }
+      },
+      "matched_qualification_manifest": {
+        "file": "nv12-595bc-matched-qualification-manifest.json",
+        "sha256": "8b0db509a3ed8e4d87e105796b9e1300652cec9458689b0adf6a469e76b3d834"
+      },
+      "endurance": {
+        "file": "nv12-f54af-endurance-1320s.json",
+        "sha256": "35f2c9c33f7c8db3efd17ffb938d30c55c8f77b104a89a5ad4f6e8cd99171538",
+        "passed": true,
+        "qualified_22_minutes": true,
+        "observed_seconds": 1320.0,
+        "wall_seconds": 1365.1759239999956,
+        "windows": 44,
+        "minimum_decoded_whole_window_fps": 58.333333333333336,
+        "maximum_decoded_whole_window_fps": 59.3,
+        "minimum_display_submitted_whole_window_fps": 58.333333333333336,
+        "memory": {
+          "passed": true,
+          "maximumRssMiB": 118.515625,
+          "baselineMedianRssMiB": 115.75,
+          "finalMedianRssMiB": 115.515625,
+          "medianGrowthMiB": -0.234375,
+          "sampleCount": 307,
+          "baselineStartSeconds": 60,
+          "medianIntervalSeconds": 60,
+          "maximumAllowedRssMiB": 512,
+          "maximumAllowedMedianGrowthMiB": 64
+        },
+        "renderer_continuity": {
+          "passed": true,
+          "sampleCount": 273,
+          "failures": []
+        },
+        "health_diagnostic_totals": {
+          "barcodeMissing": 0,
+          "barcodeDuplicates": 14,
+          "ingressDrops": 0,
+          "recoveryRequests": 0
+        }
+      }
+    }
+  },
+  "final_session_check": {
+    "file": "final-f54af-session.json",
+    "sha256": "9774bab39c0588c3579c9662f8fd31703a7ea5392c94c18e0dc652c956fc2682",
+    "passed": 9,
+    "failed": 0,
+    "limit": "Scripted TCP reconnect; physical cable and lock tests unverified"
+  },
+  "final_mcp_check": {
+    "file": "final-f54af-mcp.json",
+    "sha256": "e1359292de89ded6613a324175606a37fb6018e1f2d5f3a7a429073af441c371",
+    "tools": [
+      "drag",
+      "health",
+      "key",
+      "screenshot",
+      "tap",
+      "type_text"
+    ],
+    "native_png_verified": true,
+    "limit": "Tool discovery and screenshot do not prove every input tool action"
+  },
+  "final_preview": {
+    "sha256": "595bc42b61deb727c8aa096d9f6117ac3977c6190e76120ae18487b962df4211",
+    "mode": "attach without benchmark",
+    "reconnected_visible": true,
+    "left_on": "static disposable input fixture"
+  },
+  "final_source_package_validation": {
+    "source_commit": "4d616d1a28dc7db3e289aab19b4cef04ac1c2bf1",
+    "source_tree_sha256": "6a210a1e347babad15bdef7f1daa44b69a72619e3397abf5de76a9a194f15ea6",
+    "build_passed": true,
+    "stage_passed": true,
+    "setup_check_passed": true,
+    "binary_sha256": "458b7257831535eb3217cab167b9ff01423d73de53f2198d9f3f11d0192f4daa",
+    "offline_build_passed": true,
+    "offline_binary_sha256": "cde1096ccfe3dea4a684b97a251698daa8f04a1962822c4297e2912da95180d7",
+    "byte_identical_rebuild": false,
+    "runtime_qualified_binary_sha256": "f54afcea469950c1549454abd08cb17156e4bf90c9d961c56ef975b9567cdc7d",
+    "new_binary_equivalence": "All 27 Mach-O sections and all seven compiled objects match f54; only LC_UUID and the first code page SHA-1/SHA-256 signature hashes differ in the final and offline binaries.",
+    "scope": "Build and offline source verification at code commit4d616d1; subsequent report-only commits require manifest/staging refresh. Endurance identity remains f54.",
+    "macos_dependency_source_files": 158,
+    "macos_source_inventory_sha256": "7d01d0fb1cd797ab7bc69d88750271136b632b0eb035be65d9442ddf0a4e0dc8"
+  }
+}

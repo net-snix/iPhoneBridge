@@ -17,6 +17,7 @@
 <p>Disposable controls. USB only. Nothing is submitted or saved.</p>
 <div id="geometry" class="status"></div>
 <div id="point" class="status">Last touch: none</div>
+<div id="key" class="status">Last key: none</div>
 <section>
   <button id="tap">Tap test</button>
   <output id="count">Taps: 0</output>
@@ -34,7 +35,7 @@
   <output id="target">Target: none</output>
 </section>
 <div class="spacer">Swipe up to find the bottom marker.</div>
-<section><h2>Bottom marker</h2><p>A scroll gesture reached this section.</p><button onclick="scrollTo(0,0)">Back to top</button></section>
+<section><h2>Bottom marker</h2><p>A scroll gesture reached this section.</p><button onclick="window.scrollTo(0,0)">Back to top</button></section>
 <script>
 const $ = id => document.getElementById(id);
 let taps = 0;
@@ -48,6 +49,9 @@ function geometry() {
 addEventListener('resize', geometry);
 addEventListener('scroll', geometry);
 addEventListener('pointerup', e => { $('point').textContent = `Last touch: ${Math.round(e.clientX)}, ${Math.round(e.clientY)} CSS px`; });
+for (const event of ['keydown', 'keyup']) addEventListener(event, e => {
+  $('key').textContent = `Last key: ${e.type} ${e.key}`;
+});
 geometry();
 </script>
 </html>

@@ -37,7 +37,7 @@ with open(sys.argv[1], 'wb') as output:
         'CFBundleExecutable': 'iPhoneBridge',
         'CFBundlePackageType': 'APPL',
         'CFBundleShortVersionString': sys.argv[2],
-        'CFBundleVersion': '2',
+        'CFBundleVersion': '4',
         'CFBundleIconFile': 'AppIcon',
         'LSMinimumSystemVersion': '26.0',
         'NSHighResolutionCapable': True,

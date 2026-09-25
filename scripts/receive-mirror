@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""Receive native HEVC with bounded accounting and an optional Annex B file."""
+import argparse
+from collections import Counter
+import hashlib
+import json
+import math
+from pathlib import Path
+import socket
+import struct
+import sys
+import threading
+import time
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from iphonebridge.mirror_protocol import (Client, Kind, ProtocolError, encode, hello,
+                                         parameter_sets, receive, video)  # noqa: E402
+
+
+def percentile(values, percentile):
+    if not values:
+        return None
+    return sorted(values)[min(len(values) - 1, math.ceil(len(values) * percentile) - 1)]
+
+
+def monitor_stats(stop, samples, endpoint):
+    started = time.monotonic()
+    while not stop.is_set():
+        try:
+            client = Client(timeout=3, endpoint=endpoint)
+            try:
+                data = client.request(Kind.GET_STATS, response=Kind.STATS)
+                if len(data) > 65536:
+                    raise ProtocolError("Oversized telemetry")
+                sample = json.loads(data)
+                if not isinstance(sample, dict):
+                    raise ProtocolError("Invalid telemetry")
+                samples.append({"elapsed_seconds": time.monotonic() - started, "stats": sample})
+            finally:
+                client.close()
+        except (OSError, ValueError) as error:
+            samples.append({"elapsed_seconds": time.monotonic() - started, "error": str(error)})
+        stop.wait(10)
+
+
+def measure(duration, output, endpoint):
+    frames, gaps, formats, received, last = [], [], 0, Counter(), None
+    report = {"protocol": "IPBM/1", "requested_duration_seconds": duration,
+              "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              "measurement": "complete native HEVC delivery; independent decoder validation required",
+              "status": "failed", "stats": []}
+    sink = output.open("xb") if output else None
+    stop = threading.Event()
+    monitor = threading.Thread(target=monitor_stats, args=(stop, report["stats"], endpoint), daemon=True)
+    started = None
+    digest = hashlib.sha256()
+    try:
+        with socket.create_connection(endpoint, timeout=5) as sock:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            geometry = hello(receive(sock, time.monotonic() + 5))
+            sock.sendall(encode(Kind.SUBSCRIBE, 1, struct.pack("!I", 1)))
+            response = receive(sock, time.monotonic() + 5)
+            if response.kind != Kind.ACK or response.request_id != 1 or response.payload:
+                raise ProtocolError("Video subscription was not acknowledged")
+            generation, waiting_keyframe, last_pts = None, True, None
+            started = time.monotonic()
+            deadline = started + duration
+            monitor.start()
+            while time.monotonic() < deadline:
+                try:
+                    message = receive(sock, deadline)
+                except TimeoutError:
+                    break  # A partial final packet is never written to the stream.
+                received[message.kind.name] += len(message.payload) + 12
+                units = []
+                if message.kind == Kind.FORMAT:
+                    geometry, units = parameter_sets(message.payload)
+                    generation = geometry.generation
+                    waiting_keyframe = True
+                    formats += 1
+                elif message.kind == Kind.VIDEO:
+                    frame_generation, pts_ns, keyframe, units = video(message.payload)
+                    if generation != frame_generation or (waiting_keyframe and not keyframe):
+                        raise ProtocolError("Dependent frame arrived without format/keyframe")
+                    if last_pts is not None and pts_ns <= last_pts:
+                        raise ProtocolError("Video PTS did not increase")
+                    last_pts, waiting_keyframe = pts_ns, False
+                    now = time.monotonic() - started
+                    if last is not None:
+                        gaps.append((now - last) * 1000)
+                    last = now
+                    frames.append(now)
+                    if len(frames) > duration * 121 + 120:
+                        raise ProtocolError("Excessive stream frame rate")
+                elif message.kind == Kind.GEOMETRY:
+                    continue
+                else:
+                    raise ProtocolError("Unexpected streaming message")
+                for unit in units:
+                    annex_b = b"\x00\x00\x00\x01" + unit
+                    digest.update(annex_b)
+                    if sink:
+                        sink.write(annex_b)
+            if not frames:
+                raise ProtocolError("Video subscription delivered no complete FORMAT and keyframe")
+            report.update(status="complete", portrait_size=[geometry.width, geometry.height],
+                          quarter_turns=geometry.turns)
+    except (OSError, ValueError) as error:
+        report["error"] = str(error)
+    finally:
+        stop.set()
+        if monitor.ident is not None:
+            monitor.join(5)
+        if sink:
+            sink.close()
+    if started is not None:
+        elapsed = time.monotonic() - started
+        bins = [0] * math.ceil(duration)
+        for value in frames:
+            bins[min(int(value), len(bins) - 1)] += 1
+        report.update(elapsed_seconds=elapsed, frames=len(frames), fps=len(frames) / duration,
+                      between_frame_fps=(len(frames) - 1) / (frames[-1] - frames[0]) if len(frames) > 1 else None,
+                      frames_per_second=bins, gap_ms={str(p): percentile(gaps, p / 100) for p in (50, 95, 99, 100)},
+                      formats=formats, received_bytes=dict(received), annex_b_sha256=digest.hexdigest(),
+                      output=str(output.resolve()) if output else None)
+    return report
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--duration", type=float, default=10)
+    parser.add_argument("--output", type=Path, help="New .h265 Annex B file; existing files are never overwritten")
+    parser.add_argument("--report", type=Path)
+    parser.add_argument("--port", type=int, default=15901)
+    args = parser.parse_args()
+    if not math.isfinite(args.duration) or not 1 <= args.duration <= 1800 or not 1 <= args.port <= 65535:
+        parser.error("Duration must be 1–1800 seconds and port 1–65535")
+    report = measure(args.duration, args.output, ("127.0.0.1", args.port))
+    text = json.dumps(report, indent=2) + "\n"
+    if args.report:
+        args.report.write_text(text)
+    print(text)
+    return 0 if report["status"] == "complete" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

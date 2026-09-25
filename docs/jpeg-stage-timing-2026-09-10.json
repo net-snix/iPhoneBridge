@@ -1,0 +1,552 @@
+{
+  "date": "2026-09-10",
+  "status": "serial_jpeg_cpu_bottleneck_measured_normal_daemon_restored",
+  "diagnostic_binary_sha256": "3483b27efef587dcf7f3164df68d4f15fccd844e8251db5d068b3829dfcfb7f1",
+  "source_deltas_sha256": {
+    "jpeg-stage-daemon-from-bceb.patch": "58d9f5aa988364d2193cf551caa346627e1366ae85d204ef7ea0702e098b3d30",
+    "jpeg-stage-libvnc-from-77340.patch": "35051d244d0388d055ae6ecdf3b752916c71b9313276f8311fa261cbf810aa1d"
+  },
+  "source_sha256": {
+    "src/CaptureSchedule.h": "c37cc1b5f0fcc50fd066a7656c605b127ed5d7e02e855159e0ec9a41b0df9e47",
+    "src/CaptureTiming.h": "3b8ccfaf8abeb6d0316c9e497076ac97e2288f11938373f7cbbc4af56ea5087d",
+    "src/ClientSendLocks.h": "d999101e5f087e7f8b3a32fd757386b6c2b6e18d18164ef3adfee71e481df0f2",
+    "src/FrameUpdateRetry.h": "7b1098669fe9361c2274b20e93d501428f14d0ad98b69929fdda45b7b5c5a7bc",
+    "src/JPEGStageTiming.h": "f7ad8de20f50dafa51b2d9784c757e55eb7608d66beeadcbc398720ca8d6c7f0",
+    "src/ScreenCapturer.h": "93c842854176a95fd65a7830116d51dc13e13f51f9f55e14438e55d54e0b83b2",
+    "src/ScreenCapturer.mm": "0b0c5c0f4ba5a86d566c9d5a7ebb9cb85454fb4639b05aafd41937542b440d48",
+    "src/ThreadTiming.h": "fe94b92479719d3216c0b2a22b3b568b9dc3af39f12c8a05ea8ede4fedafb3b3",
+    "src/trollvncserver.mm": "910a89f36c8f8d1e4d9be9c29a3e8f2c62583c09616591ef2eb33c6a09fbb5bf"
+  },
+  "libvnc_tight_source_sha256": "33657f351e6fbed412d29edd8c9f8d6393434c6ffda01e39baef9d8c54263608",
+  "static_libraries_sha256": {
+    "libpng16.a": "47c913a83284fa60b491c9bab11ceaca9f1c0cba128e9f3c4a0083cab2928c9b",
+    "libturbojpeg.a": "d4967c44b7dff2b9556767e705b72fc6f093c356a3b86b15ec24122bfc1177a9",
+    "libvncserver.a": "7aed4cf1713f661baf308265cd5fa851d0220fec169b994286bcc78ad975da3a",
+    "liblzo2.a": "08c7a833bad0300129735444e5a0738665660d38e201792dbe7d2dc98f45c0f0",
+    "libjpeg.a": "031dcf5703827840eb7da733ac7652046a31ca7dacd994b742d6fa8d0b7449ae"
+  },
+  "source_manifest_sha256": "3d3c9c8f0e1fae6521a3b32253bc536f5b0efde1cb9ce3b475c47cd0a359546a",
+  "duration_seconds": 300,
+  "origin_unix_ns": 1789073791161637000,
+  "profile": {
+    "bits_per_pixel": 32,
+    "depth": 24,
+    "big_endian": 0,
+    "true_colour": 255,
+    "red_max": 255,
+    "green_max": 255,
+    "blue_max": 255,
+    "red_shift": 0,
+    "green_shift": 8,
+    "blue_shift": 16,
+    "preferred_encoding": 7,
+    "tight_quality_level": 6,
+    "tight_compress_level": 2,
+    "turbo_quality_level": 79,
+    "turbo_subsampling": 0,
+    "width": 1172,
+    "height": 2536,
+    "copy_rect": -1,
+    "last_rect": -1,
+    "new_fb_size": -1,
+    "extended_desktop_size": 0,
+    "cursor_shape": 0,
+    "cursor_position": 0,
+    "extended_clipboard": 0
+  },
+  "validity": {
+    "valid_single_client": true,
+    "profile_changed": false,
+    "connections": 1,
+    "disconnections": 0,
+    "capture_sessions": 1,
+    "peak_clients": 1
+  },
+  "all_windows_pairing_complete": true,
+  "output_thread_policy_every_window": {
+    "pthread_qos_result": 0,
+    "pthread_requested_qos": 21,
+    "pthread_relative_priority": 0,
+    "mach_result": 0,
+    "mach_info_count": 28,
+    "mach_pth_curpri": 31,
+    "mach_pth_priority": 31,
+    "mach_pth_maxpriority": 63,
+    "mach_pth_policy": 1
+  },
+  "sink": {
+    "elapsed_seconds": 310.00008595798863,
+    "data_updates": 15295,
+    "data_update_fps": 49.33869599659655,
+    "data_update_gaps_ms": {
+      "50": 17.131125001469627,
+      "95": 33.631537709152326,
+      "99": 35.25819073896855,
+      "100": 64.17191697983071
+    },
+    "payload_bytes": 6783736438,
+    "empty_or_metadata_updates": 0,
+    "initial_framebuffer": [
+      1172,
+      2536
+    ],
+    "final_framebuffer": [
+      1172,
+      2536
+    ]
+  },
+  "minutes": [
+    {
+      "start_seconds": 0,
+      "duration_seconds": 60,
+      "send_finishes_per_second": 59.416666666666664,
+      "capture_starts_per_second": 59.78333333333333,
+      "thermal_states": [
+        0,
+        1
+      ],
+      "complete_pairing": true,
+      "exact_totals": {
+        "send_samples": 3565,
+        "paired_send_samples": 3565,
+        "invalid_send_samples": 0,
+        "probe_imbalance": 0,
+        "paired_jpeg_send_samples": 3564,
+        "paired_whole_send_cpu_ns": 26375489206,
+        "paired_whole_send_wall_ns": 26447476879,
+        "paired_other_output_cpu_ns": 1662481725
+      },
+      "stages": {
+        "tj_compress": {
+          "calls": 153283,
+          "completed_calls": 153283,
+          "valid_probe_pairs": 153283,
+          "invalid_probe_pairs": 0,
+          "operation_failures": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_wall": 0,
+          "wall_invalid": 0,
+          "paired_calls": 153283,
+          "paired_cpu_ns": 23556226615,
+          "paired_wall_ns": 23641217541,
+          "last_cpu_read_errno": 0,
+          "mean_cpu_ms_per_paired_send": 6.607637199158485,
+          "mean_wall_ms_per_paired_send": 6.631477571107995,
+          "mean_cpu_ms_per_paired_call": 0.15367801135807624,
+          "fraction_of_paired_whole_send_cpu": 0.8931105099518434
+        },
+        "tight_palette_translation": {
+          "calls": 156851,
+          "completed_calls": 156851,
+          "valid_probe_pairs": 156851,
+          "invalid_probe_pairs": 0,
+          "operation_failures": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_wall": 0,
+          "wall_invalid": 0,
+          "paired_calls": 156851,
+          "paired_cpu_ns": 1156780866,
+          "paired_wall_ns": 1182547017,
+          "last_cpu_read_errno": 0,
+          "mean_cpu_ms_per_paired_send": 0.3244827113604488,
+          "mean_wall_ms_per_paired_send": 0.33171024319775594,
+          "mean_cpu_ms_per_paired_call": 0.007375030226138182,
+          "fraction_of_paired_whole_send_cpu": 0.04385817669447629
+        }
+      },
+      "mean_whole_cpu_ms_per_paired_send": 7.398454195231416,
+      "mean_whole_wall_ms_per_paired_send": 7.41864709088359,
+      "mean_other_cpu_ms_per_paired_send": 0.46633428471248245
+    },
+    {
+      "start_seconds": 60,
+      "duration_seconds": 60,
+      "send_finishes_per_second": 59.45,
+      "capture_starts_per_second": 59.833333333333336,
+      "thermal_states": [
+        2
+      ],
+      "complete_pairing": true,
+      "exact_totals": {
+        "send_samples": 3567,
+        "paired_send_samples": 3567,
+        "invalid_send_samples": 0,
+        "probe_imbalance": 0,
+        "paired_jpeg_send_samples": 3567,
+        "paired_whole_send_cpu_ns": 36150013301,
+        "paired_whole_send_wall_ns": 37204656108,
+        "paired_other_output_cpu_ns": 1987878284
+      },
+      "stages": {
+        "tj_compress": {
+          "calls": 153382,
+          "completed_calls": 153382,
+          "valid_probe_pairs": 153382,
+          "invalid_probe_pairs": 0,
+          "operation_failures": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_wall": 0,
+          "wall_invalid": 0,
+          "paired_calls": 153382,
+          "paired_cpu_ns": 32572564975,
+          "paired_wall_ns": 33527276153,
+          "last_cpu_read_errno": 0,
+          "mean_cpu_ms_per_paired_send": 9.13164142837118,
+          "mean_wall_ms_per_paired_send": 9.399292445472385,
+          "mean_cpu_ms_per_paired_call": 0.21236236960660312,
+          "fraction_of_paired_whole_send_cpu": 0.901038810242954
+        },
+        "tight_palette_translation": {
+          "calls": 156952,
+          "completed_calls": 156952,
+          "valid_probe_pairs": 156952,
+          "invalid_probe_pairs": 0,
+          "operation_failures": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_wall": 0,
+          "wall_invalid": 0,
+          "paired_calls": 156952,
+          "paired_cpu_ns": 1589570042,
+          "paired_wall_ns": 1659484856,
+          "last_cpu_read_errno": 0,
+          "mean_cpu_ms_per_paired_send": 0.44563219568264645,
+          "mean_wall_ms_per_paired_send": 0.465232648163723,
+          "mean_cpu_ms_per_paired_call": 0.010127746330088179,
+          "fraction_of_paired_whole_send_cpu": 0.04397149259018471
+        }
+      },
+      "mean_whole_cpu_ms_per_paired_send": 10.13457059181385,
+      "mean_whole_wall_ms_per_paired_send": 10.430237204373423,
+      "mean_other_cpu_ms_per_paired_send": 0.5572969677600224
+    },
+    {
+      "start_seconds": 120,
+      "duration_seconds": 60,
+      "send_finishes_per_second": 58.63333333333333,
+      "capture_starts_per_second": 59.81666666666667,
+      "thermal_states": [
+        2
+      ],
+      "complete_pairing": true,
+      "exact_totals": {
+        "send_samples": 3518,
+        "paired_send_samples": 3518,
+        "invalid_send_samples": 0,
+        "probe_imbalance": 0,
+        "paired_jpeg_send_samples": 3518,
+        "paired_whole_send_cpu_ns": 41165724221,
+        "paired_whole_send_wall_ns": 41940355044,
+        "paired_other_output_cpu_ns": 2284507900
+      },
+      "stages": {
+        "tj_compress": {
+          "calls": 151275,
+          "completed_calls": 151275,
+          "valid_probe_pairs": 151275,
+          "invalid_probe_pairs": 0,
+          "operation_failures": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_wall": 0,
+          "wall_invalid": 0,
+          "paired_calls": 151275,
+          "paired_cpu_ns": 37075200074,
+          "paired_wall_ns": 37792719354,
+          "last_cpu_read_errno": 0,
+          "mean_cpu_ms_per_paired_send": 10.538715200113701,
+          "mean_wall_ms_per_paired_send": 10.742671789084707,
+          "mean_cpu_ms_per_paired_call": 0.2450847798644852,
+          "fraction_of_paired_whole_send_cpu": 0.9006327661080408
+        },
+        "tight_palette_translation": {
+          "calls": 154795,
+          "completed_calls": 154795,
+          "valid_probe_pairs": 154795,
+          "invalid_probe_pairs": 0,
+          "operation_failures": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_wall": 0,
+          "wall_invalid": 0,
+          "paired_calls": 154795,
+          "paired_cpu_ns": 1806016247,
+          "paired_wall_ns": 1871452975,
+          "last_cpu_read_errno": 0,
+          "mean_cpu_ms_per_paired_send": 0.5133644818078453,
+          "mean_wall_ms_per_paired_send": 0.5319650298465037,
+          "mean_cpu_ms_per_paired_call": 0.011667148467327755,
+          "fraction_of_paired_whole_send_cpu": 0.0438718443845254
+        }
+      },
+      "mean_whole_cpu_ms_per_paired_send": 11.701456572200113,
+      "mean_whole_wall_ms_per_paired_send": 11.92164725525867,
+      "mean_other_cpu_ms_per_paired_send": 0.6493768902785674
+    },
+    {
+      "start_seconds": 180,
+      "duration_seconds": 60,
+      "send_finishes_per_second": 40.233333333333334,
+      "capture_starts_per_second": 59.68333333333333,
+      "thermal_states": [
+        2
+      ],
+      "complete_pairing": true,
+      "exact_totals": {
+        "send_samples": 2414,
+        "paired_send_samples": 2414,
+        "invalid_send_samples": 0,
+        "probe_imbalance": 0,
+        "paired_jpeg_send_samples": 2414,
+        "paired_whole_send_cpu_ns": 42862608682,
+        "paired_whole_send_wall_ns": 43989660208,
+        "paired_other_output_cpu_ns": 2589341166
+      },
+      "stages": {
+        "tj_compress": {
+          "calls": 103803,
+          "completed_calls": 103803,
+          "valid_probe_pairs": 103803,
+          "invalid_probe_pairs": 0,
+          "operation_failures": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_wall": 0,
+          "wall_invalid": 0,
+          "paired_calls": 103803,
+          "paired_cpu_ns": 38330940662,
+          "paired_wall_ns": 39351111160,
+          "last_cpu_read_errno": 0,
+          "mean_cpu_ms_per_paired_send": 15.878600108533554,
+          "mean_wall_ms_per_paired_send": 16.301205948632973,
+          "mean_cpu_ms_per_paired_call": 0.3692662125564772,
+          "fraction_of_paired_whole_send_cpu": 0.8942745633234624
+        },
+        "tight_palette_translation": {
+          "calls": 106221,
+          "completed_calls": 106221,
+          "valid_probe_pairs": 106221,
+          "invalid_probe_pairs": 0,
+          "operation_failures": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_wall": 0,
+          "wall_invalid": 0,
+          "paired_calls": 106221,
+          "paired_cpu_ns": 1942326854,
+          "paired_wall_ns": 2023339381,
+          "last_cpu_read_errno": 0,
+          "mean_cpu_ms_per_paired_send": 0.8046093015741508,
+          "mean_wall_ms_per_paired_send": 0.8381687576636287,
+          "mean_cpu_ms_per_paired_call": 0.01828571425612638,
+          "fraction_of_paired_whole_send_cpu": 0.04531518061371923
+        }
+      },
+      "mean_whole_cpu_ms_per_paired_send": 17.75584452444076,
+      "mean_whole_wall_ms_per_paired_send": 18.222725852526924,
+      "mean_other_cpu_ms_per_paired_send": 1.072635114333057
+    },
+    {
+      "start_seconds": 240,
+      "duration_seconds": 60,
+      "send_finishes_per_second": 32.06666666666667,
+      "capture_starts_per_second": 59.666666666666664,
+      "thermal_states": [
+        2
+      ],
+      "complete_pairing": true,
+      "exact_totals": {
+        "send_samples": 1924,
+        "paired_send_samples": 1924,
+        "invalid_send_samples": 0,
+        "probe_imbalance": 0,
+        "paired_jpeg_send_samples": 1924,
+        "paired_whole_send_cpu_ns": 39335888414,
+        "paired_whole_send_wall_ns": 40612125857,
+        "paired_other_output_cpu_ns": 2347866580
+      },
+      "stages": {
+        "tj_compress": {
+          "calls": 82765,
+          "completed_calls": 82765,
+          "valid_probe_pairs": 82765,
+          "invalid_probe_pairs": 0,
+          "operation_failures": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_wall": 0,
+          "wall_invalid": 0,
+          "paired_calls": 82765,
+          "paired_cpu_ns": 35141315220,
+          "paired_wall_ns": 36277281764,
+          "last_cpu_read_errno": 0,
+          "mean_cpu_ms_per_paired_send": 18.26471685031185,
+          "mean_wall_ms_per_paired_send": 18.85513605197505,
+          "mean_cpu_ms_per_paired_call": 0.4245914966471334,
+          "fraction_of_paired_whole_send_cpu": 0.8933652355870749
+        },
+        "tight_palette_translation": {
+          "calls": 84693,
+          "completed_calls": 84693,
+          "valid_probe_pairs": 84693,
+          "invalid_probe_pairs": 0,
+          "operation_failures": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_wall": 0,
+          "wall_invalid": 0,
+          "paired_calls": 84693,
+          "paired_cpu_ns": 1846706614,
+          "paired_wall_ns": 1929408877,
+          "last_cpu_read_errno": 0,
+          "mean_cpu_ms_per_paired_send": 0.9598267224532225,
+          "mean_wall_ms_per_paired_send": 1.0028112666320166,
+          "mean_cpu_ms_per_paired_call": 0.02180471365992467,
+          "fraction_of_paired_whole_send_cpu": 0.04694711848284429
+        }
+      },
+      "mean_whole_cpu_ms_per_paired_send": 20.444848448024945,
+      "mean_whole_wall_ms_per_paired_send": 21.108173522349272,
+      "mean_other_cpu_ms_per_paired_send": 1.2203048752598753
+    }
+  ],
+  "overall": {
+    "start_seconds": 0,
+    "duration_seconds": 300,
+    "send_finishes_per_second": 49.96,
+    "capture_starts_per_second": 59.75666666666667,
+    "thermal_states": [
+      0,
+      1,
+      2
+    ],
+    "complete_pairing": true,
+    "exact_totals": {
+      "send_samples": 14988,
+      "paired_send_samples": 14988,
+      "invalid_send_samples": 0,
+      "probe_imbalance": 0,
+      "paired_jpeg_send_samples": 14987,
+      "paired_whole_send_cpu_ns": 185889723824,
+      "paired_whole_send_wall_ns": 190194274096,
+      "paired_other_output_cpu_ns": 10872075655
+    },
+    "stages": {
+      "tj_compress": {
+        "calls": 644508,
+        "completed_calls": 644508,
+        "valid_probe_pairs": 644508,
+        "invalid_probe_pairs": 0,
+        "operation_failures": 0,
+        "cpu_read_failures": 0,
+        "cpu_invalid_time": 0,
+        "thread_mismatch": 0,
+        "cpu_clock_backwards": 0,
+        "cpu_exceeds_wall": 0,
+        "wall_invalid": 0,
+        "paired_calls": 644508,
+        "paired_cpu_ns": 166676247546,
+        "paired_wall_ns": 170589605972,
+        "last_cpu_read_errno": 0,
+        "mean_cpu_ms_per_paired_send": 11.120646353482787,
+        "mean_wall_ms_per_paired_send": 11.381745794769149,
+        "mean_cpu_ms_per_paired_call": 0.25861005223519334,
+        "fraction_of_paired_whole_send_cpu": 0.8966404603613738
+      },
+      "tight_palette_translation": {
+        "calls": 659512,
+        "completed_calls": 659512,
+        "valid_probe_pairs": 659512,
+        "invalid_probe_pairs": 0,
+        "operation_failures": 0,
+        "cpu_read_failures": 0,
+        "cpu_invalid_time": 0,
+        "thread_mismatch": 0,
+        "cpu_clock_backwards": 0,
+        "cpu_exceeds_wall": 0,
+        "wall_invalid": 0,
+        "paired_calls": 659512,
+        "paired_cpu_ns": 8341400623,
+        "paired_wall_ns": 8666233106,
+        "last_cpu_read_errno": 0,
+        "mean_cpu_ms_per_paired_send": 0.5565386057512677,
+        "mean_wall_ms_per_paired_send": 0.5782114428876435,
+        "mean_cpu_ms_per_paired_call": 0.012647837526838027,
+        "fraction_of_paired_whole_send_cpu": 0.044872844240156175
+      }
+    },
+    "mean_whole_cpu_ms_per_paired_send": 12.402570311182279,
+    "mean_whole_wall_ms_per_paired_send": 12.689770089137976,
+    "mean_other_cpu_ms_per_paired_send": 0.7253853519482253
+  },
+  "interpretation": [
+    "The warmed bottleneck is primarily the actual legacy tjCompress call. It accounts for 89.34% of paired final-minute output-thread CPU, 18.265 ms per update out of 20.445 ms.",
+    "Palette/translation takes 0.960 ms and remaining output-thread work 1.220 ms per warmed update. Optimizing only those stages cannot recover a 16.67 ms budget with JPEG cost unchanged.",
+    "JPEG CPU rises 6.608 to 18.265 ms per update while mean JPEGcall count remains about 43. Capture continues near 60 Hz and output ends near 30 Hz.",
+    "The two fixed JPEG workers are an admissible byte-preserving performance experiment; these serial measurements do not prove its speed, thermal behavior, native latency or quality.",
+    "Initial thermal samples include nominal/fair and later serious. This observation does not isolate frequency/core choice or prove thermal causality."
+  ],
+  "limits": [
+    "This attribution applies only to serial output-thread encoding; other threads are deliberately unarmed.",
+    "tj_compress measures the exact legacy tjCompress call, including work in that API but excluding buffer setup and protocol output.",
+    "tight_palette_translation measures the SendSubrect palette/translation block; it excludes the recursive planner, solid-area search, headers and codec dispatch.",
+    "Other CPU is paired whole-output CPU minus the two disjoint measured stages; it includes probe and protocol work.",
+    "Exact sums include only sends with complete, same-thread whole/stage pairs. Invalid samples are counted, not replaced with zero.",
+    "Thermal states are sampled categories and do not identify temperature, CPU frequency or core assignment."
+  ],
+  "restoration": {
+    "status": "collected",
+    "diagnostic_sha256": "3483b27efef587dcf7f3164df68d4f15fccd844e8251db5d068b3829dfcfb7f1",
+    "restored": true,
+    "sink_duration_seconds": 310,
+    "jpeg_stage_pairing_complete": true,
+    "valid_single_client": true,
+    "profile_changed": false,
+    "timing_windows": 30
+  },
+  "raw_evidence_sha256": {
+    "work/renderer-memory-20260909/jpeg-stage-sink-3483/timing.json": "85a5b3408326f276845eacb17af50c23952670fe6e07da148a29334c71bc2826",
+    "work/renderer-memory-20260909/jpeg-stage-sink-3483/sink.json": "2557e190585d48e578aed62b6c35ac525921efb69b316721e9950f9433bb570f",
+    "work/renderer-memory-20260909/jpeg-stage-sink-3483/run.json": "b734d1b9a911f24aa15eb5bd74233a9eec21169fc98c8c92955af0f989e15ebc",
+    "work/renderer-memory-20260909/jpeg-stage-sink-3483/jpeg-summary.json": "872ea8575efa6ac973d2f4f08ec88a4df6c421021907227a2aaf2f6fe9027a81",
+    "work/renderer-memory-20260909/jpeg-stage-sink-3483/stage-summary.json": "fdd418a36988439edcf2f6f832be1133a61009ac100e95a53512e1fd5b30a47d"
+  },
+  "host_validation": {
+    "omitted": {
+      "summary": "actual_tight_paths=12,probe_validity_cases=0",
+      "actual_path_signature_count": 12
+    },
+    "0": {
+      "summary": "actual_tight_paths=12,probe_validity_cases=0",
+      "actual_path_signature_count": 12
+    },
+    "1": {
+      "summary": "actual_tight_paths=12,probe_validity_cases=23",
+      "actual_path_signature_count": 12
+    }
+  },
+  "disabled_token_comparisons": 48
+}

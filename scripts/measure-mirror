@@ -3,22 +3,30 @@
 import argparse
 import json
 from pathlib import Path
+import sys
 import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-WORK = ROOT / 'work'
+sys.path.insert(0, str(ROOT))
+from iphonebridge.runtime import PATHS  # noqa: E402
+
+# Source checkouts exchange requests and reports in work/. To drive the packaged
+# app's benchmark instead, point IPHONEBRIDGE_DATA_DIR at its data folder.
+WORK = PATHS.data
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('label')
 parser.add_argument('--mode', choices=['input', 'animation'], default='input')
-parser.add_argument('--compression', type=int, choices=range(10), default=2)
+parser.add_argument('--compression', type=int, help='Retired JPEG option; unsupported by native HEVC')
 parser.add_argument('--trials', type=int, default=30)
 parser.add_argument('--duration-ms', type=int, default=10000)
 args = parser.parse_args()
+if args.compression is not None:
+    parser.error('--compression controlled JPEG and is unsupported by the native HEVC mirror')
 if not 1 <= args.trials <= 100 or not 100 <= args.duration_ms <= 30000:
     parser.error('Use 1–100 trials and 100–30000 ms duration')
 request = {'id': uuid.uuid4().hex, 'label': args.label, 'mode': args.mode,
-           'compressionLevel': args.compression, 'trials': args.trials, 'durationMs': args.duration_ms}
+           'trials': args.trials, 'durationMs': args.duration_ms}
 path = WORK / 'benchmark-request.json'
 tmp = path.with_suffix('.tmp')
 tmp.write_text(json.dumps(request))
@@ -31,6 +39,9 @@ try:
             for line in reports.read_text().splitlines():
                 report = json.loads(line)
                 if report.get('id') == request['id']:
+                    if args.mode in {'input', 'animation'} and not report.get('visibleQualification'):
+                        report['failure'] = report.get('failure') or {
+                            'reason': 'Visible performance is unqualified: visibility was hidden or unobserved'}
                     print(json.dumps(report, indent=2))
                     raise SystemExit(1 if report.get('failure') else 0)
         time.sleep(0.5)

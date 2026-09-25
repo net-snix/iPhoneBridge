@@ -1,0 +1,386 @@
+{
+  "date": "2026-09-10",
+  "status": "rejected_as_sustained_cadence_fix_normal_daemon_restored",
+  "candidate_binary_sha256": "9faa8f7262aab9f87a4c19744ce7d74692f2fe60b46a8016cb2a962ae431cf77",
+  "control_binary_sha256": "bcebccf77168ad7384c5e1d569358e12059525b5637130b3453bd9bee5817e77",
+  "candidate_source_deltas_sha256": {
+    "output-qos-daemon-from-bceb.patch": "1c553f8333b40c0864f62193cb7a68767386b58a4b55fdb4199d44ed7aae6e36",
+    "output-qos-libvnc-from-77340.patch": "7bc56ddbe92263ac06f24588992e9e753823bf808fd32d1456020974f9fb8cca"
+  },
+  "candidate_daemon_sources_sha256": {
+    "FrameUpdateRetry.h": "7b1098669fe9361c2274b20e93d501428f14d0ad98b69929fdda45b7b5c5a7bc",
+    "ThreadTiming.h": "fe94b92479719d3216c0b2a22b3b568b9dc3af39f12c8a05ea8ede4fedafb3b3",
+    "CaptureSchedule.h": "c37cc1b5f0fcc50fd066a7656c605b127ed5d7e02e855159e0ec9a41b0df9e47",
+    "ScreenCapturer.mm": "0b0c5c0f4ba5a86d566c9d5a7ebb9cb85454fb4639b05aafd41937542b440d48",
+    "CaptureTiming.h": "6d47cc4a0bfc3cd01719f53b468f0192ccdc51874d53eaf0780a57844c2b85ae",
+    "ClientSendLocks.h": "d999101e5f087e7f8b3a32fd757386b6c2b6e18d18164ef3adfee71e481df0f2",
+    "trollvncserver.mm": "8b20dab3b150eebec47e5ef5a072d30739a666f2cb9b1019281e58d9b35946a0",
+    "ScreenCapturer.h": "93c842854176a95fd65a7830116d51dc13e13f51f9f55e14438e55d54e0b83b2"
+  },
+  "candidate_libvnc_sources_sha256": {
+    "src/libvncserver/main.c": "b415e20d717e5ac85362c018a770d90e3e167cb90e8bffcff1146c0792529cea",
+    "src/libvncserver/rfbserver.c": "e2a372a2c38758e11d90744c38ec460784a6027a18138c6d5f886bad83224ab1"
+  },
+  "candidate_libvnc_archive_sha256": "c1dee93ec23fa1504d6c7fc8eccc9240a2cd8fa43020252859fd6ca4b30fe617",
+  "unchanged_codec_archives_sha256": {
+    "libpng16.a": "47c913a83284fa60b491c9bab11ceaca9f1c0cba128e9f3c4a0083cab2928c9b",
+    "libturbojpeg.a": "d4967c44b7dff2b9556767e705b72fc6f093c356a3b86b15ec24122bfc1177a9",
+    "liblzo2.a": "08c7a833bad0300129735444e5a0738665660d38e201792dbe7d2dc98f45c0f0",
+    "libjpeg.a": "031dcf5703827840eb7da733ac7652046a31ca7dacd994b742d6fa8d0b7449ae"
+  },
+  "control_measurements": "overlap-cpu-timing-2026-09-10.json",
+  "profile": {
+    "bits_per_pixel": 32,
+    "depth": 24,
+    "big_endian": 0,
+    "true_colour": 255,
+    "red_max": 255,
+    "green_max": 255,
+    "blue_max": 255,
+    "red_shift": 0,
+    "green_shift": 8,
+    "blue_shift": 16,
+    "preferred_encoding": 7,
+    "tight_quality_level": 6,
+    "tight_compress_level": 2,
+    "turbo_quality_level": 79,
+    "turbo_subsampling": 0,
+    "width": 1172,
+    "height": 2536,
+    "copy_rect": -1,
+    "last_rect": -1,
+    "new_fb_size": -1,
+    "extended_desktop_size": 0,
+    "cursor_shape": 0,
+    "cursor_position": 0,
+    "extended_clipboard": 0
+  },
+  "duration_seconds": 300,
+  "origin_unix_ns": 1789072262906257000,
+  "sink_elapsed_seconds": 310.00037087500095,
+  "sink_data_updates": 14618,
+  "sink_data_update_fps": 47.15478229506475,
+  "sink_gap_ms": {
+    "50": 17.24508299957961,
+    "95": 34.293325000908226,
+    "99": 35.645688029471785,
+    "100": 68.57270799810067
+  },
+  "output_initializers": [
+    {
+      "scope": "dedicated_client_output",
+      "target_requested_qos": 33,
+      "target_relative_priority": 0,
+      "before_get_result": 0,
+      "before_requested_qos": 21,
+      "before_relative_priority": 0,
+      "set_result": 0,
+      "after_get_result": 0,
+      "after_requested_qos": 33,
+      "after_relative_priority": 0,
+      "applied": true
+    },
+    {
+      "scope": "dedicated_client_output",
+      "target_requested_qos": 33,
+      "target_relative_priority": 0,
+      "before_get_result": 0,
+      "before_requested_qos": 21,
+      "before_relative_priority": 0,
+      "set_result": 0,
+      "after_get_result": 0,
+      "after_requested_qos": 33,
+      "after_relative_priority": 0,
+      "applied": true
+    },
+    {
+      "scope": "dedicated_client_output",
+      "target_requested_qos": 33,
+      "target_relative_priority": 0,
+      "before_get_result": 0,
+      "before_requested_qos": 21,
+      "before_relative_priority": 0,
+      "set_result": 0,
+      "after_get_result": 0,
+      "after_requested_qos": 33,
+      "after_relative_priority": 0,
+      "applied": true
+    },
+    {
+      "scope": "dedicated_client_output",
+      "target_requested_qos": 33,
+      "target_relative_priority": 0,
+      "before_get_result": 0,
+      "before_requested_qos": 21,
+      "before_relative_priority": 0,
+      "set_result": 0,
+      "after_get_result": 0,
+      "after_requested_qos": 33,
+      "after_relative_priority": 0,
+      "applied": true
+    }
+  ],
+  "all_30_windows_requested_qos": 33,
+  "cpu_validity": {
+    "all_windows_pair_counts_complete": true,
+    "failure_counters": {
+      "send_cpu_read_failures": 0,
+      "send_cpu_invalid_pairs": 0,
+      "send_cpu_thread_mismatch": 0,
+      "send_cpu_clock_backwards": 0,
+      "send_cpu_exceeds_wall": 0,
+      "send_cpu_overlapping_starts": 0
+    },
+    "output_thread_changed": false
+  },
+  "validity": {
+    "valid_single_client": true,
+    "profile_changed": false,
+    "connections": 1,
+    "disconnections": 0,
+    "capture_sessions": 1,
+    "peak_clients": 1,
+    "socket_write_hook_observed": true
+  },
+  "minutes": [
+    {
+      "start_seconds": 0,
+      "thermal_states": [
+        1
+      ],
+      "rates_per_second": {
+        "cad_ticks": 59.983333333333334,
+        "capture_starts": 59.78333333333333,
+        "display_changed": 59.46666666666667,
+        "display_unchanged": 0.3,
+        "prepare_success": 59.46666666666667,
+        "publications": 59.45,
+        "send_finishes": 59.45,
+        "source_dirty_counter_advances": 59.983333333333334
+      },
+      "cpu_share_of_paired_send_wall": 0.9975729734462283,
+      "mean_ms": {
+        "capture_callback_ms": 9.532116307863916,
+        "prepare_ms": 1.7834632230941705,
+        "encode_send_ms": 7.5822194336977855,
+        "send_thread_cpu_ms": 7.563818303896832,
+        "send_wall_minus_thread_cpu_ms": 0.018402250622371743,
+        "update_socket_write_ms": 0.2051364395850855,
+        "finish_to_send_ms": 9.240602299495233,
+        "finish_to_request_ms": 3.7132945569265283,
+        "request_to_send_ms": 5.526153148303897,
+        "publication_queue_ms": 7.295892173303422
+      }
+    },
+    {
+      "start_seconds": 60,
+      "thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.81666666666667,
+        "display_changed": 59.6,
+        "display_unchanged": 0.23333333333333334,
+        "prepare_success": 59.6,
+        "publications": 59.6,
+        "send_finishes": 59.56666666666667,
+        "source_dirty_counter_advances": 59.983333333333334
+      },
+      "cpu_share_of_paired_send_wall": 0.975703140628204,
+      "mean_ms": {
+        "capture_callback_ms": 9.727590986072423,
+        "prepare_ms": 1.8936788422818789,
+        "encode_send_ms": 10.400752658086178,
+        "send_thread_cpu_ms": 10.148065498041412,
+        "send_wall_minus_thread_cpu_ms": 0.2527060844991606,
+        "update_socket_write_ms": 0.22356474314493566,
+        "finish_to_send_ms": 6.383854299300699,
+        "finish_to_request_ms": 1.5471470489510488,
+        "request_to_send_ms": 4.836705552447553,
+        "publication_queue_ms": 5.0575616447552445
+      }
+    },
+    {
+      "start_seconds": 120,
+      "thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 59.983333333333334,
+        "capture_starts": 59.78333333333333,
+        "display_changed": 59.583333333333336,
+        "display_unchanged": 0.18333333333333332,
+        "prepare_success": 59.583333333333336,
+        "publications": 54.61666666666667,
+        "send_finishes": 54.56666666666667,
+        "source_dirty_counter_advances": 60.0
+      },
+      "cpu_share_of_paired_send_wall": 0.9825780410921467,
+      "mean_ms": {
+        "capture_callback_ms": 11.06367980479643,
+        "prepare_ms": 2.2318715496503496,
+        "encode_send_ms": 13.864879138668297,
+        "send_thread_cpu_ms": 13.623323182651191,
+        "send_wall_minus_thread_cpu_ms": 0.24155330849114234,
+        "update_socket_write_ms": 0.31430275595601714,
+        "finish_to_send_ms": 4.462603301771534,
+        "finish_to_request_ms": 1.1260027122785583,
+        "request_to_send_ms": 3.3366035980452047,
+        "publication_queue_ms": 2.7451940073304826
+      }
+    },
+    {
+      "start_seconds": 180,
+      "thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.666666666666664,
+        "display_changed": 59.56666666666667,
+        "display_unchanged": 0.1,
+        "prepare_success": 59.56666666666667,
+        "publications": 33.81666666666667,
+        "send_finishes": 33.8,
+        "source_dirty_counter_advances": 60.0
+      },
+      "cpu_share_of_paired_send_wall": 0.9818975373706701,
+      "mean_ms": {
+        "capture_callback_ms": 12.706789413407822,
+        "prepare_ms": 2.707316751538892,
+        "encode_send_ms": 20.25617909270217,
+        "send_thread_cpu_ms": 19.889508431952663,
+        "send_wall_minus_thread_cpu_ms": 0.3666870212031558,
+        "update_socket_write_ms": 0.4920698210059172,
+        "finish_to_send_ms": 9.329347687376725,
+        "finish_to_request_ms": 1.0359005670611439,
+        "request_to_send_ms": 8.293451947731755,
+        "publication_queue_ms": 7.848814723865877
+      }
+    },
+    {
+      "start_seconds": 240,
+      "thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.65,
+        "display_changed": 59.6,
+        "display_unchanged": 0.05,
+        "prepare_success": 59.6,
+        "publications": 31.15,
+        "send_finishes": 31.116666666666667,
+        "source_dirty_counter_advances": 59.983333333333334
+      },
+      "cpu_share_of_paired_send_wall": 0.9682878654818374,
+      "mean_ms": {
+        "capture_callback_ms": 13.283735959765297,
+        "prepare_ms": 3.145960061521253,
+        "encode_send_ms": 21.3187309051955,
+        "send_thread_cpu_ms": 20.64266893411891,
+        "send_wall_minus_thread_cpu_ms": 0.676062478307445,
+        "update_socket_write_ms": 0.5446147375468666,
+        "finish_to_send_ms": 10.823302357984993,
+        "finish_to_request_ms": 1.026883355115158,
+        "request_to_send_ms": 9.796433536977492,
+        "publication_queue_ms": 9.524268847802787
+      }
+    }
+  ],
+  "comparison_final_minute": {
+    "default_qos": {
+      "start_seconds": 240,
+      "thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.666666666666664,
+        "display_changed": 59.6,
+        "display_unchanged": 0.06666666666666667,
+        "prepare_success": 59.6,
+        "publications": 30.15,
+        "send_finishes": 30.15,
+        "source_dirty_counter_advances": 59.983333333333334
+      },
+      "cpu_share_of_paired_send_wall": 0.9422818941579518,
+      "mean_ms": {
+        "capture_callback_ms": 12.862303938547486,
+        "prepare_ms": 2.8753593176733783,
+        "encode_send_ms": 22.331501216141515,
+        "send_thread_cpu_ms": 21.042558264234383,
+        "send_wall_minus_thread_cpu_ms": 1.2889312769485903,
+        "update_socket_write_ms": 0.6497807628524047,
+        "finish_to_send_ms": 10.832400386954118,
+        "finish_to_request_ms": 0.960461725262576,
+        "request_to_send_ms": 9.8719507960199,
+        "publication_queue_ms": 9.576430873410724
+      }
+    },
+    "interactive_qos": {
+      "start_seconds": 240,
+      "thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.65,
+        "display_changed": 59.6,
+        "display_unchanged": 0.05,
+        "prepare_success": 59.6,
+        "publications": 31.15,
+        "send_finishes": 31.116666666666667,
+        "source_dirty_counter_advances": 59.983333333333334
+      },
+      "cpu_share_of_paired_send_wall": 0.9682878654818374,
+      "mean_ms": {
+        "capture_callback_ms": 13.283735959765297,
+        "prepare_ms": 3.145960061521253,
+        "encode_send_ms": 21.3187309051955,
+        "send_thread_cpu_ms": 20.64266893411891,
+        "send_wall_minus_thread_cpu_ms": 0.676062478307445,
+        "update_socket_write_ms": 0.5446147375468666,
+        "finish_to_send_ms": 10.823302357984993,
+        "finish_to_request_ms": 1.026883355115158,
+        "request_to_send_ms": 9.796433536977492,
+        "publication_queue_ms": 9.524268847802787
+      }
+    }
+  },
+  "interpretation": [
+    "The checked self-setter succeeded and every measured output thread policy requested USER_INTERACTIVE (33). The measurement still reproduced the warmed cadence collapse.",
+    "Final-minute output was 31.12 versus 30.15 sends/s; output CPU was 20.64 versus 21.04 ms. This is insufficient to qualify a sustained cadence fix.",
+    "Both runs started with fair thermal state and reported serious after 60 seconds; scalar thermal categories do not establish matched temperature, CPU frequency or causality.",
+    "The trial changes only dedicated-output QoS intent. It does not change capture cadence, profile, rectangles, codec arguments, codec archives, framebuffer ownership or viewer.",
+    "The trial was not promoted. A second control run was not needed because the candidate still failed the sustained cadence gate."
+  ],
+  "limits": [
+    "Only send_thread_cpu_ms measures CPU time; it covers the whole sending thread between hooks, not just JPEG.",
+    "send_wall_minus_thread_cpu_ms includes waiting/descheduling and small endpoint overhead; it does not distinguish their causes.",
+    "Requested pthread QoS excludes overrides; raw Mach priority fields identify neither effective QoS nor CPU core or frequency.",
+    "Nested stage durations overlap; do not add update/callback/preparation totals to their components.",
+    "Source dirty count is the CARenderServer display counter, not the Safari animation sequence.",
+    "Thermal state is categorical and sampled once per ten-second window, not a temperature measurement.",
+    "Weighted means combine the rounded means in the source report; percentiles are not averaged."
+  ],
+  "restoration": {
+    "status": "collected",
+    "diagnostic_sha256": "9faa8f7262aab9f87a4c19744ce7d74692f2fe60b46a8016cb2a962ae431cf77",
+    "restored": true,
+    "sink_duration_seconds": 310,
+    "output_qos_applied": true,
+    "output_qos_initializers": 4,
+    "valid_single_client": true,
+    "profile_changed": false,
+    "timing_windows": 30
+  },
+  "raw_evidence_sha256": {
+    "work/renderer-memory-20260909/overlap-output-qos-sink-9faa/timing.json": "fc07755b5a40c06c85b170710a40d273f54171b485342247d4e0b95329c2d6ea",
+    "work/renderer-memory-20260909/overlap-output-qos-sink-9faa/sink.json": "4f7ce8882a34425632fcb215f27f46e4d103adfd4921106577afb2041311c966",
+    "work/renderer-memory-20260909/overlap-output-qos-sink-9faa/qos.json": "5118197e893963304b24621e16b0163d2b42232ef57bc43c88d404ed5e671bb6",
+    "work/renderer-memory-20260909/overlap-output-qos-sink-9faa/run.json": "2e32251514b62cba72534e6d87e3576fdffdf682868f3d33e36a76c0f9393982",
+    "work/renderer-memory-20260909/overlap-output-qos-sink-9faa/stage-summary.json": "3da4dbd26ef0b35879be54355d3872d903a05d666cdd6e61d61f0dd0d316fc71"
+  }
+}

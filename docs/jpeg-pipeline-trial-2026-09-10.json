@@ -1,0 +1,475 @@
+{
+  "schema_version": 1,
+  "status": "partial_delivery_gain_not_qualified",
+  "trial_date": "2026-09-10",
+  "assembled_date": "2026-09-11",
+  "source_control": {
+    "library_sources_identical": true,
+    "daemon_sources_identical_except_rebuilt_library": true,
+    "codec_archives_identical": true,
+    "changed_compile_option": "IPHONEBRIDGE_TIGHT_JPEG_PIPELINE=1 versus 0",
+    "unchanged_prerequisites": [
+      "negotiation serialization",
+      "coordinator/worker CPU diagnostics",
+      "capture/socket diagnostics",
+      "two bounded result slots and same JPEG codec when enabled"
+    ]
+  },
+  "cpu_scope": "Paired coordinator thread CPU plus worker CPU measured inside tjCompress; excludes worker housekeeping and other process threads. The serial control has coordinator CPU only.",
+  "wall_scope": "Worker wall intervals overlap. Their sum is never subtracted from send elapsed time.",
+  "measurements": {
+    "two_workers": {
+      "binary_sha256": "c89d4069945fd45974a2ec15fd7b6f2a8c69bc7ee3e0dfc39a69318f2cd5a4a5",
+      "libvncserver_sha256": "ea012691d72026676a23acfc27e554820a979b6e7bc4326326ace5f6aa5bb9ae",
+      "restored": true,
+      "sink_duration_seconds": 310,
+      "timing_duration_seconds": 300,
+      "single_client": true,
+      "profile": {
+        "bits_per_pixel": 32,
+        "depth": 24,
+        "big_endian": 0,
+        "true_colour": 255,
+        "red_max": 255,
+        "green_max": 255,
+        "blue_max": 255,
+        "red_shift": 0,
+        "green_shift": 8,
+        "blue_shift": 16,
+        "preferred_encoding": 7,
+        "tight_quality_level": 6,
+        "tight_compress_level": 2,
+        "turbo_quality_level": 79,
+        "turbo_subsampling": 0,
+        "width": 1172,
+        "height": 2536,
+        "copy_rect": -1,
+        "last_rect": -1,
+        "new_fb_size": -1,
+        "extended_desktop_size": 0,
+        "cursor_shape": 0,
+        "cursor_position": 0,
+        "extended_clipboard": 0
+      },
+      "raw_directory": "work/renderer-memory-20260909/jpeg-pipeline-sink-c89d",
+      "evidence_sha256": {
+        "run.json": "6cd63e6acf06645831fe4f35c7c3f34a9b9da7828d0e6b4a56db5bf062e6a2e9",
+        "sink.json": "70f14a1de4c83b75cd008dadc286255a2737c148d7b9dbcbb460b86caaee63bf",
+        "timing.json": "b6ad63f4c6b895a1f9ebcc5c902d679c86a3252b099fb3f2106883692fcdf43f",
+        "pipeline-summary.json": "4fd8cf7cb250f28e187b7084013d074e53784706db83cf1a8aa708a6188034dd"
+      },
+      "build_manifest_sha256": "8aa9fe3d07c79ac7c124afc2f472b2401a7d75509ba8177e16b2643b5812cc26",
+      "all": {
+        "seconds": 300,
+        "paired_fbu_per_second": 55.18,
+        "capture_starts_per_second": 59.71666666666667,
+        "thermal_states": [
+          0,
+          1,
+          2
+        ],
+        "missing_thermal_windows": 0,
+        "jobs_per_paired_fbu": 42.99903346623173,
+        "mean_ms_per_paired_fbu": {
+          "coordinator_cpu": 1.3605761224477468,
+          "worker_jpeg_cpu": 11.254732358644437,
+          "coordinator_plus_worker_jpeg_cpu": 12.615308481092184,
+          "send_wall": 8.54598456632838,
+          "worker_jpeg_wall_sum": 11.779752075993716
+        },
+        "mean_worker_jpeg_cpu_ms_per_paired_job": 0.26174384518394056,
+        "totals": {
+          "send_samples": 16554,
+          "failed_fbu_samples": 0,
+          "paired_send_samples": 16554,
+          "paired_failed_fbu_samples": 0,
+          "invalid_send_samples": 0,
+          "sends_with_submitted_jobs": 16553,
+          "active_sends_without_jobs": 1,
+          "fallback_sends": 0,
+          "mixed_worker_and_fallback_sends": 0,
+          "job_accounting_mismatch_sends": 0,
+          "jobs_outside_send_sends": 0,
+          "invalid_mode_calls": 0,
+          "ineligible_regions": 0,
+          "active_regions": 331082,
+          "budget_serial_regions": 0,
+          "setup_failed_regions": 0,
+          "submitted_jobs": 711806,
+          "retired_jobs": 711806,
+          "teardown_events": 0,
+          "teardown_pending_jobs": 0,
+          "teardown_while_active": 0,
+          "teardown_created_workers": 0,
+          "valid_worker_probe_pairs": 711806,
+          "worker_cpu_read_attempts": 1423612,
+          "worker_cpu_read_successes": 1423612,
+          "encode_failures": 0,
+          "emit_requested_jobs": 711806,
+          "retirement_failures": 0,
+          "discarded_jobs": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "cpu_not_read": 0,
+          "worker_thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_own_wall": 0,
+          "wall_invalid": 0,
+          "missing_or_repeated_end": 0,
+          "paired_jobs": 711806,
+          "paired_coordinator_cpu_ns": 22522977131,
+          "paired_worker_jpeg_cpu_ns": 186310839465,
+          "paired_coordinator_plus_worker_jpeg_cpu_ns": 208833816596,
+          "paired_send_wall_ns": 141470228511,
+          "paired_worker_jpeg_wall_sum_ns": 195002015866
+        }
+      },
+      "minutes": [
+        {
+          "minute": 1,
+          "seconds": 60,
+          "paired_fbu_per_second": 59.4,
+          "capture_starts_per_second": 59.7,
+          "thermal_states": [
+            0,
+            1
+          ],
+          "missing_thermal_windows": 0,
+          "jobs_per_paired_fbu": 42.988776655443324,
+          "mean_ms_per_paired_fbu": {
+            "coordinator_cpu": 0.926774879349046,
+            "worker_jpeg_cpu": 7.403990320145903,
+            "coordinator_plus_worker_jpeg_cpu": 8.33076519949495,
+            "send_wall": 5.319681514590348,
+            "worker_jpeg_wall_sum": 7.476423078843996
+          },
+          "mean_worker_jpeg_cpu_ms_per_paired_job": 0.17223077501109574,
+          "paired_samples": 3564,
+          "active_regions": 71244,
+          "paired_jobs": 153212
+        },
+        {
+          "minute": 2,
+          "seconds": 60,
+          "paired_fbu_per_second": 59.46666666666667,
+          "capture_starts_per_second": 59.766666666666666,
+          "thermal_states": [
+            1,
+            2
+          ],
+          "missing_thermal_windows": 0,
+          "jobs_per_paired_fbu": 43.000280269058294,
+          "mean_ms_per_paired_fbu": {
+            "coordinator_cpu": 1.0060929985986549,
+            "worker_jpeg_cpu": 8.453706347253364,
+            "coordinator_plus_worker_jpeg_cpu": 9.459799345852018,
+            "send_wall": 6.020468901625561,
+            "worker_jpeg_wall_sum": 8.533419521580717
+          },
+          "mean_worker_jpeg_cpu_ms_per_paired_job": 0.19659654063548965,
+          "paired_samples": 3568,
+          "active_regions": 71364,
+          "paired_jobs": 153425
+        },
+        {
+          "minute": 3,
+          "seconds": 60,
+          "paired_fbu_per_second": 59.5,
+          "capture_starts_per_second": 59.766666666666666,
+          "thermal_states": [
+            2
+          ],
+          "missing_thermal_windows": 0,
+          "jobs_per_paired_fbu": 43.00028011204482,
+          "mean_ms_per_paired_fbu": {
+            "coordinator_cpu": 1.0542181504201682,
+            "worker_jpeg_cpu": 9.0233588,
+            "coordinator_plus_worker_jpeg_cpu": 10.077576950420168,
+            "send_wall": 6.408397430252101,
+            "worker_jpeg_wall_sum": 9.109027596358544
+          },
+          "mean_worker_jpeg_cpu_ms_per_paired_job": 0.20984418651432146,
+          "paired_samples": 3570,
+          "active_regions": 71404,
+          "paired_jobs": 153511
+        },
+        {
+          "minute": 4,
+          "seconds": 60,
+          "paired_fbu_per_second": 54.95,
+          "capture_starts_per_second": 59.71666666666667,
+          "thermal_states": [
+            2
+          ],
+          "missing_thermal_windows": 0,
+          "jobs_per_paired_fbu": 43.00030330603579,
+          "mean_ms_per_paired_fbu": {
+            "coordinator_cpu": 1.7885292356687899,
+            "worker_jpeg_cpu": 15.071451612071579,
+            "coordinator_plus_worker_jpeg_cpu": 16.85998084774037,
+            "send_wall": 11.309634084622383,
+            "worker_jpeg_wall_sum": 15.729979656960873
+          },
+          "mean_worker_jpeg_cpu_ms_per_paired_job": 0.3504964024278419,
+          "paired_samples": 3297,
+          "active_regions": 65945,
+          "paired_jobs": 141772
+        },
+        {
+          "minute": 5,
+          "seconds": 60,
+          "paired_fbu_per_second": 42.583333333333336,
+          "capture_starts_per_second": 59.63333333333333,
+          "thermal_states": [
+            2
+          ],
+          "missing_thermal_windows": 0,
+          "jobs_per_paired_fbu": 43.00821917808219,
+          "mean_ms_per_paired_fbu": {
+            "coordinator_cpu": 2.336544796477495,
+            "worker_jpeg_cpu": 18.73042146223092,
+            "coordinator_plus_worker_jpeg_cpu": 21.066966258708415,
+            "send_wall": 15.99374095851272,
+            "worker_jpeg_wall_sum": 20.95022767592955
+          },
+          "mean_worker_jpeg_cpu_ms_per_paired_job": 0.4355079522050125,
+          "paired_samples": 2555,
+          "active_regions": 51125,
+          "paired_jobs": 109886
+        }
+      ]
+    },
+    "serial_control": {
+      "binary_sha256": "184aa0ac7ef5b2cfdab2bfe4d0dbfe4ed37ecca68049f44793fa45e94aaf9d52",
+      "libvncserver_sha256": "9f938b7fb8f9bcc61cbb80075ab8e1e6d1c7bbbe1bd65558b3d0faf27ff4dcc8",
+      "restored": true,
+      "sink_duration_seconds": 310,
+      "timing_duration_seconds": 300,
+      "single_client": true,
+      "profile": {
+        "bits_per_pixel": 32,
+        "depth": 24,
+        "big_endian": 0,
+        "true_colour": 255,
+        "red_max": 255,
+        "green_max": 255,
+        "blue_max": 255,
+        "red_shift": 0,
+        "green_shift": 8,
+        "blue_shift": 16,
+        "preferred_encoding": 7,
+        "tight_quality_level": 6,
+        "tight_compress_level": 2,
+        "turbo_quality_level": 79,
+        "turbo_subsampling": 0,
+        "width": 1172,
+        "height": 2536,
+        "copy_rect": -1,
+        "last_rect": -1,
+        "new_fb_size": -1,
+        "extended_desktop_size": 0,
+        "cursor_shape": 0,
+        "cursor_position": 0,
+        "extended_clipboard": 0
+      },
+      "raw_directory": "work/renderer-memory-20260909/jpeg-pipeline-control-sink-184a",
+      "evidence_sha256": {
+        "run.json": "dd11bcf94b815b525bff315802bb0530be131fccea9247de51e05f7b48b7020d",
+        "sink.json": "33ee99810de6f0fd270e9162a23c8968b6d824e7d1e6c8e2e482cd50f9ef5082",
+        "timing.json": "11cf38520088aba732f9a54f3b34d7f5ed113984a94c5f852976d567373c6d5d",
+        "pipeline-summary.json": "dff7783f8539d7779929bf39d37a3ac57bd1a9312dd16ba3542c5a9bda9dfce9"
+      },
+      "build_manifest_sha256": "2a82a0074d9c2a5b811486a6cc59fb67571f22d263239877affe648fb02186b2",
+      "all": {
+        "seconds": 300,
+        "paired_fbu_per_second": 42.21333333333333,
+        "capture_starts_per_second": 59.72,
+        "thermal_states": [
+          1,
+          2
+        ],
+        "missing_thermal_windows": 0,
+        "jobs_per_paired_fbu": 0.0,
+        "mean_ms_per_paired_fbu": {
+          "coordinator_cpu": 14.613627229943145,
+          "worker_jpeg_cpu": 0.0,
+          "coordinator_plus_worker_jpeg_cpu": 14.613627229943145,
+          "send_wall": 15.473668047141503,
+          "worker_jpeg_wall_sum": 0.0
+        },
+        "mean_worker_jpeg_cpu_ms_per_paired_job": null,
+        "totals": {
+          "send_samples": 12664,
+          "failed_fbu_samples": 0,
+          "paired_send_samples": 12664,
+          "paired_failed_fbu_samples": 0,
+          "invalid_send_samples": 0,
+          "sends_with_submitted_jobs": 0,
+          "active_sends_without_jobs": 0,
+          "fallback_sends": 0,
+          "mixed_worker_and_fallback_sends": 0,
+          "job_accounting_mismatch_sends": 0,
+          "jobs_outside_send_sends": 0,
+          "invalid_mode_calls": 0,
+          "ineligible_regions": 0,
+          "active_regions": 0,
+          "budget_serial_regions": 0,
+          "setup_failed_regions": 0,
+          "submitted_jobs": 0,
+          "retired_jobs": 0,
+          "teardown_events": 0,
+          "teardown_pending_jobs": 0,
+          "teardown_while_active": 0,
+          "teardown_created_workers": 0,
+          "valid_worker_probe_pairs": 0,
+          "worker_cpu_read_attempts": 0,
+          "worker_cpu_read_successes": 0,
+          "encode_failures": 0,
+          "emit_requested_jobs": 0,
+          "retirement_failures": 0,
+          "discarded_jobs": 0,
+          "cpu_read_failures": 0,
+          "cpu_invalid_time": 0,
+          "cpu_not_read": 0,
+          "worker_thread_mismatch": 0,
+          "cpu_clock_backwards": 0,
+          "cpu_exceeds_own_wall": 0,
+          "wall_invalid": 0,
+          "missing_or_repeated_end": 0,
+          "paired_jobs": 0,
+          "paired_coordinator_cpu_ns": 185066975240,
+          "paired_worker_jpeg_cpu_ns": 0,
+          "paired_coordinator_plus_worker_jpeg_cpu_ns": 185066975240,
+          "paired_send_wall_ns": 195958532149,
+          "paired_worker_jpeg_wall_sum_ns": 0
+        }
+      },
+      "minutes": [
+        {
+          "minute": 1,
+          "seconds": 60,
+          "paired_fbu_per_second": 59.483333333333334,
+          "capture_starts_per_second": 59.8,
+          "thermal_states": [
+            1,
+            2
+          ],
+          "missing_thermal_windows": 0,
+          "jobs_per_paired_fbu": 0.0,
+          "mean_ms_per_paired_fbu": {
+            "coordinator_cpu": 8.2070613964696,
+            "worker_jpeg_cpu": 0.0,
+            "coordinator_plus_worker_jpeg_cpu": 8.2070613964696,
+            "send_wall": 8.300452718128327,
+            "worker_jpeg_wall_sum": 0.0
+          },
+          "mean_worker_jpeg_cpu_ms_per_paired_job": null,
+          "paired_samples": 3569,
+          "active_regions": 0,
+          "paired_jobs": 0
+        },
+        {
+          "minute": 2,
+          "seconds": 60,
+          "paired_fbu_per_second": 58.05,
+          "capture_starts_per_second": 59.81666666666667,
+          "thermal_states": [
+            2
+          ],
+          "missing_thermal_windows": 0,
+          "jobs_per_paired_fbu": 0.0,
+          "mean_ms_per_paired_fbu": {
+            "coordinator_cpu": 11.84813562474878,
+            "worker_jpeg_cpu": 0.0,
+            "coordinator_plus_worker_jpeg_cpu": 11.84813562474878,
+            "send_wall": 12.199175482629917,
+            "worker_jpeg_wall_sum": 0.0
+          },
+          "mean_worker_jpeg_cpu_ms_per_paired_job": null,
+          "paired_samples": 3483,
+          "active_regions": 0,
+          "paired_jobs": 0
+        },
+        {
+          "minute": 3,
+          "seconds": 60,
+          "paired_fbu_per_second": 33.733333333333334,
+          "capture_starts_per_second": 59.666666666666664,
+          "thermal_states": [
+            2
+          ],
+          "missing_thermal_windows": 0,
+          "jobs_per_paired_fbu": 0.0,
+          "mean_ms_per_paired_fbu": {
+            "coordinator_cpu": 19.655145366600788,
+            "worker_jpeg_cpu": 0.0,
+            "coordinator_plus_worker_jpeg_cpu": 19.655145366600788,
+            "send_wall": 20.5313154229249,
+            "worker_jpeg_wall_sum": 0.0
+          },
+          "mean_worker_jpeg_cpu_ms_per_paired_job": null,
+          "paired_samples": 2024,
+          "active_regions": 0,
+          "paired_jobs": 0
+        },
+        {
+          "minute": 4,
+          "seconds": 60,
+          "paired_fbu_per_second": 29.933333333333334,
+          "capture_starts_per_second": 59.666666666666664,
+          "thermal_states": [
+            2
+          ],
+          "missing_thermal_windows": 0,
+          "jobs_per_paired_fbu": 0.0,
+          "mean_ms_per_paired_fbu": {
+            "coordinator_cpu": 20.806665642538977,
+            "worker_jpeg_cpu": 0.0,
+            "coordinator_plus_worker_jpeg_cpu": 20.806665642538977,
+            "send_wall": 22.72661068429844,
+            "worker_jpeg_wall_sum": 0.0
+          },
+          "mean_worker_jpeg_cpu_ms_per_paired_job": null,
+          "paired_samples": 1796,
+          "active_regions": 0,
+          "paired_jobs": 0
+        },
+        {
+          "minute": 5,
+          "seconds": 60,
+          "paired_fbu_per_second": 29.866666666666667,
+          "capture_starts_per_second": 59.65,
+          "thermal_states": [
+            2
+          ],
+          "missing_thermal_windows": 0,
+          "jobs_per_paired_fbu": 0.0,
+          "mean_ms_per_paired_fbu": {
+            "coordinator_cpu": 20.84717132756696,
+            "worker_jpeg_cpu": 0.0,
+            "coordinator_plus_worker_jpeg_cpu": 20.84717132756696,
+            "send_wall": 23.142920193638393,
+            "worker_jpeg_wall_sum": 0.0
+          },
+          "mean_worker_jpeg_cpu_ms_per_paired_job": null,
+          "paired_samples": 1792,
+          "active_regions": 0,
+          "paired_jobs": 0
+        }
+      ]
+    }
+  },
+  "interpretation": [
+    "Two workers improve late measured delivery to 42.58 updates/s versus 29.87 in the subsequent same-source serial control, but cadence still declines.",
+    "The first pipeline drains at every public Tight region, about 20 regions for 43 JPEG jobs per update in the last minute. A full-update candidate is staged to test the cost of these boundaries.",
+    "The two-worker final mean send elapsed time is 15.994 ms, plus 7.489 ms before the next send; the gap is about 1.932 ms to the publication request and 5.557 ms after it.",
+    "Capture continues near 60/s. Queued publication waits correlate with main-thread capture work; these aggregate timings do not prove that all residual delay comes from that queue."
+  ],
+  "limitations": [
+    "Trials ran sequentially with an intervening build and restore. Physical temperature and CPU frequency were not controlled; this is not a thermally matched comparison.",
+    "Both final minutes reported thermal state 2, but that category does not establish equal temperature or clock speed.",
+    "The combined measured CPU is not lower with workers; no process-wide CPU or energy reduction is established.",
+    "Encoded bytes were discarded. Native displayed cadence, image quality, input latency and sustained memory remain unqualified.",
+    "No trial has been promoted, pushed or released."
+  ]
+}

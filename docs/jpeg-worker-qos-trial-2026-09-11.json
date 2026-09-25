@@ -1,0 +1,397 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-11",
+  "decision": "do_not_adopt_worker_priority_change_sustained_speed_failed",
+  "identity": {
+    "binary_sha256": "f60ae01a608e2a690fe11e2dfa2c18a8326a123c128004744bb5c8977ac36cf4",
+    "library_sha256": "6d9d76597c04896c11ab38e7782af67afdc4f4a32684530b3095e10d39e24b42",
+    "runner_sha256": "40766607895014ff40e2d6e274e24c54fe9ef1fa872cf28d66bd6762cb9dd4d8",
+    "worker_count": 2,
+    "requested_qos": 33
+  },
+  "implementation": "Exact E daemon and sparse probes; D two-worker pipeline with only creation-time worker QoS request changed. Four codec archives unchanged; output/capture policy source unchanged.",
+  "result_capacity_bound_bytes": 2097152,
+  "result_capacity_is_total_memory": false,
+  "host_qualification": {
+    "ubsan_groups_passed": 29,
+    "complete_wire_comparisons": 93,
+    "complete_wire_bytes_compared": 263360496,
+    "default_tokens_unchanged": true,
+    "attribute_failure_and_readmission_cases": 8,
+    "host_requested_qos33_and_relative0_observed_on_both_workers": true,
+    "asan_qualified": false
+  },
+  "measurement": {
+    "diagnostic_seconds_per_run": 300,
+    "windows_per_run": 30,
+    "sink_seconds_per_run": 310,
+    "end_to_next_sink_start_seconds_approx": 66.99912374999985,
+    "context": "Same pre-observed heavy-motion fixture. Native viewer closed. No input, extra phone clients, profilers, fixture changes, physical cooling intervention or builds during or between these two collections. Prior physical state was not controlled.",
+    "profile": {
+      "bits_per_pixel": 32,
+      "depth": 24,
+      "big_endian": 0,
+      "true_colour": 255,
+      "red_max": 255,
+      "green_max": 255,
+      "blue_max": 255,
+      "red_shift": 0,
+      "green_shift": 8,
+      "blue_shift": 16,
+      "preferred_encoding": 7,
+      "tight_quality_level": 6,
+      "tight_compress_level": 2,
+      "turbo_quality_level": 79,
+      "turbo_subsampling": 0,
+      "width": 1172,
+      "height": 2536,
+      "copy_rect": -1,
+      "last_rect": -1,
+      "new_fb_size": -1,
+      "extended_desktop_size": 0,
+      "cursor_shape": 0,
+      "cursor_position": 0,
+      "extended_clipboard": 0
+    },
+    "limits": [
+      "Rates count paired successful network updates, not visible FPS.",
+      "CPU sums cover all paired JPEG jobs; sparse counters cover only the first eligible job per worker in each ten-second window. Sampled pixels and geometry were not recorded or matched.",
+      "Capture metric means are weighted from rounded window means.",
+      "Controls are not subtracted. Effective cycles per CPU nanosecond does not identify a core or literal clock frequency. Thermal categories do not establish equal physical temperature or power.",
+      "The run does not qualify native input, pixels, rotation, reconnect or final-frame delivery."
+    ]
+  },
+  "runs": {
+    "first": {
+      "collection_checks_passed": true,
+      "normal_daemon_restored": true,
+      "paired_jpeg_jobs": 730749,
+      "worker_requested_qos_values": [
+        33
+      ],
+      "worker_relative_priority_values": [
+        0
+      ],
+      "worker_mach_base_priority_values": [
+        37
+      ],
+      "worker_policy_observations": 60,
+      "minutes": [
+        {
+          "minute": 1,
+          "updates_per_second": 59.43333333333333,
+          "capture_starts_per_second": 59.666666666666664,
+          "thermal_states": [
+            1
+          ],
+          "ms_per_update": {
+            "worker_jpeg_cpu": 7.77996871003926,
+            "coordinator_cpu": 1.2778930925406617,
+            "send_wall": 5.156331752944476
+          },
+          "capture_stage_mean_ms": {
+            "capture_callback_ms": 9.95004866722548,
+            "render_display_ms": 3.382448929971989,
+            "prepare_ms": 1.8214604090781732,
+            "surface_transfer_ms": 4.434260980666854
+          },
+          "sparse_jobs": 12,
+          "sparse_instructions_per_job": 2120063.5,
+          "sparse_cpu_us_per_job": 317.40975,
+          "sparse_cycles_per_instruction": 0.3423797997874435,
+          "sparse_effective_cycles_per_cpu_ns": 2.2868450533314326,
+          "sparse_instructions_per_cpu_ns": 6.679263948256158,
+          "prepared_frames_replaced": 0
+        },
+        {
+          "minute": 2,
+          "updates_per_second": 59.53333333333333,
+          "capture_starts_per_second": 59.733333333333334,
+          "thermal_states": [
+            2
+          ],
+          "ms_per_update": {
+            "worker_jpeg_cpu": 8.703136910694289,
+            "coordinator_cpu": 1.3467466906494963,
+            "send_wall": 5.71506770268757
+          },
+          "capture_stage_mean_ms": {
+            "capture_callback_ms": 9.977620965132495,
+            "render_display_ms": 3.3842625893854748,
+            "prepare_ms": 1.8878326137950294,
+            "surface_transfer_ms": 4.400771812342921
+          },
+          "sparse_jobs": 12,
+          "sparse_instructions_per_job": 2226480.5,
+          "sparse_cpu_us_per_job": 285.2464166666667,
+          "sparse_cycles_per_instruction": 0.30750205687107224,
+          "sparse_effective_cycles_per_cpu_ns": 2.400196087768558,
+          "sparse_instructions_per_cpu_ns": 7.805463521744503,
+          "prepared_frames_replaced": 0
+        },
+        {
+          "minute": 3,
+          "updates_per_second": 59.416666666666664,
+          "capture_starts_per_second": 59.733333333333334,
+          "thermal_states": [
+            2
+          ],
+          "ms_per_update": {
+            "worker_jpeg_cpu": 11.643161702103786,
+            "coordinator_cpu": 1.6639342070126226,
+            "send_wall": 7.695165837587657
+          },
+          "capture_stage_mean_ms": {
+            "capture_callback_ms": 10.507909067820261,
+            "render_display_ms": 3.606849236149972,
+            "prepare_ms": 2.097579157570669,
+            "surface_transfer_ms": 4.4921836803806325
+          },
+          "sparse_jobs": 12,
+          "sparse_instructions_per_job": 2103138.9166666665,
+          "sparse_cpu_us_per_job": 319.7846666666667,
+          "sparse_cycles_per_instruction": 0.2936068139737322,
+          "sparse_effective_cycles_per_cpu_ns": 1.9309741242544463,
+          "sparse_instructions_per_cpu_ns": 6.576734708981252,
+          "prepared_frames_replaced": 0
+        },
+        {
+          "minute": 4,
+          "updates_per_second": 54.666666666666664,
+          "capture_starts_per_second": 59.28333333333333,
+          "thermal_states": [
+            2
+          ],
+          "ms_per_update": {
+            "worker_jpeg_cpu": 19.02606279329268,
+            "coordinator_cpu": 2.4238371216463412,
+            "send_wall": 14.79471748292683
+          },
+          "capture_stage_mean_ms": {
+            "capture_callback_ms": 15.192366038796738,
+            "render_display_ms": 6.065095188626126,
+            "prepare_ms": 4.087630909090909,
+            "surface_transfer_ms": 4.540563414016324
+          },
+          "sparse_jobs": 12,
+          "sparse_instructions_per_job": 2092810.0833333333,
+          "sparse_cpu_us_per_job": 562.493,
+          "sparse_cycles_per_instruction": 0.4834022803709574,
+          "sparse_effective_cycles_per_cpu_ns": 1.798545344860588,
+          "sparse_instructions_per_cpu_ns": 3.720597560028895,
+          "prepared_frames_replaced": 221
+        },
+        {
+          "minute": 5,
+          "updates_per_second": 50.2,
+          "capture_starts_per_second": 58.95,
+          "thermal_states": [
+            2
+          ],
+          "ms_per_update": {
+            "worker_jpeg_cpu": 20.5004144936919,
+            "coordinator_cpu": 2.56023563247012,
+            "send_wall": 16.40670767695883
+          },
+          "capture_stage_mean_ms": {
+            "capture_callback_ms": 15.427212242013006,
+            "render_display_ms": 6.2548230947666195,
+            "prepare_ms": 4.123277263723826,
+            "surface_transfer_ms": 4.513215773691655
+          },
+          "sparse_jobs": 12,
+          "sparse_instructions_per_job": 1933628.5833333333,
+          "sparse_cpu_us_per_job": 614.4723333333334,
+          "sparse_cycles_per_instruction": 0.5068748768237679,
+          "sparse_effective_cycles_per_cpu_ns": 1.5950396736061347,
+          "sparse_instructions_per_cpu_ns": 3.1468114647960825,
+          "prepared_frames_replaced": 458
+        }
+      ]
+    },
+    "warm": {
+      "collection_checks_passed": true,
+      "normal_daemon_restored": true,
+      "paired_jpeg_jobs": 542798,
+      "worker_requested_qos_values": [
+        33
+      ],
+      "worker_relative_priority_values": [
+        0
+      ],
+      "worker_mach_base_priority_values": [
+        37
+      ],
+      "worker_policy_observations": 60,
+      "minutes": [
+        {
+          "minute": 1,
+          "updates_per_second": 59.516666666666666,
+          "capture_starts_per_second": 59.7,
+          "thermal_states": [
+            2
+          ],
+          "ms_per_update": {
+            "worker_jpeg_cpu": 7.688457007560907,
+            "coordinator_cpu": 1.2795093912069448,
+            "send_wall": 5.105838527583311
+          },
+          "capture_stage_mean_ms": {
+            "capture_callback_ms": 9.961825464953924,
+            "render_display_ms": 3.3771116232857543,
+            "prepare_ms": 1.8330482675622726,
+            "surface_transfer_ms": 4.4375934116988525
+          },
+          "sparse_jobs": 12,
+          "sparse_instructions_per_job": 2064656.8333333333,
+          "sparse_cpu_us_per_job": 307.27425,
+          "sparse_cycles_per_instruction": 0.3480465801378938,
+          "sparse_effective_cycles_per_cpu_ns": 2.338616887031699,
+          "sparse_instructions_per_cpu_ns": 6.719264088459522,
+          "prepared_frames_replaced": 0
+        },
+        {
+          "minute": 2,
+          "updates_per_second": 48.38333333333333,
+          "capture_starts_per_second": 58.63333333333333,
+          "thermal_states": [
+            2
+          ],
+          "ms_per_update": {
+            "worker_jpeg_cpu": 19.38067469652084,
+            "coordinator_cpu": 2.4599177227006543,
+            "send_wall": 15.38424864898381
+          },
+          "capture_stage_mean_ms": {
+            "capture_callback_ms": 14.611551304718589,
+            "render_display_ms": 5.755262897808141,
+            "prepare_ms": 3.7897426729291204,
+            "surface_transfer_ms": 4.5366225676060346
+          },
+          "sparse_jobs": 12,
+          "sparse_instructions_per_job": 1682154.0833333333,
+          "sparse_cpu_us_per_job": 399.5106666666667,
+          "sparse_cycles_per_instruction": 0.4092317345681125,
+          "sparse_effective_cycles_per_cpu_ns": 1.723084990638548,
+          "sparse_instructions_per_cpu_ns": 4.210536097492599,
+          "prepared_frames_replaced": 568
+        },
+        {
+          "minute": 3,
+          "updates_per_second": 34.21666666666667,
+          "capture_starts_per_second": 54.68333333333333,
+          "thermal_states": [
+            2
+          ],
+          "ms_per_update": {
+            "worker_jpeg_cpu": 29.86110472333171,
+            "coordinator_cpu": 3.610470502191914,
+            "send_wall": 25.172557334632245
+          },
+          "capture_stage_mean_ms": {
+            "capture_callback_ms": 17.10505912831454,
+            "render_display_ms": 6.993392236923077,
+            "prepare_ms": 4.910491197291474,
+            "surface_transfer_ms": 4.586419113846154
+          },
+          "sparse_jobs": 12,
+          "sparse_instructions_per_job": 2525017.4166666665,
+          "sparse_cpu_us_per_job": 981.5139166666667,
+          "sparse_cycles_per_instruction": 0.4862174052990856,
+          "sparse_effective_cycles_per_cpu_ns": 1.2508303711434894,
+          "sparse_instructions_per_cpu_ns": 2.572574238419272,
+          "prepared_frames_replaced": 1145
+        },
+        {
+          "minute": 4,
+          "updates_per_second": 32.25,
+          "capture_starts_per_second": 52.93333333333333,
+          "thermal_states": [
+            2
+          ],
+          "ms_per_update": {
+            "worker_jpeg_cpu": 31.440812454263565,
+            "coordinator_cpu": 3.8014451147286823,
+            "send_wall": 26.657222986563305
+          },
+          "capture_stage_mean_ms": {
+            "capture_callback_ms": 17.642623709068012,
+            "render_display_ms": 7.273171654470251,
+            "prepare_ms": 5.0899993891186766,
+            "surface_transfer_ms": 4.628994495704741
+          },
+          "sparse_jobs": 12,
+          "sparse_instructions_per_job": 2470182.0,
+          "sparse_cpu_us_per_job": 1067.6526666666668,
+          "sparse_cycles_per_instruction": 0.48727613997673047,
+          "sparse_effective_cycles_per_cpu_ns": 1.1273898221581427,
+          "sparse_instructions_per_cpu_ns": 2.3136569383675964,
+          "prepared_frames_replaced": 1160
+        },
+        {
+          "minute": 5,
+          "updates_per_second": 36.03333333333333,
+          "capture_starts_per_second": 55.983333333333334,
+          "thermal_states": [
+            2
+          ],
+          "ms_per_update": {
+            "worker_jpeg_cpu": 28.581459950971325,
+            "coordinator_cpu": 3.4409124495837187,
+            "send_wall": 23.93129035800185
+          },
+          "capture_stage_mean_ms": {
+            "capture_callback_ms": 16.921438314974694,
+            "render_display_ms": 6.7576662425328555,
+            "prepare_ms": 4.794514017323776,
+            "surface_transfer_ms": 4.670954060352555
+          },
+          "sparse_jobs": 12,
+          "sparse_instructions_per_job": 2262702.4166666665,
+          "sparse_cpu_us_per_job": 936.3404166666667,
+          "sparse_cycles_per_instruction": 0.5180315543776949,
+          "sparse_effective_cycles_per_cpu_ns": 1.2518430574350408,
+          "sparse_instructions_per_cpu_ns": 2.4165382337353267,
+          "prepared_frames_replaced": 1158
+        }
+      ]
+    }
+  },
+  "conclusion": "Both workers requested QoS 33 throughout both runs. Warm delivery fell to 32.25 updates/s in minute four, with rising JPEG CPU and capture callback costs. Publication accounting passed. This change does not prevent sustained slowdown and is not selected for adoption.",
+  "source_root": "work/renderer-memory-20260909",
+  "source_sha256": {
+    "jpeg-cpu-efficiency-review/g-worker-qos-analyzer.py": "453b0f936c58a5a94477be8cd33be6f46de8deccf3fe0cf32cf6b3f331083b19",
+    "jpeg-worker-qos-sink-f60a/run.json": "e3ecff80f4f9d2524f661d67a3e6d3a2ab58c19ee2bcb4fb4d7f94b081fe0032",
+    "jpeg-worker-qos-sink-f60a/timing.json": "7bbaa2492eb3502a7ce328c4a287d3affcb77ce08f75831b2ee7750fc25c19c6",
+    "jpeg-worker-qos-sink-f60a/worker-validation.json": "b0a1fc41eb21661d90d95029f6b4e1a79c2d8318d7b018d45c07ac4a53b9b60e",
+    "jpeg-worker-qos-sink-f60a/publication-validation.json": "351918a721ab5c893ebd118578841cf77ebfebb9675b18d13db0714b606cc245",
+    "jpeg-worker-qos-warm-sink-f60a/run.json": "e3ecff80f4f9d2524f661d67a3e6d3a2ab58c19ee2bcb4fb4d7f94b081fe0032",
+    "jpeg-worker-qos-warm-sink-f60a/timing.json": "8d1cf70c9e38ee029806d6f49187781d0f123226a5b5a315bc20e53565d7e7ec",
+    "jpeg-worker-qos-warm-sink-f60a/worker-validation.json": "8bfded816a94a2cc1104a0b573331c16f9be10dd33cbdb0e4d8b1be1e1d588c3",
+    "jpeg-worker-qos-warm-sink-f60a/publication-validation.json": "769ef797d8a450d4f1524ae4b0bbb1fb4a0e0b3eb5e27d5cc31058634597f9e7",
+    "jpeg-worker-qos-device-build/diagnostic-build-manifest.json": "edb3cfe25e019c545051d6b4fdabff38c57581e8be6b3e1624ad54d9f318d6e7",
+    "jpeg-worker-qos-device-build/runner-bound.json": "048c386b106a32764d98dccfaa277677d7df498464650ef642a59e253ec2886f",
+    "jpeg-cpu-efficiency-review/e-worker-hardware-analysis.json": "d5bfc7e348492842d99e18be4526a10f1f5c11fe3414267daabab682e4726086",
+    "jpeg-cpu-efficiency-review/f-four-worker-analysis.json": "333ee280cb2eed3debf51480cbc4da4c82a4aa50c2d9f4d37b224cd32417e5fa",
+    "jpeg-cpu-efficiency-review/g-worker-qos-analyzer-verification.json": "64288efc617c5997a92bb4045bc0ffb7e8f904ba84bcaaf13f72ba722fbf9d40",
+    "jpeg-cpu-efficiency-review/g-worker-qos-analysis-plan.md": "da19bc049e02f2d1c1feaa600628a24918f846547613932a75dbed24421508e3",
+    "jpeg-worker-qos-sink-f60a/sink.json": "95c768861adab436b3eda4444aa6ac8c3604dfd6b2f8eeba92b9a8ff0bc54d25",
+    "jpeg-worker-qos-sink-f60a/session/session.json": "3175966946293c9cf9c75c236fbe965c92ad5b50172d238ca00808a74fdf15c1",
+    "jpeg-worker-qos-sink-f60a/worker-qos-expectation.json": "5db176c527ff74aaf3c62b6b013e2dbc43bf8712989b2a20c4c219552bc2a1ac",
+    "jpeg-worker-qos-warm-sink-f60a/sink.json": "20c1e1e8ce244db1f5a7acb839df58944457045a3f4b039391504bda465e1e8d",
+    "jpeg-worker-qos-warm-sink-f60a/session/session.json": "e51ca03dfefad8204635305a08183962f6e25c737faa1b68a92e2f94e2fa286d",
+    "jpeg-worker-qos-warm-sink-f60a/worker-qos-expectation.json": "5db176c527ff74aaf3c62b6b013e2dbc43bf8712989b2a20c4c219552bc2a1ac",
+    "jpeg-worker-qos-device-build/paired-run-context.json": "828232603cf58497183293d357c882e7115801f94278ccaab32e1e544dfbb5e5",
+    "jpeg-cpu-efficiency-review/g-worker-qos-summary.json": "5573a8c25863f7dad6e62f6cd24572f160d131d78c9ad87018ca84b7138ee81f",
+    "jpeg-cpu-efficiency-review/g-worker-qos-analysis.json": "122b1ed9378ea7596155c35e5aa2f48ad4a3d0463c395791be06a7caa47b6e77",
+    "jpeg-cpu-efficiency-review/g-worker-qos-analysis.md": "76aa2a15bd47e14ec1abda26ed2f8f2f95a9a0ab0783a54d711418306ae64bd4",
+    "jpeg-worker-qos-candidate/manifest.json": "fdec25aa6cea6fe04d62a9243045d24225e28815ee71def86cedb99ba820bc86",
+    "jpeg-worker-qos-candidate/verification.json": "9fffe35c40206f625a72a7742884b2ed80f07537419b8c8ddf570b8aa417d2ad",
+    "jpeg-worker-qos-candidate/README.md": "e8e7f0930ece808c29d948e674de49594bcbb802ff208107e2883e69a9877787",
+    "jpeg-worker-qos-candidate/independent-review.md": "7b2e26189d27c5dce4bd7d9a820d9bfae15141bf894411d9c9afda91e39ceb43",
+    "build-jpeg-worker-qos-diagnostic.py": "bd4efa213d186d730dc1293d3b9019e751011f92ebf14abbaa90163bc91a19b2",
+    "run-jpeg-worker-qos-timing-sink.py": "40766607895014ff40e2d6e274e24c54fe9ef1fa872cf28d66bd6762cb9dd4d8",
+    "jpeg-worker-qos-device-build/runtime-preflight.json": "cc72e68e4e6bea7d7fa812cbc3cce31ad73b00846dd8832a83e7d96ba7a287c5",
+    "jpeg-worker-qos-device-build/runner-preflight.json": "c7b8ea8f548994719c404421671eaea88c4717c45118644f80e0a988ec9fbb79"
+  }
+}

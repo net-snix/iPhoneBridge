@@ -1,0 +1,470 @@
+{
+  "schema_version": 1,
+  "status": "memory_repair_supported_capture_candidate_failed_visible_cadence",
+  "date": "2026-09-10",
+  "viewer_patch_sha256": "c501684eef3529357b2483e6df7538550c6c4e1a9737242a25a96e1bfada5c2a",
+  "phone_daemon_sha256": "f30543574711d977a1a41ed053f9e4e49f6cfa4ff535d3f65011b7c2e6de4c5e",
+  "profile": {
+    "framebuffer": [
+      1172,
+      2536
+    ],
+    "capture_fps_limit": 60,
+    "quality_level": 6,
+    "compression_level": 2,
+    "max_inflight_updates": 1
+  },
+  "physical_native_run": {
+    "started_utc": "2026-09-10T09:21:39.719105+00:00",
+    "elapsed_seconds": 369.9027563749696,
+    "completed_22_minutes": false,
+    "qualification": "failed_frame_rate_decline",
+    "window": "Floating on BenQ G2420HDB external display, 60 Hz; screenshot verified real fixture pixels",
+    "renderer_generation": 1,
+    "hidden_samples": 0,
+    "max_decoder_documents": 1,
+    "completed_image_jobs_at_last_sample": 1026150,
+    "barcode_windows": [
+      {
+        "label": "context-motion-at-0s",
+        "requestedDurationMs": 30000,
+        "uniqueSequences": 1799,
+        "sourceFramesSkipped": 1,
+        "receivedFps": 59.975316054571536,
+        "p50": 17,
+        "p95": 18,
+        "visibleQualification": true,
+        "visibility": {
+          "available": true,
+          "hidden": false,
+          "focused": true,
+          "hadHidden": false,
+          "hiddenMs": 0,
+          "changes": 0
+        }
+      },
+      {
+        "label": "context-motion-at-300s",
+        "requestedDurationMs": 30000,
+        "uniqueSequences": 1046,
+        "sourceFramesSkipped": 753,
+        "receivedFps": 34.87518355359765,
+        "p50": 33,
+        "p95": 35,
+        "visibleQualification": true,
+        "visibility": {
+          "available": true,
+          "hidden": false,
+          "focused": false,
+          "hadHidden": false,
+          "hiddenMs": 0,
+          "changes": 0
+        }
+      }
+    ],
+    "physical_footprint_mib": {
+      "renderer": {
+        "min": 96.45406341552734,
+        "max": 119.87596130371094,
+        "first": 119.87596130371094,
+        "last": 102.40718841552734
+      },
+      "gpu": {
+        "min": 190.14142608642578,
+        "max": 204.18834686279297,
+        "first": 190.14142608642578,
+        "last": 192.57894897460938
+      },
+      "network": {
+        "min": 6.547492980957031,
+        "max": 6.750617980957031,
+        "first": 6.750617980957031,
+        "last": 6.547492980957031
+      },
+      "combined_webkit": {
+        "min": 294.93988037109375,
+        "max": 316.76800537109375,
+        "first": 316.76800537109375,
+        "last": 301.53363037109375
+      }
+    },
+    "post_soak_heap": {
+      "non_object_112_byte_allocations": 8083,
+      "cached_images": 3732,
+      "html_image_elements": 215,
+      "document_loaders": 2,
+      "note": "Native allocation class is a proxy, not an enumeration of retained URLs; collected after failed soak, without forcing garbage collection."
+    }
+  },
+  "same_daemon_without_native_viewer": {
+    "action": "Terminate only owned native app, preserve USB/SSH/daemon session identity, verify no existing RFB client, then run one Tight sink",
+    "data_update_fps": 41.29377135080724,
+    "data_updates_per_second": [
+      55,
+      59,
+      45,
+      38,
+      37,
+      36,
+      35,
+      34,
+      35,
+      39
+    ],
+    "session_identity_unchanged": true
+  },
+  "sustained_phone_only_verbose": {
+    "started_utc": "2026-09-10T09:33:14Z",
+    "duration_seconds": 600.0003475829726,
+    "measurement": "complete RFB delivery; no image decode, pixel inspection, or input",
+    "max_active_clients": 1,
+    "data_updates": 20828,
+    "data_update_fps": 34.713313223739,
+    "busy_drops": 15153,
+    "delivered_plus_busy_per_second": 59.96829859340085,
+    "first_minute_fps": 59.766666666666666,
+    "last_minute_fps": 29.983333333333334,
+    "minute_mean_fps": [
+      59.766666666666666,
+      47.05,
+      30.4,
+      29.983333333333334,
+      30,
+      29.983333333333334,
+      29.983333333333334,
+      30,
+      29.983333333333334,
+      29.983333333333334
+    ],
+    "canonical_session_restored": true,
+    "packaged_connect_verified": true,
+    "limitations": [
+      "Verbose busy logging can add overhead.",
+      "This arm restarts the daemon and SSH session before measuring.",
+      "The sink measures complete RFB delivery, without image decoding or physical display observation."
+    ]
+  },
+  "conclusion": "The direct-image path has bounded native memory in this run, but does not fix sustained throughput. In the sole-client phone probe, completed updates plus busy rejections account for approximately 60 captures/s while delivered updates settle at30/s. Source inspection identifies next-display-tick retry as an amplifier when encode/transmit service crosses a16.67ms interval. The exact stage cost still needs measurement; no thermal cause is claimed.",
+  "capture_scheduler_candidate": {
+    "binary_sha256": "8c061f12dbac187d668cff8c1b0b4911654445def530e0d583a2d3a0a60c7ec7",
+    "patch_sha256": "95181920ef225ffb6af187009c7151a19f10d616d9a270e69c816155d9d2a4d8",
+    "changes": "Pre-capture busy admission, asynchronous completion wake, shared capture cap, generation-safe retry coalescing.",
+    "installed_verification": {
+      "remote_sha256": "8c061f12dbac187d668cff8c1b0b4911654445def530e0d583a2d3a0a60c7ec7",
+      "canonical_arguments_verified": true,
+      "ios": "15.1.1",
+      "script_sha256": "f192151d5b32e76cef289c15b55cf902efda748bcda33254db9425111670abec"
+    },
+    "repository_python_tests": {
+      "passed": 71,
+      "failed": 0
+    },
+    "preflight": {
+      "status": "complete",
+      "started_utc": "2026-09-10T17:06:44Z",
+      "elapsed_seconds": 60.00034383300226,
+      "data_updates": 3285,
+      "data_update_fps": 54.74968625418337,
+      "data_update_gaps_ms": {
+        "50": 18.133667006623,
+        "95": 20.21449738240335,
+        "99": 21.014470148365948,
+        "100": 52.719749975949526
+      },
+      "initial_framebuffer": [
+        1172,
+        2536
+      ],
+      "final_framebuffer": [
+        1172,
+        2536
+      ],
+      "quality": 6,
+      "compression": 2,
+      "measurement": "complete RFB delivery; no image decode, pixel inspection, or input",
+      "minute_mean_fps": [
+        54.75
+      ],
+      "raw_local_report": "work/renderer-memory-20260909/capture-candidate-tight-preflight.json"
+    },
+    "sustained_phone_only": {
+      "status": "complete",
+      "started_utc": "2026-09-10T17:08:18Z",
+      "elapsed_seconds": 300.0000986669911,
+      "data_updates": 16190,
+      "data_update_fps": 53.9666489175771,
+      "data_update_gaps_ms": {
+        "50": 18.452041957061738,
+        "95": 20.509866799693555,
+        "99": 21.309288814663887,
+        "100": 49.529582960531116
+      },
+      "initial_framebuffer": [
+        1172,
+        2536
+      ],
+      "final_framebuffer": [
+        1172,
+        2536
+      ],
+      "quality": 6,
+      "compression": 2,
+      "measurement": "complete RFB delivery; no image decode, pixel inspection, or input",
+      "minute_mean_fps": [
+        54.75,
+        54.8,
+        54.18333333333333,
+        53.05,
+        53.05
+      ],
+      "raw_local_report": "work/renderer-memory-20260909/capture-candidate-tight-sustained.json"
+    },
+    "qualification": "No collapse to 30 fps in this five-minute single-client run. Initial delivery remains below the old cold 60 fps result; timer precision is being evaluated before promotion. No visible native qualification of this daemon yet."
+  },
+  "strict_timer_candidate": {
+    "binary_sha256": "3487cfad710fc41ddaf01b8e48ce976dc5c21e53d0b9df8cbf22eb818b69569e",
+    "patch_sha256": "3a9b61680a5e8019f2dc9918f95006bc92a6274d4a408d4006125eb11482efe0",
+    "installed_verification": {
+      "remote_sha256": "3487cfad710fc41ddaf01b8e48ce976dc5c21e53d0b9df8cbf22eb818b69569e",
+      "canonical_arguments_verified": true,
+      "ios": "15.1.1",
+      "script_sha256": "f192151d5b32e76cef289c15b55cf902efda748bcda33254db9425111670abec"
+    },
+    "changes": "Same capture scheduler plus a strict one-shot Dispatch timer with zero requested leeway.",
+    "repository_python_tests": {
+      "passed": 72,
+      "failed": 0
+    },
+    "phone_only_preflight": {
+      "started_utc": "2026-09-10T17:28:53Z",
+      "elapsed_seconds": 60.0024131659884,
+      "data_updates": 3343,
+      "data_update_fps": 55.71442586404069,
+      "data_update_gaps_ms": {
+        "50": 17.777541477698833,
+        "95": 19.825564275379293,
+        "99": 20.440033489721827,
+        "100": 49.36150001594797
+      },
+      "data_updates_per_second": [
+        52,
+        56,
+        56,
+        55,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        55,
+        56,
+        55,
+        56,
+        56,
+        56,
+        56,
+        56,
+        57,
+        56,
+        56,
+        56,
+        55,
+        56,
+        56,
+        57,
+        56,
+        55,
+        56,
+        57,
+        53,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        55,
+        56,
+        56,
+        56,
+        57,
+        55,
+        56,
+        56,
+        55,
+        57,
+        56,
+        55,
+        56,
+        56,
+        57,
+        56,
+        55,
+        55,
+        55,
+        54,
+        54
+      ],
+      "quality": 6,
+      "compression": 2,
+      "measurement": "complete RFB delivery; no image decode, pixel inspection, or input"
+    },
+    "visible_native": {
+      "started_utc": "2026-09-10T17:34:55.630033+00:00",
+      "elapsed_seconds": 112.19668591598747,
+      "completed_22_minutes": false,
+      "qualification": "failed_visible_frame_rate_decline",
+      "display": "Built-in Retina Display, 1512x982 points, 120Hz; external display disconnected. Floating380x863-point window, real fixture screenshot verified.",
+      "barcode_fps": [
+        {
+          "planned_start_s": 0,
+          "collected_elapsed_s": 30.858339541009627,
+          "receivedFps": 42.55816282252412
+        }
+      ],
+      "continuous_frame_fps_first": 47.15284715284715,
+      "continuous_frame_fps_last": 35.964035964035965,
+      "renderer_footprint_mib": [
+        136.93852996826172,
+        130.50100708007812,
+        127.07913208007812
+      ],
+      "hidden_samples": 0,
+      "connection_generation": 1,
+      "max_decoder_documents": 1
+    },
+    "pixel_comparison": {
+      "completed_cases": 4,
+      "exact_match": true,
+      "different_pixels": 0,
+      "note": "Same encoded bytes decoded and drawn by baseline and current paths, including full-resolution JPEG/PNG and alpha cases."
+    },
+    "input_before": {
+      "completedTrials": 30,
+      "requestedTrials": 30,
+      "p50": 98.5,
+      "p95": 116.55,
+      "visibility": {
+        "available": true,
+        "hidden": false,
+        "focused": true,
+        "hadHidden": false,
+        "hiddenMs": 0,
+        "changes": 0
+      },
+      "visibleQualification": true,
+      "failure": null
+    },
+    "same_session_control": {
+      "remote_sha256": "3487cfad710fc41ddaf01b8e48ce976dc5c21e53d0b9df8cbf22eb818b69569e",
+      "canonical_arguments_verified": true,
+      "native_pid_terminated": 36087,
+      "same_session_after_native_exit": true,
+      "usb_owned": true,
+      "ssh_owned": true,
+      "ios": "15.1.1"
+    },
+    "phone_only_after_native": {
+      "started_utc": "2026-09-10T17:38:36Z",
+      "elapsed_seconds": 60.00032937497599,
+      "data_updates": 3334,
+      "data_update_fps": 55.5663616305162,
+      "data_update_gaps_ms": {
+        "50": 17.736167006660253,
+        "95": 19.996116391848773,
+        "99": 21.99109364300966,
+        "100": 46.38366599101573
+      },
+      "data_updates_per_second": [
+        52,
+        57,
+        56,
+        56,
+        55,
+        56,
+        57,
+        57,
+        55,
+        56,
+        55,
+        57,
+        56,
+        56,
+        56,
+        57,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        57,
+        56,
+        56,
+        56,
+        57,
+        55,
+        57,
+        56,
+        55,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        56,
+        55,
+        57,
+        56,
+        56,
+        57,
+        57,
+        56,
+        56,
+        56,
+        56,
+        54,
+        57,
+        56,
+        56,
+        54,
+        53,
+        52,
+        49,
+        46
+      ],
+      "quality": 6,
+      "compression": 2,
+      "measurement": "complete RFB delivery; no image decode, pixel inspection, or input"
+    },
+    "qualification": "Failed sustained phone-only and visible cadence. A300s sink withoutMacrendering fell from53.55fps in firstminute to30fps in lastminute. Stage timings are required; no performance benefit is established for strict timer vs dispatch_after.",
+    "phone_only_sustained": {
+      "started_utc": "2026-09-10T17:42:08Z",
+      "elapsed_seconds": 300.00046908302465,
+      "data_update_fps": 38.729939441476205,
+      "data_update_gaps_ms": {
+        "50": 25.662125000962988,
+        "95": 34.76663122710306,
+        "99": 36.32157602289226,
+        "100": 70.67812501918525
+      },
+      "data_updates": 11619,
+      "payload_bytes": 5140966605,
+      "measurement": "complete RFB delivery; no image decode, pixel inspection, or input",
+      "minute_mean_fps": [
+        53.55,
+        46.35,
+        33.68333333333333,
+        30.066666666666666,
+        30.0
+      ]
+    }
+  }
+}

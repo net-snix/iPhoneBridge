@@ -1,41 +1,28 @@
-"""Serialized, bounded RFB actions over the bridge's USB SSH forward."""
+"""Serialized native mirror actions with lossless, post-action screenshots."""
 from __future__ import annotations
 
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
 import io
-import logging
 import math
 import os
-from pathlib import Path
-import socket
 import time
 from uuid import uuid4
 
 from PIL import Image
-from twisted.internet import error as twisted_error
-from twisted.internet.defer import Deferred
-from vncdotool import api
-from vncdotool.client import VNCDoException, VNCDoToolClient, VNCDoToolFactory
+from PIL.PngImagePlugin import PngInfo
+
+from . import keyboard
+from .mirror_protocol import Client, ProtocolError, RemoteError
 from .runtime import PATHS
 
-ROOT = PATHS.root
 WORK = PATHS.data
 SCREENSHOTS = PATHS.screenshots
-ADDRESS = "127.0.0.1::15901"  # vncdotool's double colon means an absolute port.
 CALL_TIMEOUT = 5.0
 ACTION_TIMEOUT = 20.0
 LOCK_TIMEOUT = 25.0
-KEYS = {"enter": "enter", "tab": "tab", "escape": "esc", "backspace": "bsp",
-        "delete": "delete", "left": "left", "right": "right", "up": "up",
-        "down": "down", "home": "home", "end": "end", "pageup": "pgup",
-        "pagedown": "pgdn"}
-SHIFTED_US = dict(zip('~!@#$%^&*()_+{}|:"<>?', '`1234567890-=[]\\;\',./'))
-
-# vncdotool debug logging includes keystrokes; never enable it in this bridge.
-logging.getLogger("vncdotool").setLevel(logging.WARNING)
-logging.getLogger("vncdotool.client").setLevel(logging.WARNING)
+KEYS = keyboard.NAMED_KEYS
 
 
 class BridgeError(Exception):
@@ -54,32 +41,8 @@ class BridgeTimeoutError(BridgeError, TimeoutError):
     pass
 
 
-CONNECTION_ERRORS = (twisted_error.ConnectError, twisted_error.ConnectionClosed,
-                     twisted_error.ConnectingCancelledError, VNCDoException)
-EXPECTED_ACTION_ERRORS = (BridgeError, OSError, *CONNECTION_ERRORS)
-
-
-class _Client(VNCDoToolClient):
-    def probeSize(self):
-        """Resolve the current framebuffer size without a full RAW frame transfer.
-
-        A non-incremental 1x1 request completes with the server's current size,
-        including a pending DesktopSize change, instead of moving the whole
-        uncompressed frame (about 12 MB, roughly 300 ms) over the USB tunnel.
-        """
-        d = self.deferred = Deferred()
-        self.framebufferUpdateRequest(0, 0, 1, 1, incremental=False)
-
-        def size(_):
-            self.screen = None  # The later full capture starts from a clean image.
-            # vncdotool feeds each result into the next proxy call as its protocol.
-            return self
-
-        return d.addCallback(size)
-
-
-class _Factory(VNCDoToolFactory):
-    protocol = _Client
+CONNECTION_ERRORS = (ProtocolError,)
+EXPECTED_ACTION_ERRORS = (BridgeError, OSError)
 
 
 @contextmanager
@@ -106,41 +69,54 @@ class _Session:
     def __init__(self, client):
         self.client = client
         self.deadline = time.monotonic() + ACTION_TIMEOUT
+        self.generation = client.geometry.generation
 
-    def call(self, method, *args, **kwargs):
+    def call(self, method, *args):
         remaining = self.deadline - time.monotonic()
         if remaining <= 0:
             raise BridgeTimeoutError("Bridge action exceeded its time limit")
         self.client.timeout = min(CALL_TIMEOUT, remaining)
-        return getattr(self.client, method)(*args, **kwargs)
+        return getattr(self.client, method)(*args)
 
     def frame(self):
-        data = io.BytesIO()
-        self.call("captureScreen", data, incremental=False, format="PNG")
-        data.seek(0)
-        with Image.open(data) as image:
-            size = image.size
-        return data.getvalue(), size
+        geometry, pts_ns, pixels = self.call("still")
+        image = Image.frombytes("RGB", (geometry.width, geometry.height), pixels, "raw", "BGRX")
+        rotations = {1: Image.Transpose.ROTATE_270, 2: Image.Transpose.ROTATE_180,
+                     3: Image.Transpose.ROTATE_90}
+        if geometry.turns:
+            image = image.transpose(rotations[geometry.turns])
+        output = io.BytesIO()
+        # The retained capture API renders sRGB, including on Display P3 phones.
+        # Declare the actual colour space without converting or quantizing pixels.
+        metadata = PngInfo()
+        metadata.add(b"sRGB", b"\x00")
+        image.save(output, format="PNG", pnginfo=metadata)
+        return output.getvalue(), geometry, pts_ns
 
     def size(self):
-        protocol = self.call("probeSize")
-        return protocol.width, protocol.height
+        return self.call("probe").size
 
     def release(self, method, *args):
-        # Still attempt release after timeout; the connection then closes as well.
+        # Attempt release even after the action deadline. Disconnect is a second
+        # server-enforced cleanup barrier if transport failure prevents the ACK.
         self.client.timeout = 2.0
-        getattr(self.client, method)(*args)
+        return getattr(self.client, method)(*args)
+
+    def pointer(self, action, x, y):
+        return self.call("pointer", self.generation, action, x, y)
+
+    def key(self, usage, down):
+        return self.call("key", self.generation, usage, down)
 
 
 @contextmanager
 def _session():
     with _locked():
-        client = api.connect(ADDRESS, factory_class=_Factory, timeout=CALL_TIMEOUT)
+        client = Client(timeout=CALL_TIMEOUT)
         try:
             yield _Session(client)
         finally:
-            client.timeout = 2.0
-            client.disconnect()
+            client.close()
 
 
 def _dimensions(width, height):
@@ -153,62 +129,87 @@ def _point(x, y, width, height):
         raise BridgeInputError("Coordinates must be integer pixels inside the expected framebuffer")
 
 
-def _check_frame(session, width, height):
-    actual = session.size()
+def _check_frame(session, width, height, generation):
+    geometry = session.call("probe")
+    actual = geometry.size
     if actual != (width, height):
         raise BridgeInputError(f"Framebuffer changed: expected {width}x{height}, actual {actual[0]}x{actual[1]}; take a new screenshot")
+    if geometry.generation != generation:
+        raise BridgeInputError(
+            f"Framebuffer generation changed: expected {generation}, actual {geometry.generation}; take a new screenshot"
+        )
+    # Keep the screenshot's generation pinned, including after asynchronous
+    # geometry updates; the daemon rejects rotation during the operation.
+    session.generation = generation
 
 
 def _save(session, action):
-    data, (width, height) = session.frame()
+    data, geometry, pts_ns = session.frame()
     SCREENSHOTS.mkdir(parents=True, exist_ok=True, mode=0o700)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     path = SCREENSHOTS / f"{stamp}-{uuid4().hex[:8]}-{action}.png"
     with path.open("xb") as out:
         os.chmod(path, 0o600)
         out.write(data)
+    width, height = geometry.size
     return {"action": action, "path": str(path), "width": width, "height": height,
-            "coordinate_space": "framebuffer_pixels", "captured_at": stamp}
+            "coordinate_space": "framebuffer_pixels", "captured_at": stamp,
+            "generation": geometry.generation, "capture_pts_ns": pts_ns, "lossless": True,
+            "color_space": "sRGB"}
 
 
 def screenshot():
-    """Return an absolute PNG path and the current raw framebuffer dimensions."""
+    """Return a fresh, lossless PNG in oriented native framebuffer pixels."""
     with _session() as session:
         return _save(session, "screenshot")
 
 
-def _mutate(action, width, height, operation):
+def _mutate(action, width, height, generation, operation):
     _dimensions(width, height)
+    if type(generation) is not int or not 1 <= generation <= 0xFFFFFFFF:
+        raise BridgeInputError("generation must be an integer from 1 to 4294967295 from the latest screenshot")
     with _session() as session:
-        _check_frame(session, width, height)
         try:
-            operation(session)
-            time.sleep(0.25)
-            return _save(session, action)
-        except EXPECTED_ACTION_ERRORS:
-            raise BridgeActionError(
-                f"{action} may have been applied but verification failed; take a screenshot before retrying"
-            ) from None
+            session.call("acquire")
+        except RemoteError as error:
+            if error.code == 2:
+                raise BridgeActionError("Phone input is in use; wait for the current gesture to finish") from None
+            raise
+        try:
+            _check_frame(session, width, height, generation)
+            try:
+                operation(session)
+                time.sleep(0.25)
+                return _save(session, action)
+            except EXPECTED_ACTION_ERRORS:
+                raise BridgeActionError(
+                    f"{action} may have been applied but verification failed; take a screenshot before retrying"
+                ) from None
+        finally:
+            try:
+                session.release("release")
+            except OSError:
+                # Closing the connection also releases the lease. Preserve the
+                # original action error if a transport failure prevents an ACK.
+                pass
 
 
-def tap(x: int, y: int, width: int, height: int):
-    """Single-finger tap in screenshot pixels, followed by a fresh screenshot."""
+def tap(x: int, y: int, width: int, height: int, *, generation: int):
     _dimensions(width, height)
     _point(x, y, width, height)
 
     def operation(session):
-        session.call("mouseMove", x, y)
         try:
-            session.call("mouseDown", 1)
+            session.pointer(1, x, y)
             time.sleep(0.08)
         finally:
-            session.release("mouseUp", 1)
+            session.release("pointer", session.generation, 0, x, y)
 
-    return _mutate("tap", width, height, operation)
+    return _mutate("tap", width, height, generation, operation)
 
 
-def drag(x1: int, y1: int, x2: int, y2: int, width: int, height: int, duration: float = 0.5):
-    """One-finger linear drag/swipe, duration 0.1–5 seconds, then screenshot."""
+def drag(x1: int, y1: int, x2: int, y2: int, width: int, height: int, duration: float = 0.5,
+         *, generation: int):
     _dimensions(width, height)
     _point(x1, y1, width, height)
     _point(x2, y2, width, height)
@@ -216,52 +217,43 @@ def drag(x1: int, y1: int, x2: int, y2: int, width: int, height: int, duration: 
         raise BridgeInputError("duration must be between 0.1 and 5 seconds")
 
     def operation(session):
-        session.call("mouseMove", x1, y1)
-        steps = max(2, math.ceil(duration * 30))
+        x, y = x1, y1
         try:
-            session.call("mouseDown", 1)
+            session.pointer(1, x, y)
+            steps = max(2, math.ceil(duration * 30))
             start = time.monotonic()
             for step in range(1, steps + 1):
                 time.sleep(max(0, start + duration * step / steps - time.monotonic()))
-                session.call("mouseMove", round(x1 + (x2 - x1) * step / steps),
-                             round(y1 + (y2 - y1) * step / steps))
+                x, y = (round(x1 + (x2 - x1) * step / steps),
+                        round(y1 + (y2 - y1) * step / steps))
+                session.pointer(2, x, y)
         finally:
-            session.release("mouseUp", 1)
+            session.release("pointer", session.generation, 0, x, y)
 
-    return _mutate("drag", width, height, operation)
+    return _mutate("drag", width, height, generation, operation)
 
 
-def _press(session, name):
+def _press(session, usage):
     try:
-        session.call("keyDown", name)
+        session.key(usage, True)
         time.sleep(0.015)
     finally:
-        session.release("keyUp", name)
+        session.release("key", session.generation, usage, False)
 
 
 def _type_character(session, char):
-    # TrollVNC's RFB handler calls keyDown/keyUp, which emit HID usage codes
-    # without keyPress's automatic shift wrapping. Send US base keys ourselves.
-    shifted = "A" <= char <= "Z" or char in SHIFTED_US
-    name = SHIFTED_US.get(char, char.lower() if shifted else char)
-    name = {"\n": "enter", "\t": "tab"}.get(name, name)
+    usage, shifted = keyboard.character(char)
     if not shifted:
-        return _press(session, name)
+        return _press(session, usage)
     try:
-        session.call("keyDown", "shift")
-        _press(session, name)
+        session.key(keyboard.SHIFT, True)
+        _press(session, usage)
     finally:
-        # This also runs if shift-down or base-key release times out.
-        session.release("keyUp", "shift")
+        session.release("key", session.generation, keyboard.SHIFT, False)
 
 
-def type_text(text: str, width: int, height: int):
-    """Type up to 256 ASCII characters (plus tab/newline) into the focused field.
-
-    Uses the US hardware keyboard layout, with explicit Shift for capitals and
-    symbols. TrollVNC's keyboard mapper does not support arbitrary Unicode. Text is never
-    written to action metadata or bridge logs; screenshots can show typed text.
-    """
+def type_text(text: str, width: int, height: int, *, generation: int):
+    """Type ASCII with the US layout. Text is never written to action metadata."""
     if not isinstance(text, str) or not 1 <= len(text) <= 256:
         raise BridgeInputError("text must contain 1–256 characters")
     if any(not (32 <= ord(char) <= 126 or char in "\n\t") for char in text):
@@ -271,53 +263,34 @@ def type_text(text: str, width: int, height: int):
         for char in text:
             _type_character(session, char)
 
-    return _mutate("type", width, height, operation)
+    return _mutate("type", width, height, generation, operation)
 
 
-def key(name: str, width: int, height: int):
-    """Press a named navigation key, then screenshot. Home is a keyboard key."""
+def key(name: str, width: int, height: int, *, generation: int):
     if not isinstance(name, str) or name.lower() not in KEYS:
         raise BridgeInputError("Supported keys: " + ", ".join(KEYS))
-    return _mutate("key", width, height, lambda session: _press(session, KEYS[name.lower()]))
+    return _mutate("key", width, height, generation, lambda session: _press(session, KEYS[name.lower()]))
 
 
-def _home_press(session):
-    # TrollVNC maps RFB button 3 (mask 4) to Consumer Menu down/up. Its
-    # keyboard Home keysym is a different key and does not perform this action.
-    try:
-        session.call("mouseDown", 3)
-        time.sleep(0.05)  # Upstream STHIDEventGenerator fingerLiftDelay.
-    finally:
-        session.release("mouseUp", 3)
-
-
-def navigate(name: str, width: int, height: int):
-    """Open Home or App Switcher using native Home button events, then screenshot."""
+def navigate(name: str, width: int, height: int, *, generation: int):
     if name not in ("home", "app-switcher"):
         raise BridgeInputError("Supported navigation actions: home, app-switcher")
 
     def operation(session):
-        _home_press(session)
-        if name == "app-switcher":
-            time.sleep(0.15)  # Upstream menuDoublePress multiTapInterval.
-            _home_press(session)
-        time.sleep(0.5)  # Let SpringBoard finish Home/App Switcher transition.
+        session.call("button", session.generation, 1 if name == "home" else 2)
+        time.sleep(0.5)
 
-    return _mutate(name, width, height, operation)
+    return _mutate(name, width, height, generation, operation)
 
 
 def health():
-    """Read the local RFB banner without sending input or starting services."""
+    """Read native HELLO without subscribing, sending input or starting services."""
     try:
-        with socket.create_connection(("127.0.0.1", 15901), timeout=3) as sock:
-            banner = bytearray()
-            while len(banner) < 12:
-                part = sock.recv(12 - len(banner))
-                if not part:
-                    break
-                banner.extend(part)
-        ready = len(banner) == 12 and banner.startswith(b"RFB ")
-        return {"ready": ready, "endpoint": "127.0.0.1:15901",
-                "protocol": banner.decode("ascii", errors="replace") if ready else None}
+        client = Client(timeout=3)
+        try:
+            return {"ready": True, "endpoint": "127.0.0.1:15901", "protocol": "IPBM/1",
+                    "width": client.geometry.size[0], "height": client.geometry.size[1]}
+        finally:
+            client.close()
     except OSError:
         return {"ready": False, "endpoint": "127.0.0.1:15901", "protocol": None}

@@ -1,37 +1,48 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "target": "arm64-apple-ios15.0",
   "sources": {
-    "libvncserver": {
-      "version": "0.9.15+git.42494999",
-      "url": "https://codeload.github.com/LibVNC/libvncserver/tar.gz/42494999e6492aaab9c1db785ecd293ef10b3aed",
-      "archive": "libvncserver-42494999e6492aaab9c1db785ecd293ef10b3aed.tar.gz",
-      "directory": "libvncserver-42494999e6492aaab9c1db785ecd293ef10b3aed",
-      "sha256": "0d5c7d5c6ac3b4df83cdaa3c2494a7bfa340a0f3ac4fec82b863ba8fd33e5044",
-      "commit": "42494999e6492aaab9c1db785ecd293ef10b3aed",
-      "patch": "patches/libvncserver-darwin-endian.patch",
-      "patch_sha256": "13ec8af784bab13bf21f19720c101229090188c34abc7d311a3ed00a36c99e7e"
-    },
-    "libjpeg-turbo": {
-      "version": "3.1.3",
-      "url": "https://codeload.github.com/libjpeg-turbo/libjpeg-turbo/tar.gz/refs/tags/3.1.3",
-      "archive": "libjpeg-turbo-3.1.3.tar.gz",
-      "directory": "libjpeg-turbo-3.1.3",
-      "sha256": "3a13a5ba767dc8264bc40b185e41368a80d5d5f945944d1dbaa4b2fb0099f4e5"
-    },
-    "libpng": {
-      "version": "1.6.58",
-      "url": "https://codeload.github.com/pnggroup/libpng/tar.gz/refs/tags/v1.6.58",
-      "archive": "libpng-1.6.58.tar.gz",
-      "directory": "libpng-1.6.58",
-      "sha256": "a9d4df463d36a6e5f9c29bd6f4967312d17e996c1854f3511f833924eb1993cf"
-    },
-    "lzo": {
-      "version": "2.10",
-      "url": "https://www.oberhumer.com/opensource/lzo/download/lzo-2.10.tar.gz",
-      "archive": "lzo-2.10.tar.gz",
-      "directory": "lzo-2.10",
-      "sha256": "c0f892943208266f9b6543b3ae308fab6284c5c90e627931446fb49b4221a072"
+    "trollvnc": {
+      "url": "https://github.com/owngoal-dev/TrollVNC.git",
+      "commit": "a3e40816ea5b93a7c80c09625175893d15bd1070",
+      "tree": "bf3930b0190726397625c4df05d4fc3b71993a41",
+      "files_sha256": {
+        "COPYING": "2a1075fb74712d7850a5626012f2a6f60692b224253acbb8f5b688e827d050d9",
+        "include-spi/FBSOrientationObserver.h": "6d474fa3d9e9d5c94d0d697ad10a7cd810ca82819218f17c365ad6a36e35f8a4",
+        "include-spi/IOKitSPI.h": "4cbc9eedd73800e9f31f26e055c1d04faea874624cab134cdcfa68f3a05da418",
+        "include-spi/IOSurfaceSPI.h": "82689e7ef05c112a3bc49bd1dd8606a9bdb398c394c1e876ce5107b0596fb68e",
+        "include-spi/UIScreen+Private.h": "6d483643ad0d475ca66cf8fe5afcb59498319eb5c401a37df86bf4d09343cd31",
+        "include-spi/kern_memorystatus.h": "de8bab90dec73857c85fc9dc8680823891a6f8f29d063563fecaffb0d2e62378",
+        "include-spi/libproc.h": "576eb2a906420eac3ce64b6f271077ce9e3a58a1935d56dce7b8dd902ba744e7",
+        "src/OhMyJetsam.mm": "6724c1e7a5c1bded9aa18aeb5a84218331b8c8dd73df373249693669c7286a6f",
+        "src/STHIDEventGenerator.mm": "4288bccec4041807beec31dfcae144fe06cf64cf14475506600baec51a6267b2",
+        "src/ScreenCapturer.mm": "f84268a9d5f376fd1a7f76fe3157e62880bb1ca1d927f728f5cf9578e0a1fd24",
+        "src/trollvncserver.entitlements": "a40c7c4c6aa1ea766c3fb849e4a6195f35ca76c873c458e2ed5e5a7b78aac195"
+      }
     }
+  },
+  "retained_files_sha256": {
+    "src/OhMyJetsam.mm": "6724c1e7a5c1bded9aa18aeb5a84218331b8c8dd73df373249693669c7286a6f",
+    "trollvncserver.entitlements": "a40c7c4c6aa1ea766c3fb849e4a6195f35ca76c873c458e2ed5e5a7b78aac195",
+    "vendor/COPYING": "2a1075fb74712d7850a5626012f2a6f60692b224253acbb8f5b688e827d050d9",
+    "vendor/FBSOrientationObserver.h": "6d474fa3d9e9d5c94d0d697ad10a7cd810ca82819218f17c365ad6a36e35f8a4",
+    "vendor/IOKitSPI.h": "4cbc9eedd73800e9f31f26e055c1d04faea874624cab134cdcfa68f3a05da418",
+    "vendor/IOSurfaceSPI.h": "82689e7ef05c112a3bc49bd1dd8606a9bdb398c394c1e876ce5107b0596fb68e",
+    "vendor/UIScreen+Private.h": "6d483643ad0d475ca66cf8fe5afcb59498319eb5c401a37df86bf4d09343cd31"
+  },
+  "retained_sources": {
+    "vendor/IOKitSPI.h": "include-spi/IOKitSPI.h",
+    "vendor/IOSurfaceSPI.h": "include-spi/IOSurfaceSPI.h",
+    "vendor/FBSOrientationObserver.h": "include-spi/FBSOrientationObserver.h",
+    "vendor/UIScreen+Private.h": "include-spi/UIScreen+Private.h",
+    "vendor/COPYING": "COPYING",
+    "src/OhMyJetsam.mm": "src/OhMyJetsam.mm",
+    "trollvncserver.entitlements": "src/trollvncserver.entitlements"
+  },
+  "derived_sources": {
+    "src/MirrorCapture.mm": "src/ScreenCapturer.mm",
+    "src/MirrorInput.mm": "src/STHIDEventGenerator.mm",
+    "vendor/kern_memorystatus.h": "include-spi/kern_memorystatus.h",
+    "vendor/libproc.h": "include-spi/libproc.h"
   }
 }

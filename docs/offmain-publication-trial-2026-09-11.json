@@ -1,0 +1,373 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-11",
+  "status": "publication_delay_reduced_sustained_fps_not_qualified",
+  "change": "One frame-state owner and bounded serial publication queue; send completion wakes it only after LibVNC send and negotiation locks are released. Capture/render stays on main.",
+  "identity": {
+    "phone_binary_sha256": "50951d1b2316be8a394a8fca832e8524d6a3369320a72325d50b3c9f088eefaf",
+    "libvncserver_sha256": "61fcaabefc984bb1dfdb6b036d7466b74e2b22e189810806fb5e8a0e3815b4c5",
+    "baseline": "C d03d4c280f4bb5938e1570d696f4f5e5af636ce5491a01e5ef59bc79c5d1f8e3",
+    "codec": "unchanged libjpeg-turbo 3.1.3, two persistent workers, full-FBU batching",
+    "profile": {
+      "bits_per_pixel": 32,
+      "depth": 24,
+      "big_endian": 0,
+      "true_colour": 255,
+      "red_max": 255,
+      "green_max": 255,
+      "blue_max": 255,
+      "red_shift": 0,
+      "green_shift": 8,
+      "blue_shift": 16,
+      "preferred_encoding": 7,
+      "tight_quality_level": 6,
+      "tight_compress_level": 2,
+      "turbo_quality_level": 79,
+      "turbo_subsampling": 0,
+      "width": 1172,
+      "height": 2536,
+      "copy_rect": -1,
+      "last_rect": -1,
+      "new_fb_size": -1,
+      "extended_desktop_size": 0,
+      "cursor_shape": 0,
+      "cursor_position": 0,
+      "extended_clipboard": 0
+    },
+    "source_verified_after_build": true,
+    "codec_sha256": {
+      "libpng16.a": "47c913a83284fa60b491c9bab11ceaca9f1c0cba128e9f3c4a0083cab2928c9b",
+      "libturbojpeg.a": "d4967c44b7dff2b9556767e705b72fc6f093c356a3b86b15ec24122bfc1177a9",
+      "liblzo2.a": "08c7a833bad0300129735444e5a0738665660d38e201792dbe7d2dc98f45c0f0",
+      "libjpeg.a": "031dcf5703827840eb7da733ac7652046a31ca7dacd994b742d6fa8d0b7449ae"
+    }
+  },
+  "provenance": {
+    "local_raw_directory": "work/renderer-memory-20260909/offmain-publication-sink-5095",
+    "raw_sha256": {
+      "run.json": "4ef37d01609ec31f81b2901710fdde163198285a256a6e92bd720db36f0fe705",
+      "failure.txt": "3fa66b2a149d721d9e2f899d8f0831b9a3429f28a2a6644589fef6d266188590",
+      "timing.json": "cbe3015879bd82556c194bd455b5d53ac709af54e62dc66f33149119e152e00f",
+      "sink.json": "5bedf35b873a75dab9a9e2f81d0f0e77a0f48315d2046669481baf3d17019b4c",
+      "pipeline-summary.json": "d8f2249acdf60c5c516206a8719fbfaad67dd2c295efaf8604bac70dae7a6803",
+      "publication-validation-v2.json": "309f186cf110c2f36b21f6e86e3ab40b13d5f6da20fd164434355bf24e3269dd"
+    },
+    "local_work_directory": "work/renderer-memory-20260909",
+    "support_sha256": {
+      "offmain-publication-device-build/diagnostic-build-manifest.json": "ab86b2cd1b12129dfd2736b30ebc7974952d18cce3381caa5c79af0366bccb5c",
+      "offmain-publication-device-build/linked-verification.json": "e214ad6af222a8140c9bfce49c87c7bc4e0b13d60f35cfad9a775f86d56492d7",
+      "offmain-publication-candidate/candidate-manifest.json": "183ef4798326aea1ae06c7bbbd50e21277c2db84dba8ea775ed773e0ecb6b76c",
+      "offmain-publication-timing/manifest.json": "d4cca0f148e257e584fc4062e80b2da169409fb3b57a31ddce726273d456d1f0",
+      "offmain-publication-timing/runner-validation/manifest.json": "b1147519d90246a6f874a2b253d7009a600561a1d9f55a6a97a171afc9f08fe3",
+      "offmain-publication-timing/runner-validation-v2/manifest.json": "61b896e8ba6220f233b0506e6e01fa9d8e55e99fe8b516a2457e5f443a3f37e7",
+      "offmain-publication-timing/runner-validation-v2/source-evidence.json": "f5708f6c606e6662e82122c466c3770da248932ae6544f83479713789f141abe",
+      "jpeg-cpu-efficiency-review/d-worker-cost-review.json": "007407fe8e127c1b7d650ec3196617403d67d45d596d07aa21a8a9e148ec6792"
+    }
+  },
+  "collection": {
+    "sink_seconds": 310,
+    "timing_seconds": 300,
+    "window_seconds": 10,
+    "windows": 30,
+    "measured_clients": 1,
+    "profile_changed": false,
+    "normal_daemon_restored": true,
+    "original_runner_status": "failed",
+    "original_failure": "PublicationValidationError from v1 pre-arm connection expectation",
+    "retrospective_publication_validation": "v2 passed; original failed run and raw data preserved",
+    "validator_correction": "Exactly three greeting-only helper probes yield pre-arm lifecycle 4/3/4. One initial full request may send the installed framebuffer before any publication; require a unique full request in window 0, a first-window commit, a stable measured session and at most one initial unknown. Other pre-arm queue/outcome allowances still require observed pre-arm publications.",
+    "validator_sha256": "906f5ddb7a45320cd57495c17ca0991b63710769cf04c5bf29a720fcddd3ae85",
+    "validator_host_tests": {
+      "accepted": 14,
+      "faults_rejected": 73
+    }
+  },
+  "timing_scopes": {
+    "cpu": "Paired coordinator plus worker CPU around tjCompress; excludes worker housekeeping and other threads.",
+    "worker_wall": "Per-job walls overlap; summed worker wall is never subtracted from enclosing send wall.",
+    "publication": "Same-thread serial wake through owner release/autorelease cleanup; independently denominated.",
+    "publication_latency": "Successful publication event to its first matched send hook, not physical-frame or display latency.",
+    "rounded_old_metrics": "Gap means weighted from six-significant-digit per-window values; publication/CPU means use integer sums."
+  },
+  "paired_cpu_and_jobs": {
+    "paired_send_samples": 12526,
+    "submitted_jobs": 538582,
+    "retired_jobs": 538582,
+    "paired_jobs": 538582,
+    "paired_coordinator_cpu_ns": 30196408642,
+    "paired_worker_jpeg_cpu_ns": 261301644896,
+    "paired_coordinator_plus_worker_jpeg_cpu_ns": 291498053538,
+    "paired_send_wall_ns": 218563158159
+  },
+  "publication_validation": {
+    "totals": {
+      "wake_requests": 12526,
+      "wake_accepted": 12526,
+      "wake_rejected_inactive": 0,
+      "wake_coalesced": 0,
+      "wake_completed": 12526,
+      "wake_taken": 12526,
+      "wake_stale": 0,
+      "cpu_read_attempts": 25052,
+      "cpu_read_successes": 25052,
+      "cpu_valid_pairs": 12526,
+      "cpu_invalid_pairs": 0,
+      "last_cpu_read_errno": 0,
+      "session_resets": 0,
+      "send_missing": 1,
+      "send_pre_arm_unknown": 1,
+      "send_reset_unknown": 0,
+      "send_clock_backwards": 0,
+      "queue_unavailable": 0,
+      "owner_unavailable": 0
+    },
+    "boundary_inventory": {
+      "entered_not_completed": 0,
+      "accepted_minus_entries": 0,
+      "wake_outcomes_minus_completed": 0,
+      "commits_without_outcome": 0,
+      "outcomes_from_pre_arm_commit": 0,
+      "legacy_publications_minus_committed": 0
+    },
+    "publication_remaining_latest": 1,
+    "initial_full_request_unknown": 1
+  },
+  "minutes": [
+    {
+      "minute": 1,
+      "paired_fbu_per_second": 59.53333333333333,
+      "capture_starts_per_second": 59.733333333333334,
+      "jpeg_jobs_per_paired_fbu": 42.98880179171333,
+      "thermal_states": [2],
+      "mean_ms_per_paired_fbu": {
+        "coordinator_cpu": 1.032460921612542,
+        "worker_jpeg_cpu": 8.676062461366183,
+        "send_wall": 5.619290567469204
+      },
+      "mean_gap_ms": {
+        "finish_to_send_ms": 11.176605935050391,
+        "finish_to_request_ms": 5.752303773796193,
+        "request_to_send_ms": 5.423284346487546,
+        "capture_callback_ms": 10.019749483816964
+      },
+      "mean_publication_ms": {
+        "queue_ms": 0.012121433090705486,
+        "owner_wait_ms": 0.00042341853303471446,
+        "callback_wall_ms": 0.0023907673572228444,
+        "callback_thread_cpu_ms": 0.0016915162374020155
+      },
+      "publication_origin_counts": {
+        "capture_prepared": {
+          "committed": 3567,
+          "send_new": 3566,
+          "superseded_before_send": 1
+        },
+        "cad_retry": {
+          "committed": 0,
+          "send_new": 0,
+          "superseded_before_send": 0
+        },
+        "post_unlock_wake": {
+          "committed": 6,
+          "send_new": 6,
+          "superseded_before_send": 0
+        }
+      }
+    },
+    {
+      "minute": 2,
+      "paired_fbu_per_second": 54.3,
+      "capture_starts_per_second": 59.6,
+      "jpeg_jobs_per_paired_fbu": 43.000306936771025,
+      "thermal_states": [2],
+      "mean_ms_per_paired_fbu": {
+        "coordinator_cpu": 1.9632758192142419,
+        "worker_jpeg_cpu": 16.577302147022714,
+        "send_wall": 12.708086392879068
+      },
+      "mean_gap_ms": {
+        "finish_to_send_ms": 5.7066965592387975,
+        "finish_to_request_ms": 2.919261399631676,
+        "request_to_send_ms": 2.7874453437691833,
+        "capture_callback_ms": 13.14887346013986
+      },
+      "mean_publication_ms": {
+        "queue_ms": 0.04703628667894414,
+        "owner_wait_ms": 0.2839565537139349,
+        "callback_wall_ms": 0.3203548373235114,
+        "callback_thread_cpu_ms": 0.03232865868631062
+      },
+      "publication_origin_counts": {
+        "capture_prepared": {
+          "committed": 1737,
+          "send_new": 1732,
+          "superseded_before_send": 5
+        },
+        "cad_retry": {
+          "committed": 3,
+          "send_new": 3,
+          "superseded_before_send": 0
+        },
+        "post_unlock_wake": {
+          "committed": 1557,
+          "send_new": 1523,
+          "superseded_before_send": 34
+        }
+      }
+    },
+    {
+      "minute": 3,
+      "paired_fbu_per_second": 39.38333333333333,
+      "capture_starts_per_second": 58.63333333333333,
+      "jpeg_jobs_per_paired_fbu": 43.000423190859074,
+      "thermal_states": [2],
+      "mean_ms_per_paired_fbu": {
+        "coordinator_cpu": 2.8946034667795173,
+        "worker_jpeg_cpu": 25.176967960220058,
+        "send_wall": 21.93335947778248
+      },
+      "mean_gap_ms": {
+        "finish_to_send_ms": 3.4556323614049935,
+        "finish_to_request_ms": 1.9824015742699959,
+        "request_to_send_ms": 1.47322906898011,
+        "capture_callback_ms": 15.689787436043206
+      },
+      "mean_publication_ms": {
+        "queue_ms": 0.09016875031739315,
+        "owner_wait_ms": 0.4339186085484553,
+        "callback_wall_ms": 0.5131626415573424,
+        "callback_thread_cpu_ms": 0.06658904570461278
+      },
+      "publication_origin_counts": {
+        "capture_prepared": {
+          "committed": 482,
+          "send_new": 480,
+          "superseded_before_send": 2
+        },
+        "cad_retry": {
+          "committed": 8,
+          "send_new": 8,
+          "superseded_before_send": 0
+        },
+        "post_unlock_wake": {
+          "committed": 1905,
+          "send_new": 1875,
+          "superseded_before_send": 30
+        }
+      }
+    },
+    {
+      "minute": 4,
+      "paired_fbu_per_second": 28.133333333333333,
+      "capture_starts_per_second": 53.65,
+      "jpeg_jobs_per_paired_fbu": 43.00059241706161,
+      "thermal_states": [2],
+      "mean_ms_per_paired_fbu": {
+        "coordinator_cpu": 3.9371760414691943,
+        "worker_jpeg_cpu": 34.69539522393365,
+        "send_wall": 31.390063492298577
+      },
+      "mean_gap_ms": {
+        "finish_to_send_ms": 4.158967582938389,
+        "finish_to_request_ms": 2.125752144549763,
+        "request_to_send_ms": 2.0332169964454976,
+        "capture_callback_ms": 17.31541528424977
+      },
+      "mean_publication_ms": {
+        "queue_ms": 0.13017820675355452,
+        "owner_wait_ms": 0.5231274674170616,
+        "callback_wall_ms": 0.6267487778436018,
+        "callback_thread_cpu_ms": 0.08711365165876778
+      },
+      "publication_origin_counts": {
+        "capture_prepared": {
+          "committed": 388,
+          "send_new": 386,
+          "superseded_before_send": 2
+        },
+        "cad_retry": {
+          "committed": 6,
+          "send_new": 6,
+          "superseded_before_send": 0
+        },
+        "post_unlock_wake": {
+          "committed": 1309,
+          "send_new": 1296,
+          "superseded_before_send": 13
+        }
+      }
+    },
+    {
+      "minute": 5,
+      "paired_fbu_per_second": 27.416666666666668,
+      "capture_starts_per_second": 49.68333333333333,
+      "jpeg_jobs_per_paired_fbu": 43.00060790273556,
+      "thermal_states": [2],
+      "mean_ms_per_paired_fbu": {
+        "coordinator_cpu": 4.028087818237082,
+        "worker_jpeg_cpu": 35.40601638966566,
+        "send_wall": 31.776991588449846
+      },
+      "mean_gap_ms": {
+        "finish_to_send_ms": 4.703366040145985,
+        "finish_to_request_ms": 2.1669071167883214,
+        "request_to_send_ms": 2.5364592396593673,
+        "capture_callback_ms": 18.22818178463603
+      },
+      "mean_publication_ms": {
+        "queue_ms": 0.12829995319148935,
+        "owner_wait_ms": 0.5263662790273556,
+        "callback_wall_ms": 0.6302127969604864,
+        "callback_thread_cpu_ms": 0.08691890577507598
+      },
+      "publication_origin_counts": {
+        "capture_prepared": {
+          "committed": 432,
+          "send_new": 431,
+          "superseded_before_send": 1
+        },
+        "cad_retry": {
+          "committed": 5,
+          "send_new": 5,
+          "superseded_before_send": 0
+        },
+        "post_unlock_wake": {
+          "committed": 1226,
+          "send_new": 1208,
+          "superseded_before_send": 17
+        }
+      }
+    }
+  ],
+  "interpretation": [
+    "Publication wake timing is now short, with 5908 new post-unlock publication-to-send associations, zero diagnostic errors and all 12526 wake CPU pairs complete.",
+    "The warm final-minute finish-to-send gap is 4.703 ms, versus 10.185 ms in earlier C; these are separate, thermally unmatched trials.",
+    "Delivery still falls from 59.53 to 27.42/s; JPEG CPU/job rises 4.080x while coordinator CPU/FBU rises 3.901x. JPEG jobs/FBU stay near 43 and socket bytes/FBU rise only 0.178%.",
+    "The slower CPU execution is not explained by queue waiting. Current policy samples belong only to the coordinator; worker effective policy, core residency, frequency and hardware instruction/cycle counts remain unmeasured.",
+    "No additional D hot repeat or 22-minute performance claim follows from this result; both runs lack controlled physical temperature/frequency."
+  ],
+  "short_native_preflight": {
+    "local_directory": "work/renderer-memory-20260909/offmain-publication-native-input-preflight-5095",
+    "review_sha256": "1db51a4d62f12153d1cd2946ece41fb51aaf2e108348089d5048a0951e72e73d",
+    "before_input": {
+      "completed": 30,
+      "p50_ms": 80,
+      "p95_ms": 83
+    },
+    "after_brief_motion_input": {
+      "completed": 30,
+      "p50_ms": 100,
+      "p95_ms": 117
+    },
+    "four_native_pixel_cases_exact": true,
+    "motion_barcode_fps": 35.056704469646434,
+    "limit": "Short functional run with fixture changes and extra MCP clients; does not explain C hot input nonresponse or qualify sustained D performance."
+  },
+  "limits": [
+    "Full quality, resolution, subsampling, codec archives and output coordinator requested QoS 21 retained.",
+    "No native renderer is present in the 300-second sink measurement; no physical display-rate or input-latency claim.",
+    "Publication serials identify events rather than source frame identity. One initial unknown is excluded from origin/latency samples, and one committed tail publication remains unconsumed.",
+    "Additional timing takes the collector mutex briefly while publication owns retained client locks.",
+    "No release or promotion. Staged D still needs sustained native FPS/input/final-frame/rotation/reconnect qualification."
+  ]
+}

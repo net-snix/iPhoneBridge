@@ -1,10 +1,27 @@
 import AppKit
-import WebKit
 
 @MainActor
-final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSToolbarDelegate, NSMenuItemValidation, WKScriptMessageHandler, WKNavigationDelegate {
+final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSToolbarDelegate, NSMenuItemValidation {
     private var window: NSWindow!
-    private var web: WKWebView!
+    private var mirror: MirrorView!
+    private let connection = MirrorConnection()
+    private lazy var input = MirrorInputDriver(connection: connection)
+    private lazy var mailbox = FrameMailbox { [weak self] frame, observations, count in
+        guard let self, frame.geometry == self.connection.geometry else { return }
+        self.benchmark?.received(frame, observations: observations, decodedCount: count)
+        self.mirror.present(frame)
+    }
+    private lazy var decoder = HEVCDecoder(onFrame: { [mailbox] frame in mailbox.put(frame) }, onError: { [weak self] detail in
+        Task { @MainActor [weak self] in self?.recoverDecoder(detail) }
+    })
+    private var benchmark: MirrorBenchmark?
+    private lazy var recovery = KeyframeRequester(send: { [connection] in
+        try await connection.command(.requestKeyframe)
+    }, completed: { [weak self] error in
+        guard let self, self.connected else { return }
+        self.window.subtitle = error ?? "USB"
+    })
+    private let attachOnly = CommandLine.arguments.contains("--attach")
     private var overlay: NSStackView!
     private let message = NSTextField(wrappingLabelWithString: "Connecting to your iPhone…")
     private var retry: NSButton!
@@ -19,12 +36,10 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
     private var shortcutMonitor: Any?
     private static let homeItem = NSToolbarItem.Identifier("phone.home")
     private static let appsItem = NSToolbarItem.Identifier("phone.apps")
-    private let helper = Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/bridge")
-    private let data = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/iPhoneBridge", isDirectory: true)
-    private let preview = URL(string: CommandLine.arguments.contains("--benchmark")
-                              ? "http://127.0.0.1:15801/?benchmark=1"
-                              : "http://127.0.0.1:15801/")!
+    private let helper = ProcessInfo.processInfo.environment["IPHONEBRIDGE_HELPER"].map { URL(fileURLWithPath: $0) }
+        ?? Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/bridge")
+    private let data = ProcessInfo.processInfo.environment["IPHONEBRIDGE_DATA_DIR"].map { URL(fileURLWithPath: $0) }
+        ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/iPhoneBridge", isDirectory: true)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         makeMenu()
@@ -44,25 +59,23 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         window.toolbar = toolbar
         window.toolbarStyle = .unifiedCompact
         window.center()
+        guard configureBenchmarkWindow() else { exit(2) }
 
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
-        configuration.userContentController.add(self, name: "mirror")
-        web = WKWebView(frame: .zero, configuration: configuration)
-        web.navigationDelegate = self
-        web.translatesAutoresizingMaskIntoConstraints = false
-        web.underPageBackgroundColor = .black
+        mirror = MirrorView(frame: .zero)
+        mirror.input = input
+        mirror.translatesAutoresizingMaskIntoConstraints = false
         let content = NSView()
         content.wantsLayer = true
         content.layer?.backgroundColor = NSColor.black.cgColor
-        content.addSubview(web)
+        content.addSubview(mirror)
         window.contentView = content
         NSLayoutConstraint.activate([
-            web.leadingAnchor.constraint(equalTo: content.leadingAnchor),
-            web.trailingAnchor.constraint(equalTo: content.trailingAnchor),
-            web.topAnchor.constraint(equalTo: content.topAnchor),
-            web.bottomAnchor.constraint(equalTo: content.bottomAnchor)
+            mirror.leadingAnchor.constraint(equalTo: content.leadingAnchor),
+            mirror.trailingAnchor.constraint(equalTo: content.trailingAnchor),
+            mirror.topAnchor.constraint(equalTo: content.topAnchor),
+            mirror.bottomAnchor.constraint(equalTo: content.bottomAnchor)
         ])
+        configureNativeMirror()
         message.textColor = .white
         message.alignment = .center
         message.font = .systemFont(ofSize: 14)
@@ -86,6 +99,24 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         installShortcuts()
         NSApp.activate(ignoringOtherApps: true)
         connect()
+    }
+
+    private func configureBenchmarkWindow() -> Bool {
+        let arguments = CommandLine.arguments
+        guard arguments.contains("--benchmark") else { return true }
+        if let selection = arguments.first(where: { $0.hasPrefix("--benchmark-display=") }) {
+            guard let identifier = UInt32(selection.dropFirst("--benchmark-display=".count)),
+                  let screen = NSScreen.screens.first(where: {
+                      ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == identifier
+                  }) else {
+                NSLog("Requested benchmark display is unavailable: %@", selection)
+                return false
+            }
+            window.setFrameOrigin(NSPoint(x: screen.visibleFrame.midX - window.frame.width / 2,
+                                          y: screen.visibleFrame.midY - window.frame.height / 2))
+        }
+        if arguments.contains("--benchmark-visible") { window.level = .floating }
+        return true
     }
 
     private func makeMenu() {
@@ -113,7 +144,7 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
     }
 
     private func installShortcuts() {
-        // Local monitors run before dispatch to WebKit or its focused canvas.
+        // Local monitors run before dispatch to the focused mirror.
         // This only handles our two shortcuts while this app's mirror is key.
         shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             let handled = MainActor.assumeIsolated {
@@ -157,7 +188,7 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         return item
     }
 
-    private var canNavigate: Bool { connected && phoneSize != nil && command == nil && !quitting }
+    private var canNavigate: Bool { connected && phoneSize != nil && command == nil && !quitting && mirror.inputEnabled }
 
     private func updateNavigationControls() {
         for item in navigationItems { item.isEnabled = canNavigate }
@@ -175,27 +206,14 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
 
     private func navigate(_ destination: String) {
         guard canNavigate else { return }
-        // Use the already connected RFB session; spawning the CLI would capture
-        // two full screenshots and wait for SpringBoard before each completion.
-        web.callAsyncJavaScript("return window.iPhoneMirror.navigate(destination)",
-                                arguments: ["destination": destination], in: nil, in: .page) { [weak self] result in
-            guard let self, !self.quitting else { return }
-            if case .success(let sent) = result, sent as? Bool == true {
-                self.window.makeFirstResponder(self.web)
-            } else {
-                let alert = NSAlert()
-                alert.messageText = "Couldn’t navigate on the iPhone"
-                alert.informativeText = "The live connection is unavailable. Reconnect and try again."
-                alert.addButton(withTitle: "OK")
-                alert.beginSheetModal(for: self.window)
-            }
-        }
+        mirror.navigate(button: destination == "home" ? 1 : 2)
+        window.makeFirstResponder(mirror)
     }
 
     @objc private func showAbout() {
         NSApp.orderFrontStandardAboutPanel(options: [.applicationName: "iPhoneBridge",
             .applicationVersion: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
-            .credits: NSAttributedString(string: "Live iPhone mirroring over USB.\nOriginal bridge code: MIT.\nTrollVNC, noVNC and bundled libraries retain their own licenses.\ngithub.com/net-snix/iPhoneBridge")])
+            .credits: NSAttributedString(string: "Live iPhone mirroring over USB.\nOriginal bridge code: MIT.\nPhone components derived from TrollVNC retain their GPL license.\ngithub.com/net-snix/iPhoneBridge")])
     }
 
     @objc private func showSettings() {
@@ -224,7 +242,7 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
     private func applySettings(_ arguments: [String]) {
         guard command == nil, !quitting else { return }
         showMessage("Updating connection…", canRetry: false)
-        web.loadHTMLString("<body style='background:black'></body>", baseURL: nil)
+        recovery.cancel(); connection.stop(); decoder.reset(); mirror.clear()
         runBridge(["stop"]) { [weak self] success, detail in
             guard let self, !self.quitting else { return }
             guard success else { self.showMessage(detail, canRetry: true); return }
@@ -239,10 +257,11 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
     private func connect() {
         guard command == nil, !quitting else { return }
         showMessage("Connecting to your iPhone…", canRetry: false)
+        if attachOnly { connection.start(); return }
         runBridge(["connect"]) { [weak self] success, detail in
             guard let self, !self.quitting else { return }
             if success {
-                self.web.load(URLRequest(url: self.preview))
+                self.connection.start()
             } else {
                 self.showMessage("Couldn’t connect.\n\n" + detail, canRetry: true)
             }
@@ -253,7 +272,8 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         guard command == nil, !quitting else { return }
         connected = false
         showMessage("Reconnecting…", canRetry: false)
-        web.loadHTMLString("<body style='background:black'></body>", baseURL: nil)
+        recovery.cancel(); connection.stop(); decoder.reset(); mirror.clear()
+        if attachOnly { connection.start(); return }
         runBridge(["stop"]) { [weak self] success, detail in
             guard let self, !self.quitting else { return }
             if success { self.connect() }
@@ -269,7 +289,7 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         retry.isHidden = !canRetry
         settingsButton.isHidden = !canRetry
         overlay.isHidden = false
-        web.isHidden = true
+        mirror.isHidden = true
         window.subtitle = canRetry ? "Disconnected" : "Connecting…"
     }
 
@@ -309,26 +329,53 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         }
     }
 
-    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.frameInfo.isMainFrame,
-              message.frameInfo.securityOrigin.host == "127.0.0.1",
-              message.frameInfo.securityOrigin.port == 15801,
-              let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
-        if type == "resize", let width = body["width"] as? Double, let height = body["height"] as? Double,
-           width > 0, height > 0, width <= 16384, height <= 16384 {
-            phoneSize = (Int(width), Int(height))
-            updateNavigationControls()
-            resizePhone(width: width, height: height)
-        } else if type == "status" {
-            connected = body["connected"] as? Bool ?? false
-            if !connected { phoneSize = nil }
-            updateNavigationControls()
-            window.subtitle = connected ? "USB" : "Reconnecting…"
-            overlay.isHidden = true
-            web.isHidden = false
-            if connected { window.makeFirstResponder(web) }
+    private func configureNativeMirror() {
+        input.onError = { [weak self] detail in
+            self?.mirror.cancelInput()
+            self?.window.subtitle = detail
+        }
+        mirror.onDisplayError = { [weak self] detail in self?.recoverDecoder(detail) }
+        mirror.onSubmitted = { [weak self] frame in self?.benchmark?.submitted(frame) }
+        connection.onGeometry = { [weak self] geometry in
+            guard let self else { return }
+            self.mirror.geometry = geometry
+            self.phoneSize = (Int(geometry.width), Int(geometry.height))
+            self.resizePhone(width: Double(geometry.width), height: Double(geometry.height))
+            self.updateNavigationControls()
+        }
+        connection.onFormat = { [weak self] format in self?.decoder.configure(format) }
+        connection.onVideo = { [weak self] video in self?.decoder.submit(video) }
+        connection.onState = { [weak self] connected, detail in
+            guard let self, !self.quitting else { return }
+            self.connected = connected
+            if connected {
+                self.overlay.isHidden = true; self.mirror.isHidden = false
+                self.window.subtitle = "USB"
+                self.window.makeFirstResponder(self.mirror)
+            } else {
+                self.recovery.cancel(); self.decoder.reset(); self.mailbox.reset(); self.mirror.clear()
+                self.showMessage(detail, canRetry: true)
+            }
+            self.updateNavigationControls()
+        }
+        if CommandLine.arguments.contains("--benchmark") {
+            benchmark = MirrorBenchmark(connection: connection, window: window, decoder: decoder,
+                prepareInput: { [weak self] in await self?.input.cancelAndWait() }) { [weak self] active in
+                self?.mirror.inputEnabled = !active
+                self?.updateNavigationControls()
+            }
+            benchmark?.start()
         }
     }
+
+    private func recoverDecoder(_ detail: String) {
+        guard connected else { return }
+        window.subtitle = detail
+        recovery.request()
+    }
+
+    func windowDidResignKey(_ notification: Notification) { mirror.cancelInput() }
+    func applicationDidResignActive(_ notification: Notification) { mirror.cancelInput() }
 
     private func resizePhone(width: Double, height: Double) {
         let landscape = width > height
@@ -346,25 +393,13 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         window.setFrame(NSRect(origin: origin, size: frameSize), display: true, animate: true)
     }
 
-    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
-                 decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void) {
-        let url = navigationAction.request.url
-        decisionHandler((url?.host == "127.0.0.1" && url?.port == 15801) || url?.absoluteString == "about:blank" ? .allow : .cancel)
-    }
-
-    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-        showMessage("The preview couldn’t load. Reconnect to try again.", canRetry: true)
-    }
-
-    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-        showMessage("The preview stopped. Reconnect to continue.", canRetry: true)
-    }
-
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         if quitting { return .terminateLater }
         quitting = true
+        benchmark?.stop(); mirror.cancelInput(); recovery.cancel(); connection.stop(); decoder.reset()
+        if attachOnly { return .terminateNow }
         updateNavigationControls()
         // Finish an in-progress start/stop before issuing the final owned cleanup.
         Task { @MainActor in
@@ -378,6 +413,11 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
 @main
 struct Main {
     @MainActor static func main() {
+        if let fixture = CommandLine.arguments.first(where: { $0.hasPrefix("--decode-fixture=") }) {
+            let output = CommandLine.arguments.first(where: { $0.hasPrefix("--decode-output=") })?.dropFirst("--decode-output=".count)
+            exit(HEVCFixture.verify(path: String(fixture.dropFirst("--decode-fixture=".count)), output: output.map(String.init),
+                                   scanBarcode: CommandLine.arguments.contains("--decode-barcode")))
+        }
         let app = NSApplication.shared
         let delegate = MirrorApp()
         app.delegate = delegate

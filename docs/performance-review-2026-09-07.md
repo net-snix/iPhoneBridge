@@ -97,7 +97,18 @@ vncdotool negotiates only RAW (`VNCDoToolClient.encoding`), and its ZRLE and Hex
 
 - Tests (`tests/test_control.py`): probe request bytes and reset, stale size rejected with zero frames transferred, one probe plus one capture per action, MCP error paths unchanged. Full suite: 40 tests pass; viewer tests: 17 pass.
 - Expected effect: about 420 ms removed from every tap, drag, type, key and navigate action (roughly a third of a typical action). `screenshot` is unchanged.
-- Verification: `.venv/bin/python scripts/measure-agent-path` times the probe, a full capture and a complete no-input action with both size checks. The live confirmation was blocked because the daemon was stopped by the concurrent session; run it once `./bridge start` succeeds again and append the numbers here.
+- Live confirmation (22:53, daemon build `09135c90…` redeployed by the concurrent session, no input sent, `.venv/bin/python scripts/measure-agent-path`):
+
+  | Step | Median |
+  | --- | --- |
+  | Size probe round trip, warm connection | 7.6 ms |
+  | Full RAW capture plus PNG | 417 ms |
+  | No-input action, previous full-frame size check | 1209 ms |
+  | No-input action, size probe | 801 ms |
+  | `screenshot` | 528 ms |
+
+  The probe and the capture reported the same 1172×2536 size and the captured frame had full luminance range. `scripts/check-mcp` then completed a real stdio MCP screenshot through the changed connection code with a verified native PNG. Saving per input action: about 408 ms, 34 % of the previous total.
+- The 7.6 ms probe round trip is the current floor for one request/response cycle over USB, and it contains the 5 ms LibVNCServer sleep described above; it is the number to compare after recommendation 1 is applied.
 
 ## Recommendations
 
@@ -130,5 +141,32 @@ vncdotool negotiates only RAW (`VNCDoToolClient.encoding`), and its ZRLE and Hex
 
 ## Open items
 
-- Live before/after timing of the applied change (blocked on the daemon; see Applied in this pass).
+- Recommendation 1 (daemon `deferUpdateTime`) and 2 (session script polling) still need the rebuilt deploy pipeline; verify with `scripts/measure-agent-path` (probe round trip) and `scripts/measure-mirror`.
 - Human drag in the native window has not been separately verified in VALIDATION.md; the source analysis above shows pointer moves are not deferred by LibVNCServer, so no latency reason is expected.
+
+## Follow-up — game load and applied daemon changes (late evening)
+
+Espen reported the mirror as laggy specifically in Pokémon GO while touch input stayed instant. Measured against the release daemon with the live game on screen, using a raw RFB client with the viewer's exact Tight settings:
+
+| Full-frame request (1172×2536) | Time to last byte | Bytes |
+| --- | --- | --- |
+| Tight quality 9 / 8 / 7 / **6** / 5 / 4 / 3, compression 2 | 88 / 58 / 57 / **55** / 50 / 49 / 49 ms | 2955 / 924 / 680 / **532** / 456 / 339 / 267 KB |
+| Tight quality 6, compression 1 / 9 | 51 / 54 ms | 519 / 532 KB |
+| Tight without JPEG (lossless) | 152 ms | 3895 KB |
+
+The time is almost independent of JPEG quality: it is the single-threaded Tight/JPEG encode of three megapixels plus the 13 ms USB transfer, so lowering quality would not fix the lag. A 3D game makes every tile dirty, which puts every frame on this path; the daemon then delivers about 20 frames per second and each frame is 45 ms old before it leaves the phone. The source-built libjpeg-turbo has NEON enabled (`WITH_SIMD=ON`, 120 NEON symbols), so this is not a build defect.
+
+Applied in daemon build `a82e40b4…` and the session script:
+
+1. `gScreen->deferUpdateTime = 1` (patch, lock hashes, release check): request round trip 7.6 → 2.8 ms.
+2. `sleep 0.2` polling in `device-session.sh`: `stop` 1 s, `connect` 4 s from the source checkout.
+3. `-Q 1` in-flight encode limit. A captured frame is dropped while an encode is still running instead of waiting behind it, so the next encoded frame is fresh. Measured with the new `load=heavy` fixture at device resolution (about 500 KB per frame), Mac Safari as the viewer, two runs per setting:
+
+   | Setting | Input p50 | Input p95 | Delivered fps |
+   | --- | --- | --- | --- |
+   | `-Q 2` | 111.5, 114 ms | 132.6, 128 ms | 47.2, 48.1 |
+   | `-Q 1` | 101, 98.5 ms | 129.6, 129 ms | 44.4, 44.9 |
+
+   The fixture encodes in about 20 ms per frame; with 40–55 ms game frames the queueing removed by `-Q 1` is larger, so the latency gain should be larger there too.
+
+What remains: the encoder itself. Two ways to get 60 fps at full quality in games, both larger projects: parallelise Tight/JPEG encoding across the phone's cores inside the source-built LibVNCServer (TurboVNC's design; one zlib stream per thread), or add a hardware H.264 path (VideoToolbox in the daemon, `encodingH264` which noVNC 1.7 already requests and decodes with WebCodecs). The first keeps the exact current image quality; the second changes it to a high-bitrate video codec.

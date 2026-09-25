@@ -25,13 +25,13 @@
 | | What you get |
 | :--- | :--- |
 | 🖥️ **Native on the Mac** | AppKit window, full screen, resizing, and automatic portrait/landscape layout. |
-| 👆 **Direct interaction** | Click, drag, scroll with a drag, and type using your Mac keyboard. |
+| 👆 **Direct interaction** | Click, drag, scroll with a drag or mouse wheel/trackpad, and type using your Mac keyboard. |
 | ⌘ **Phone navigation** | Home Screen with **⌘1**, App Switcher with **⌘2**, plus toolbar buttons. |
 | 🔌 **USB transport** | Loopback endpoints carried over an owned SSH tunnel. No account or cloud relay. |
-| 📦 **Self-contained app** | Python, USB utilities, viewer, and phone daemon are bundled. No Homebrew or checkout needed to run. |
+| 📦 **Self-contained app** | Python, USB utilities, and phone daemon are bundled. No Homebrew or checkout needed to run. |
 | 🤖 **Agent access** | Six MCP tools for screenshots, taps, drags, text, keys, and health. |
 
-The mirror targets 60 fps at full resolution. A development build measured about **55 fps during motion** and **98 ms input-to-visible latency** on the tested phone. These are recorded measurements, not a guarantee for every device or the rebuilt release daemon; see [performance evidence and limits](PERFORMANCE.md).
+This development branch replaces the video path with VideoToolbox HEVC encoding on the phone and native hardware decoding on the Mac. Decoded YUV buffers go directly to the native display layer. It targets sustained 60 fps at full resolution. Qualification and the distinction between decoded frames, display submissions, and physical screen output are recorded in [performance evidence and limits](PERFORMANCE.md). Published releases may still use the previous architecture.
 
 ## Get connected
 
@@ -46,7 +46,7 @@ Keep the phone awake and unlocked. Use **View → Reconnect** after reconnecting
 
 Quitting stops this bridge's recorded processes, including an agent session using the same connection. Unrelated tunnels are preserved. The app deploys its own daemon under `/var/mobile/Media/iPhoneBridge`; it does not install a jailbreak, update iOS, or add a persistent service.
 
-**Current limits:** single-finger input; ASCII typing with a US hardware keyboard mapping; no pinch/multitouch, audio forwarding, notifications, or locked-phone continuity. Rotation changes the framebuffer dimensions. Keep human and agent input separate in time.
+**Current limits:** single-finger input; ASCII typing with a US hardware keyboard mapping; SDR sRGB capture; no pinch/multitouch, audio forwarding, notifications, or locked-phone continuity. Display P3 and HDR preservation are unsupported by the retained capture API. Rotation changes the declared framebuffer dimensions. Human and agent connections use an exclusive input lease; competing input receives a busy error.
 
 ## Agent and command-line access
 
@@ -67,25 +67,28 @@ Open the app first, or run the helper's `connect` command. Starting MCP alone do
 
 Always take a fresh screenshot, use its **raw pixel dimensions**, and inspect the returned image after an action. Input calls require those dimensions; stale orientation is rejected. The CLI also exposes `navigate home` and `navigate app-switcher`. See [CLI and MCP usage](docs/USAGE.md) for examples and recovery.
 
+The current native source adapter also requires the screenshot's **generation**
+on every input call, rejecting rotations that preserve width and height. For
+GPT-6 Astra setup with this adapter, follow [Codex setup](docs/USAGE.md#gpt-6-astra-through-codex).
+
 ## How it fits together
 
 ```mermaid
 flowchart LR
-    App[Native Mac window] --> Viewer[noVNC · loopback :15801]
-    Agent[MCP / CLI] --> RFB[RFB · loopback :15901]
-    Viewer --> RFB
-    RFB --> SSH[SSH over USB · owned :15422]
-    SSH --> Phone[TrollVNC on iPhone · loopback :15901]
+    App[AppKit · VideoToolbox decode] --> Protocol[IPBM/1 · loopback :15901]
+    Agent[MCP / CLI · lossless PNG] --> Protocol
+    Protocol --> SSH[SSH over USB · owned :15422]
+    SSH --> Phone[Native daemon · HEVC + lossless stills]
 ```
 
-All listeners bind to loopback. SSH authenticates and protects the USB hop; RFB has no separate password, so local processes on either device can reach its local endpoint. Clipboard sharing, file transfer, Bonjour, and the daemon's built-in HTTP server are disabled.
+All listeners bind to loopback. SSH authenticates and protects the USB hop; the local protocol has no separate password, so local processes on either device can reach its endpoint. The daemon has no clipboard sharing, file transfer, Bonjour, or HTTP server. One connection receives video; separate control connections request lossless stills and input ownership. [Protocol details](docs/mirror-protocol.md) describe framing, bounded queues, recovery and coordinates.
 
 Settings, logs, screenshots, and cleanup records live in `~/Library/Application Support/iPhoneBridge/`. SSH host keys are kept in a separate known-hosts file. Device selection never resets USB pairing. See [validation](VALIDATION.md) for what was actually tested.
 
 ## Built on open source
 
-The bridge combines [TrollVNC](https://github.com/owngoal-dev/TrollVNC), [LibVNCServer](https://github.com/LibVNC/libvncserver), [noVNC](https://github.com/novnc/noVNC), [libimobiledevice](https://libimobiledevice.org/), [vncdotool](https://github.com/sibson/vncdotool), [websockify](https://github.com/novnc/websockify), and [MCP](https://modelcontextprotocol.io/), with a Swift AppKit shell. Thanks to their maintainers. This software is based in part on the work of the Independent JPEG Group.
+The phone daemon retains capture, input and process-management components derived from [TrollVNC](https://github.com/owngoal-dev/TrollVNC). The Mac uses AppKit and VideoToolbox, [libimobiledevice](https://libimobiledevice.org/) for USB, [Pillow](https://python-pillow.github.io/) for lossless screenshots, and [MCP](https://modelcontextprotocol.io/) for agent tools. Thanks to their maintainers. Pillow includes separately licensed image libraries, including work of the Independent JPEG Group.
 
-Original bridge code and artwork are [MIT licensed](LICENSE). The bundled daemon is **GPL-2.0-only**; other components retain their GPL, LGPL, MPL, and permissive terms. The app download includes notices, and every binary release includes a **corresponding-source archive** with exact dependency sources, patches, and rebuild instructions. Read [THIRD_PARTY.md](THIRD_PARTY.md) for the component-by-component license map.
+Original Mac/Python bridge code and artwork are [MIT licensed](LICENSE). The phone daemon is **GPL-2.0-only**; other components retain their own licenses. The app download includes notices, and every binary release includes a **corresponding-source archive** with exact dependency sources and rebuild instructions. Read [THIRD_PARTY.md](THIRD_PARTY.md) for the component-by-component license map.
 
 [Build guide](docs/BUILDING.md) · [Release checklist](docs/RELEASING.md) · [Performance](PERFORMANCE.md) · [Changelog](CHANGELOG.md)

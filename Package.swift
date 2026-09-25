@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "iPhoneBridge",
-    platforms: [.macOS(.v14)],
-    targets: [.executableTarget(name: "iPhoneBridge", path: "Sources/iPhoneBridge")]
+    platforms: [.macOS("26.0")],
+    targets: [.executableTarget(name: "iPhoneBridge", path: "Sources/iPhoneBridge"),
+              .testTarget(name: "iPhoneBridgeTests", dependencies: ["iPhoneBridge"], path: "tests/iPhoneBridgeTests")]
 )

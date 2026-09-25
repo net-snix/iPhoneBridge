@@ -1,0 +1,1080 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-09",
+  "app_version": "0.2.1",
+  "app_build": "3",
+  "environment": {
+    "macOS": "27.0 (26A5425a)",
+    "WebKit": "22625.1.29.11.26",
+    "device_model": "iPhone14,2",
+    "iOS": "15.1.1",
+    "framebuffer": [
+      1172,
+      2536
+    ],
+    "capture_fps": 60,
+    "publish_fps": 60,
+    "qualityLevel": 6,
+    "compressionLevel": 2,
+    "maximum_inflight_encodes": 1
+  },
+  "artifacts": {
+    "device_sha256": "f30543574711d977a1a41ed053f9e4e49f6cfa4ff535d3f65011b7c2e6de4c5e",
+    "novnc_patch_sha256": "b0cc11781f77f68716f36866f1f4444d926eb67ac103fcd2c8497c50dd3cef4f",
+    "files": {
+      "core/display.js": "1854b9137234ffa6be0fc03ba641a81c0a8973aa7cc02b03b55c0a64aaca2ab2",
+      "core/image-resource.js": "a0b39401380ac8652dffecfdf2b4bcf67d83efcefc8b6a24fc4761c6e2cae2d9",
+      "core/rfb.js": "bb2e752c8724752a99a71ed8eb7aec5ed2614ff1eb48ba16e53f3aefc63c0039"
+    }
+  },
+  "before": {
+    "daemon_sha256": "a82e40b4b17171da54056fcd1cc60095b35002e0e408d32e6238ce80906e85af",
+    "input": {
+      "qualityLevel": 6,
+      "compressionLevel": 2,
+      "requestedTrials": 30,
+      "completedTrials": 30,
+      "samples": [
+        103,
+        96,
+        82,
+        99,
+        98,
+        99,
+        97,
+        85,
+        96,
+        82,
+        83,
+        84,
+        99,
+        95,
+        98,
+        98,
+        98,
+        83,
+        99,
+        97,
+        85,
+        100,
+        92,
+        83,
+        98,
+        84,
+        97,
+        93,
+        86,
+        96
+      ],
+      "p50": 96,
+      "p95": 99.55,
+      "failure": null
+    },
+    "motion": {
+      "qualityLevel": 6,
+      "compressionLevel": 2,
+      "requestedDurationMs": 30000,
+      "uniqueSequences": 1585,
+      "sourceFramesSkipped": 215,
+      "receivedFps": 52.8387484155047,
+      "p50": 16,
+      "p95": 37,
+      "failure": null
+    },
+    "retention": {
+      "timestamp_utc": "2026-09-09T18:03:26Z",
+      "initial": 0,
+      "expected": 1,
+      "rfb_observed": 0,
+      "direct_usb_observed": 1,
+      "held_reader_ms": 400,
+      "mismatch": true,
+      "rfb_after_extra_second": 0,
+      "recovery_rfb_observed": 2
+    }
+  },
+  "after": {
+    "input_start": {
+      "qualityLevel": 6,
+      "compressionLevel": 2,
+      "requestedTrials": 30,
+      "completedTrials": 30,
+      "samples": [
+        109,
+        107,
+        83,
+        78,
+        94,
+        83,
+        109,
+        92,
+        112,
+        83,
+        87,
+        93,
+        84,
+        99,
+        102,
+        84,
+        100,
+        92,
+        89,
+        91,
+        85,
+        99,
+        96,
+        97,
+        91,
+        87,
+        108,
+        103,
+        88,
+        83
+      ],
+      "p50": 92,
+      "p95": 109,
+      "failure": null
+    },
+    "input_end": {
+      "qualityLevel": 6,
+      "compressionLevel": 2,
+      "requestedTrials": 30,
+      "completedTrials": 30,
+      "samples": [
+        88,
+        76,
+        77,
+        83,
+        80,
+        81,
+        80,
+        75,
+        85,
+        83,
+        77,
+        83,
+        80,
+        77,
+        78,
+        84,
+        80,
+        79,
+        82,
+        79,
+        80,
+        79,
+        82,
+        81,
+        79,
+        81,
+        78,
+        80,
+        80,
+        80
+      ],
+      "p50": 80,
+      "p95": 84.55,
+      "failure": null
+    },
+    "image_quality": {
+      "requested_cases": 4,
+      "completed_cases": 4,
+      "exact_match": true,
+      "cases": [
+        {
+          "name": "full-resolution-png",
+          "width": 1172,
+          "height": 2536,
+          "mime": "image/png",
+          "encodedBytes": 64319,
+          "exactMatch": true,
+          "differentPixels": 0,
+          "differentChannels": 0,
+          "maxChannelDifference": 0,
+          "firstDifference": null
+        },
+        {
+          "name": "full-resolution-jpeg",
+          "width": 1172,
+          "height": 2536,
+          "mime": "image/jpeg",
+          "quality": 0.8,
+          "encodedBytes": 149941,
+          "exactMatch": true,
+          "differentPixels": 0,
+          "differentChannels": 0,
+          "maxChannelDifference": 0,
+          "firstDifference": null
+        },
+        {
+          "name": "translucent-png",
+          "width": 32,
+          "height": 24,
+          "mime": "image/png",
+          "translucent": true,
+          "encodedBytes": 1627,
+          "exactMatch": true,
+          "differentPixels": 0,
+          "differentChannels": 0,
+          "maxChannelDifference": 0,
+          "firstDifference": null
+        },
+        {
+          "name": "translucent-png-composited",
+          "width": 32,
+          "height": 24,
+          "mime": "image/png",
+          "translucent": true,
+          "background": "#21394f",
+          "encodedBytes": 1627,
+          "exactMatch": true,
+          "differentPixels": 0,
+          "differentChannels": 0,
+          "maxChannelDifference": 0,
+          "firstDifference": null
+        }
+      ]
+    },
+    "retention_before_endurance": [
+      {
+        "timestamp_utc": "2026-09-09T18:27:59Z",
+        "initial": 30,
+        "expected": 31,
+        "rfb_observed": 31,
+        "direct_usb_observed": 31,
+        "held_reader_ms": 400,
+        "mismatch": false,
+        "rfb_after_extra_second": 31,
+        "recovery_rfb_observed": 32
+      },
+      {
+        "timestamp_utc": "2026-09-09T18:28:04Z",
+        "initial": 32,
+        "expected": 33,
+        "rfb_observed": 33,
+        "direct_usb_observed": 33,
+        "held_reader_ms": 400,
+        "mismatch": false,
+        "rfb_after_extra_second": 33,
+        "recovery_rfb_observed": 34
+      },
+      {
+        "timestamp_utc": "2026-09-09T18:28:10Z",
+        "initial": 34,
+        "expected": 35,
+        "rfb_observed": 35,
+        "direct_usb_observed": 35,
+        "held_reader_ms": 400,
+        "mismatch": false,
+        "rfb_after_extra_second": 35,
+        "recovery_rfb_observed": 36
+      }
+    ],
+    "retention_after_endurance": [
+      {
+        "timestamp_utc": "2026-09-09T19:18:18Z",
+        "initial": 30,
+        "expected": 31,
+        "rfb_observed": 31,
+        "direct_usb_observed": 31,
+        "held_reader_ms": 400,
+        "mismatch": false,
+        "rfb_after_extra_second": 31,
+        "recovery_rfb_observed": 32
+      },
+      {
+        "timestamp_utc": "2026-09-09T19:18:35Z",
+        "initial": 32,
+        "expected": 33,
+        "rfb_observed": 33,
+        "direct_usb_observed": 33,
+        "held_reader_ms": 400,
+        "mismatch": false,
+        "rfb_after_extra_second": 33,
+        "recovery_rfb_observed": 34
+      },
+      {
+        "timestamp_utc": "2026-09-09T19:18:56Z",
+        "initial": 34,
+        "expected": 35,
+        "rfb_observed": 35,
+        "direct_usb_observed": 35,
+        "held_reader_ms": 400,
+        "mismatch": false,
+        "rfb_after_extra_second": 35,
+        "recovery_rfb_observed": 36
+      }
+    ],
+    "client_churn": {
+      "completed_clients": 50,
+      "closed_partway_through_RAW_update": true,
+      "input_sent": false,
+      "threads_before": 10,
+      "threads_after": 10,
+      "resident_KiB_before": 82416,
+      "resident_KiB_after": 83216,
+      "fresh_connection_succeeded": true
+    },
+    "endurance": {
+      "continuous_motion_started_utc": "2026-09-09T18:55:17.431161+00:00",
+      "finished_utc": "2026-09-09T19:17:17.731140+00:00",
+      "continuous_motion_seconds": 1320.302111694531,
+      "app_or_viewer_restarted": false,
+      "resolution_or_quality_changed": false,
+      "complete": true,
+      "sampling_note": "Initial consecutive 30-second readback windows, then footprint-only samples with 30-second motion diagnostics at 5, 10, 15 and 21.5 minutes. Same native process and continuously animated heavy phone fixture throughout.",
+      "initial_windows": [
+        {
+          "elapsed_s": 31.02,
+          "received_fps": 56.235615890063706,
+          "footprint_MiB": {
+            "app": 32.532,
+            "renderer": 275.954,
+            "gpu": 193.486,
+            "network": 6.547
+          }
+        },
+        {
+          "elapsed_s": 62.09,
+          "received_fps": 54.78675514355264,
+          "footprint_MiB": {
+            "app": 32.548,
+            "renderer": 287.954,
+            "gpu": 197.673,
+            "network": 6.422
+          }
+        },
+        {
+          "elapsed_s": 93.16,
+          "received_fps": 50.385398244853015,
+          "footprint_MiB": {
+            "app": 32.548,
+            "renderer": 308.657,
+            "gpu": 192.782,
+            "network": 6.516
+          }
+        },
+        {
+          "elapsed_s": 123.81,
+          "received_fps": 51.22902978354401,
+          "footprint_MiB": {
+            "app": 32.548,
+            "renderer": 320.376,
+            "gpu": 194.845,
+            "network": 6.36
+          }
+        },
+        {
+          "elapsed_s": 154.58,
+          "received_fps": 49.09715964086646,
+          "footprint_MiB": {
+            "app": 32.548,
+            "renderer": 338.142,
+            "gpu": 207.048,
+            "network": 6.36
+          }
+        },
+        {
+          "elapsed_s": 185.46,
+          "received_fps": 53.76917945296864,
+          "footprint_MiB": {
+            "app": 32.517,
+            "renderer": 354.142,
+            "gpu": 193.267,
+            "network": 6.344
+          }
+        },
+        {
+          "elapsed_s": 216.23,
+          "received_fps": 54.606141522029375,
+          "footprint_MiB": {
+            "app": 32.548,
+            "renderer": 377.032,
+            "gpu": 203.204,
+            "network": 6.313
+          }
+        },
+        {
+          "elapsed_s": 246.9,
+          "received_fps": 51.32395117721603,
+          "footprint_MiB": {
+            "app": 32.642,
+            "renderer": 390.564,
+            "gpu": 195.548,
+            "network": 6.407
+          }
+        },
+        {
+          "elapsed_s": 277.59,
+          "received_fps": 52.39286309821578,
+          "footprint_MiB": {
+            "app": 32.626,
+            "renderer": 404.423,
+            "gpu": 196.173,
+            "network": 6.485
+          }
+        }
+      ],
+      "normal_viewing_samples": [
+        {
+          "elapsed_s": 278.26,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.626,
+            "renderer": 407.595,
+            "gpu": 197.282,
+            "network": 6.313
+          }
+        },
+        {
+          "elapsed_s": 330.65,
+          "received_fps": 52.62982356668779,
+          "sampling": "motion-readback",
+          "footprint_MiB": {
+            "app": 32.626,
+            "renderer": 427.579,
+            "gpu": 204.657,
+            "network": 6.313
+          }
+        },
+        {
+          "elapsed_s": 360.73,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.626,
+            "renderer": 427.907,
+            "gpu": 192.517,
+            "network": 6.344
+          }
+        },
+        {
+          "elapsed_s": 390.8,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.626,
+            "renderer": 454.595,
+            "gpu": 196.204,
+            "network": 6.454
+          }
+        },
+        {
+          "elapsed_s": 420.88,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.642,
+            "renderer": 450.142,
+            "gpu": 194.001,
+            "network": 6.313
+          }
+        },
+        {
+          "elapsed_s": 450.96,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.626,
+            "renderer": 484.189,
+            "gpu": 208.079,
+            "network": 6.282
+          }
+        },
+        {
+          "elapsed_s": 481.03,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.626,
+            "renderer": 453.423,
+            "gpu": 192.392,
+            "network": 6.266
+          }
+        },
+        {
+          "elapsed_s": 511.11,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 490.907,
+            "gpu": 193.814,
+            "network": 6.376
+          }
+        },
+        {
+          "elapsed_s": 541.18,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 515.782,
+            "gpu": 194.845,
+            "network": 6.344
+          }
+        },
+        {
+          "elapsed_s": 571.25,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 507.017,
+            "gpu": 197.251,
+            "network": 6.313
+          }
+        },
+        {
+          "elapsed_s": 630.36,
+          "received_fps": 44.66608846487424,
+          "sampling": "motion-readback",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 529.876,
+            "gpu": 192.954,
+            "network": 6.251
+          }
+        },
+        {
+          "elapsed_s": 660.42,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 521.408,
+            "gpu": 193.657,
+            "network": 6.266
+          }
+        },
+        {
+          "elapsed_s": 690.5,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 549.189,
+            "gpu": 191.564,
+            "network": 6.251
+          }
+        },
+        {
+          "elapsed_s": 720.58,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 540.079,
+            "gpu": 193.892,
+            "network": 6.313
+          }
+        },
+        {
+          "elapsed_s": 750.66,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 537.783,
+            "gpu": 192.548,
+            "network": 6.235
+          }
+        },
+        {
+          "elapsed_s": 780.75,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 553.72,
+            "gpu": 196.47,
+            "network": 6.313
+          }
+        },
+        {
+          "elapsed_s": 810.82,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 569.97,
+            "gpu": 191.626,
+            "network": 6.251
+          }
+        },
+        {
+          "elapsed_s": 840.89,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 598.908,
+            "gpu": 191.611,
+            "network": 6.251
+          }
+        },
+        {
+          "elapsed_s": 870.95,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 605.204,
+            "gpu": 191.611,
+            "network": 6.282
+          }
+        },
+        {
+          "elapsed_s": 930.88,
+          "received_fps": 43.26217478318879,
+          "sampling": "motion-readback",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 665.204,
+            "gpu": 206.611,
+            "network": 6.266
+          }
+        },
+        {
+          "elapsed_s": 960.95,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 685.97,
+            "gpu": 205.579,
+            "network": 6.251
+          }
+        },
+        {
+          "elapsed_s": 991.03,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.657,
+            "renderer": 710.736,
+            "gpu": 193.47,
+            "network": 6.266
+          }
+        },
+        {
+          "elapsed_s": 1021.1,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.642,
+            "renderer": 733.001,
+            "gpu": 195.689,
+            "network": 6.282
+          }
+        },
+        {
+          "elapsed_s": 1051.18,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.642,
+            "renderer": 727.001,
+            "gpu": 194.423,
+            "network": 6.266
+          }
+        },
+        {
+          "elapsed_s": 1081.26,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.642,
+            "renderer": 715.033,
+            "gpu": 189.314,
+            "network": 6.266
+          }
+        },
+        {
+          "elapsed_s": 1111.32,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.642,
+            "renderer": 715.439,
+            "gpu": 189.314,
+            "network": 6.266
+          }
+        },
+        {
+          "elapsed_s": 1141.39,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.673,
+            "renderer": 751.298,
+            "gpu": 194.251,
+            "network": 6.282
+          }
+        },
+        {
+          "elapsed_s": 1171.46,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.673,
+            "renderer": 758.142,
+            "gpu": 194.189,
+            "network": 6.266
+          }
+        },
+        {
+          "elapsed_s": 1201.53,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.673,
+            "renderer": 752.126,
+            "gpu": 193.954,
+            "network": 6.266
+          }
+        },
+        {
+          "elapsed_s": 1231.6,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.673,
+            "renderer": 756.595,
+            "gpu": 190.939,
+            "network": 6.282
+          }
+        },
+        {
+          "elapsed_s": 1261.67,
+          "received_fps": null,
+          "sampling": "footprint-only",
+          "footprint_MiB": {
+            "app": 32.673,
+            "renderer": 761.861,
+            "gpu": 189.314,
+            "network": 6.266
+          }
+        },
+        {
+          "elapsed_s": 1320.3,
+          "received_fps": 38.05997531605457,
+          "sampling": "motion-readback",
+          "footprint_MiB": {
+            "app": 32.673,
+            "renderer": 820.752,
+            "gpu": 191.548,
+            "network": 6.36
+          }
+        }
+      ],
+      "late_motion": [
+        {
+          "start_at_seconds": 300,
+          "qualityLevel": 6,
+          "compressionLevel": 2,
+          "requestedDurationMs": 30000,
+          "uniqueSequences": 1579,
+          "sourceFramesSkipped": 221,
+          "receivedFps": 52.62982356668779,
+          "p50": 17,
+          "p95": 37,
+          "failure": null
+        },
+        {
+          "start_at_seconds": 600,
+          "qualityLevel": 6,
+          "compressionLevel": 2,
+          "requestedDurationMs": 30000,
+          "uniqueSequences": 1340,
+          "sourceFramesSkipped": 460,
+          "receivedFps": 44.66608846487424,
+          "p50": 17,
+          "p95": 37,
+          "failure": null
+        },
+        {
+          "start_at_seconds": 900,
+          "qualityLevel": 6,
+          "compressionLevel": 2,
+          "requestedDurationMs": 30000,
+          "uniqueSequences": 1298,
+          "sourceFramesSkipped": 502,
+          "receivedFps": 43.26217478318879,
+          "p50": 17,
+          "p95": 37,
+          "failure": null
+        },
+        {
+          "start_at_seconds": 1290,
+          "qualityLevel": 6,
+          "compressionLevel": 2,
+          "requestedDurationMs": 30000,
+          "uniqueSequences": 1142,
+          "sourceFramesSkipped": 659,
+          "receivedFps": 38.05997531605457,
+          "p50": 33,
+          "p95": 35,
+          "failure": null
+        }
+      ],
+      "connection_continuity": {
+        "interval_local_start": "2026-09-09 20:55:17",
+        "interval_local_end": "2026-09-09 21:17:18",
+        "timezone": "Europe/Oslo",
+        "new_or_closed_client_events": 1,
+        "events": [
+          "2026-09-09 20:55:17 Client 127.0.0.1 gone"
+        ],
+        "new_client_events": 0,
+        "closed_client_events": 1,
+        "note": "The one close in the opening second is the control client used to start motion; no new client connected during the endurance interval."
+      }
+    }
+  },
+  "checks": {
+    "python_tests_passed": 70,
+    "viewer_tests_passed": 48,
+    "source_pins_verified": true,
+    "swift_release_build_passed": true,
+    "bundled_self_test_passed": true,
+    "bundle_signature_verified": true
+  },
+  "limits": [
+    "Single physical phone and one installed macOS/WebKit version.",
+    "Rendered canvas observations, not physical display scanout.",
+    "Diagnostic readback can affect memory and cadence; intervals without readback included.",
+    "The original report said lag persisted after full app restart; renderer memory alone is not established as the entire cause."
+  ],
+  "rejected_image_pool_experiment": {
+    "reason": "Did not improve sustained cadence; removed from the final source and app.",
+    "artifacts": {
+      "device_sha256": "f30543574711d977a1a41ed053f9e4e49f6cfa4ff535d3f65011b7c2e6de4c5e",
+      "novnc_patch_sha256": "57de603f169e9d8cdaa7dfbf1977864f5d5611911d5cf03f7fefe0cc3482c886",
+      "files": {
+        "core/display.js": "c0c3a5f36e3e5e976835a78ab53241030cd6f70564dfbc7d262e8cf9272637db",
+        "core/image-resource.js": "79b4f33d81ece74f047e26dac778afe07385062de4cc7efc06002a719a3fb370",
+        "core/rfb.js": "bb2e752c8724752a99a71ed8eb7aec5ed2614ff1eb48ba16e53f3aefc63c0039"
+      }
+    },
+    "continuous_motion_seconds": 1320.792949,
+    "sampling_note": "Thirty-second motion readback at the start and at 5, 10, 15 and 21.5 minutes. The 15-minute barcode recognition failed; a repeat near 17.6 minutes succeeded. Footprint sampling paused while this was investigated. Same native process and continuously animated heavy phone fixture throughout; no input or restart. Both failed and successful samples are retained.",
+    "motion_windows": [
+      {
+        "start_at_seconds": 0,
+        "requestedDurationMs": 30000,
+        "uniqueSequences": 1716,
+        "sourceFramesSkipped": 84,
+        "receivedFps": 57.2105280715215,
+        "p50": 17,
+        "p95": 24,
+        "failure": null
+      },
+      {
+        "start_at_seconds": 300,
+        "requestedDurationMs": 30000,
+        "uniqueSequences": 1601,
+        "sourceFramesSkipped": 199,
+        "receivedFps": 53.370692818306146,
+        "p50": 17,
+        "p95": 37,
+        "failure": null
+      },
+      {
+        "start_at_seconds": 600,
+        "requestedDurationMs": 30000,
+        "uniqueSequences": 1238,
+        "sourceFramesSkipped": 563,
+        "receivedFps": 41.26221688515294,
+        "p50": 17,
+        "p95": 37,
+        "failure": null
+      },
+      {
+        "start_at_seconds": 900,
+        "requestedDurationMs": 30000,
+        "uniqueSequences": 0,
+        "sourceFramesSkipped": 0,
+        "receivedFps": 0,
+        "p50": null,
+        "p95": null,
+        "failure": {
+          "reason": "No live fixture barcode observed"
+        }
+      },
+      {
+        "start_at_seconds": 1054.095,
+        "requestedDurationMs": 30000,
+        "uniqueSequences": 1249,
+        "sourceFramesSkipped": 550,
+        "receivedFps": 41.654150395514165,
+        "p50": 19,
+        "p95": 35,
+        "failure": null
+      },
+      {
+        "start_at_seconds": 1290,
+        "requestedDurationMs": 30000,
+        "uniqueSequences": 904,
+        "sourceFramesSkipped": 896,
+        "receivedFps": 30.120080053368913,
+        "p50": 33,
+        "p95": 34,
+        "failure": null
+      }
+    ],
+    "first_footprint_MiB": [
+      32.079,
+      287.954,
+      205.72,
+      6.36
+    ],
+    "last_footprint_MiB": [
+      32.407,
+      722.251,
+      192.751,
+      6.313
+    ],
+    "footprint_column_order": [
+      "app",
+      "renderer",
+      "gpu",
+      "network"
+    ],
+    "input_start": {
+      "requestedTrials": 30,
+      "completedTrials": 30,
+      "samples": [
+        97,
+        96,
+        80,
+        94,
+        108,
+        111,
+        91,
+        92,
+        79,
+        98,
+        103,
+        90,
+        110,
+        87,
+        100,
+        91,
+        99,
+        98,
+        95,
+        104,
+        79,
+        98,
+        97,
+        68,
+        82,
+        87,
+        92,
+        94,
+        85,
+        79
+      ],
+      "p50": 94,
+      "p95": 109.1,
+      "failure": null
+    },
+    "input_end": {
+      "requestedTrials": 30,
+      "completedTrials": 30,
+      "samples": [
+        84,
+        80,
+        99,
+        82,
+        82,
+        81,
+        83,
+        83,
+        81,
+        84,
+        83,
+        81,
+        83,
+        85,
+        81,
+        82,
+        83,
+        85,
+        78,
+        82,
+        82,
+        81,
+        84,
+        78,
+        83,
+        82,
+        84,
+        82,
+        81,
+        83
+      ],
+      "p50": 82,
+      "p95": 85,
+      "failure": null
+    },
+    "retention_after_endurance": [
+      {
+        "timestamp_utc": "2026-09-09T19:58:30Z",
+        "initial": 30,
+        "expected": 31,
+        "rfb_observed": 31,
+        "direct_usb_observed": 31,
+        "held_reader_ms": 400,
+        "mismatch": false,
+        "rfb_after_extra_second": 31,
+        "recovery_rfb_observed": 32
+      },
+      {
+        "timestamp_utc": "2026-09-09T19:58:37Z",
+        "initial": 32,
+        "expected": 33,
+        "rfb_observed": 33,
+        "direct_usb_observed": 33,
+        "held_reader_ms": 400,
+        "mismatch": false,
+        "rfb_after_extra_second": 33,
+        "recovery_rfb_observed": 34
+      },
+      {
+        "timestamp_utc": "2026-09-09T19:58:42Z",
+        "initial": 34,
+        "expected": 35,
+        "rfb_observed": 35,
+        "direct_usb_observed": 35,
+        "held_reader_ms": 400,
+        "mismatch": false,
+        "rfb_after_extra_second": 35,
+        "recovery_rfb_observed": 36
+      }
+    ],
+    "pixel_comparison_exact": true
+  },
+  "outcome": {
+    "final_frame_delivery_repaired": true,
+    "client_cleanup_race_repaired": true,
+    "long_session_motion_slowdown_resolved": false,
+    "renderer_memory_growth_resolved": false,
+    "decoder_alternatives_rejected": 4
+  },
+  "final_normal_verification": {
+    "version": "0.2.1",
+    "build": "3",
+    "device_sha256": "f30543574711d977a1a41ed053f9e4e49f6cfa4ff535d3f65011b7c2e6de4c5e",
+    "novnc_patch_sha256": "b0cc11781f77f68716f36866f1f4444d926eb67ac103fcd2c8497c50dd3cef4f",
+    "normal_mode_observed": true,
+    "native_home_control_verified": true,
+    "sileo_restored": true,
+    "fixture_listener_stopped": true,
+    "served_source_matches_pin": true,
+    "signature_verified": true,
+    "running_phone_daemon_hash_verified": true
+  }
+}

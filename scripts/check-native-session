@@ -1,0 +1,294 @@
+#!/usr/bin/env python3
+"""Qualify bounded native session recovery without accepted touch/key events.
+
+Run only when the throughput benchmark and native viewer are stopped: this check
+temporarily occupies the single video subscription and an input lease. It never
+stops other clients or the daemon. Disconnect tests close only this script's TCP
+sockets; they do not simulate a physical USB cable pull, phone lock or rotation.
+"""
+import argparse
+from contextlib import ExitStack
+import json
+import math
+from pathlib import Path
+import socket
+import struct
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from iphonebridge.mirror_protocol import (Client, Geometry, Kind, ProtocolError,
+    RemoteError, encode, hello, parameter_sets, receive, video)  # noqa: E402
+
+
+class Failure(ProtocolError):
+    pass
+
+
+def remaining(deadline, maximum):
+    value = min(maximum, deadline - time.monotonic())
+    if value <= 0:
+        raise TimeoutError("Session qualification exceeded its total deadline")
+    return value
+
+
+def expect_error(operation, code):
+    try:
+        operation()
+    except RemoteError as error:
+        if error.code != code:
+            raise Failure(f"Expected remote error {code}, received {error.code}") from error
+    else:
+        raise Failure(f"Request was accepted; expected remote error {code}")
+
+
+class VideoSession:
+    """Correlate replies while consuming, validating and discarding stream data."""
+    def __init__(self, endpoint, timeout, total_deadline):
+        self.timeout, self.total_deadline = timeout, total_deadline
+        self.sock = socket.create_connection(endpoint, timeout=remaining(total_deadline, timeout))
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.request_id = 0
+        self.format = None
+        self.format_serial = 0
+        self.last_pts = None
+        self.waiting_keyframe = True
+        try:
+            self.geometry = hello(receive(self.sock, self.deadline()))
+        except BaseException:
+            self.close()
+            raise
+
+    def deadline(self):
+        return time.monotonic() + remaining(self.total_deadline, self.timeout)
+
+    def close(self):
+        self.sock.close()
+
+    def stream(self, message, *, fresh_format_after=None):
+        if message.request_id:
+            raise Failure("Unexpected reply while waiting for video")
+        if message.kind == Kind.GEOMETRY:
+            self.geometry = Geometry.decode(message.payload)
+        elif message.kind == Kind.FORMAT:
+            self.format, _ = parameter_sets(message.payload)
+            self.geometry = self.format
+            self.format_serial += 1
+            self.waiting_keyframe = True
+        elif message.kind == Kind.VIDEO:
+            generation, pts, keyframe, units = video(message.payload)
+            if self.format is None or generation != self.format.generation:
+                raise Failure("VIDEO arrived without matching FORMAT")
+            if self.waiting_keyframe and not keyframe:
+                raise Failure("Dependent VIDEO arrived before the first keyframe")
+            if self.last_pts is not None and pts <= self.last_pts:
+                raise Failure("Video timestamps did not increase")
+            self.last_pts, self.waiting_keyframe = pts, False
+            if keyframe:
+                if fresh_format_after is not None and self.format_serial <= fresh_format_after:
+                    raise Failure("Keyframe arrived without a fresh preceding FORMAT")
+                nal_types = sorted({(unit[0] >> 1) & 63 for unit in units})
+                if not any(value in (19, 20) for value in nal_types):
+                    raise Failure("Keyframe flag did not contain an HEVC IDR NAL")
+                return {"generation": generation, "pts_ns": pts, "nal_types": nal_types,
+                        "portrait_size": [self.format.width, self.format.height],
+                        "quarter_turns": self.format.turns}
+        else:
+            raise Failure(f"Unexpected {message.kind.name} on video subscription")
+        return None
+
+    def command(self, kind, payload=b"", *, deadline=None):
+        self.request_id += 1
+        request_id = self.request_id
+        deadline = deadline or self.deadline()
+        self.sock.settimeout(remaining(deadline, self.timeout))
+        self.sock.sendall(encode(kind, request_id, payload))
+        for _ in range(1024):
+            message = receive(self.sock, deadline)
+            if message.request_id == 0:
+                self.stream(message)
+                continue
+            if message.request_id != request_id:
+                raise Failure("Unexpected video command reply ID")
+            if message.kind == Kind.ERROR:
+                if not 4 <= len(message.payload) <= 4096:
+                    raise Failure("Malformed video command error")
+                raise RemoteError(struct.unpack_from("!I", message.payload)[0])
+            if message.kind != Kind.ACK or message.payload:
+                raise Failure("Expected empty video command ACK")
+            return
+        raise Failure("Excessive stream messages before command ACK")
+
+    def subscribe(self, *, retry_busy=False):
+        deadline = self.deadline()
+        while True:
+            try:
+                self.command(Kind.SUBSCRIBE, struct.pack("!I", 1), deadline=deadline)
+                return
+            except RemoteError as error:
+                if error.code != 2 or not retry_busy:
+                    raise
+                time.sleep(min(0.05, remaining(deadline, self.timeout)))
+
+    def keyframe(self, *, fresh_format_after=0, newer_than=None):
+        deadline = self.deadline()
+        for _ in range(1024):
+            frame = self.stream(receive(self.sock, deadline), fresh_format_after=fresh_format_after)
+            if frame is not None:
+                if newer_than is not None and frame["pts_ns"] <= newer_than:
+                    raise Failure("Recovery keyframe was not newer than prior video")
+                return frame
+        raise Failure("No keyframe within the bounded message budget")
+
+
+class Qualification:
+    def __init__(self, endpoint, timeout, total_timeout):
+        self.endpoint, self.timeout = endpoint, timeout
+        self.deadline = time.monotonic() + total_timeout
+        self.stack = ExitStack()
+        self.report = {"schema_version": 1, "protocol": "IPBM/1", "status": "failed",
+            "started_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "endpoint": list(endpoint), "total_deadline_seconds": total_timeout, "checks": [],
+            "measurement": "Session ownership and protocol recovery; no accepted touch/key events or video decode",
+            "coverage_limits": {
+                "disconnect": "scripted TCP socket close only; physical USB cable pull not tested",
+                "phone_lock_unlock": "not tested", "physical_orientation_change": "not tested",
+                "VideoToolbox_invalidation": "not induced or verified",
+                "held_touch_or_key_release": "not tested; only empty input-lease cleanup is exercised",
+                "video_pixels": "NAL framing/IDR ordering only; independent decode and visual proof required"}}
+
+    def client(self):
+        client = Client(endpoint=self.endpoint, timeout=remaining(self.deadline, self.timeout))
+        self.stack.callback(client.close)
+        return client
+
+    def call(self, client, name, *args, **kwargs):
+        client.timeout = remaining(self.deadline, self.timeout)
+        return getattr(client, name)(*args, **kwargs)
+
+    def video_client(self):
+        client = VideoSession(self.endpoint, self.timeout, self.deadline)
+        self.stack.callback(client.close)
+        return client
+
+    def check(self, name, operation):
+        started = time.monotonic()
+        result = {"name": name, "status": "failed"}
+        self.report["checks"].append(result)
+        try:
+            result["details"] = operation() or {}
+            result["status"] = "passed"
+        except (OSError, ValueError) as error:
+            result["error"] = str(error)
+            raise
+        finally:
+            result["elapsed_ms"] = round((time.monotonic() - started) * 1000, 2)
+
+    def health(self, client):
+        geometry = self.call(client, "probe")
+        payload = b"native-session-check"
+        if self.call(client, "request", Kind.PING, payload, response=Kind.PONG) != payload:
+            raise Failure("PING payload was not echoed exactly")
+        return {"portrait_size": [geometry.width, geometry.height], "generation": geometry.generation}
+
+    def lease_checks(self, owner, other):
+        self.call(owner, "acquire")
+        self.check("competing_input_lease_denied", lambda: expect_error(lambda: self.call(other, "acquire"), 2))
+        # Generation 0 is always stale. Usage 0 is reserved and key-up is harmless;
+        # even a generation-validation regression must not inject an actual key.
+        self.check("stale_generation_rejected", lambda: expect_error(
+            lambda: self.call(owner, "key", 0, 0, False), 3))
+        def handoff():
+            self.call(owner, "release")
+            self.call(other, "acquire")
+            self.call(other, "release")
+        self.check("explicit_input_release_handoff", handoff)
+        self.call(owner, "acquire")
+        owner.close()  # Intentional TCP disconnect while owning an empty lease.
+        def disconnected():
+            deadline = time.monotonic() + remaining(self.deadline, self.timeout)
+            attempts = 0
+            while True:
+                attempts += 1
+                other.timeout = remaining(deadline, self.timeout)
+                try:
+                    other.acquire()
+                    self.call(other, "release")
+                    return {"acquire_attempts": attempts, "disconnect_kind": "scripted TCP close"}
+                except RemoteError as error:
+                    if error.code != 2:
+                        raise
+                    time.sleep(min(0.05, remaining(deadline, self.timeout)))
+        self.check("input_lease_released_on_tcp_disconnect", disconnected)
+
+    def video_checks(self):
+        first = self.video_client()
+        initial = {}
+        def joined():
+            first.subscribe()
+            initial.update(first.keyframe())
+            return initial
+        self.check("video_join_format_and_idr", joined)
+        competitor = self.video_client()
+        self.check("competing_video_subscriber_denied", lambda: expect_error(competitor.subscribe, 2))
+        competitor.close()
+        def requested():
+            first.command(Kind.REQ_KEYFRAME)
+            # Drain all pre-ACK traffic, then require a fresh FORMAT + IDR after ACK.
+            return first.keyframe(fresh_format_after=first.format_serial, newer_than=first.last_pts)
+        self.check("request_keyframe_followed_by_format_and_new_idr", requested)
+        previous_pts = first.last_pts
+        first.close()
+        second = self.video_client()
+        def reconnected():
+            second.subscribe(retry_busy=True)
+            result = second.keyframe(newer_than=previous_pts)
+            result["disconnect_kind"] = "scripted TCP close and new connection"
+            return result
+        self.check("video_reconnect_format_and_idr", reconnected)
+        second.close()
+
+    def run(self):
+        started = time.monotonic()
+        try:
+            with self.stack:
+                owner, other = self.client(), self.client()
+                self.check("read_only_health", lambda: self.health(owner))
+                self.lease_checks(owner, other)
+                other.close()
+                self.video_checks()
+                self.report["status"] = "complete"
+        except (OSError, ValueError) as error:
+            self.report["error"] = str(error)
+        self.report["elapsed_seconds"] = round(time.monotonic() - started, 3)
+        return self.report
+
+
+def qualify(endpoint=("127.0.0.1", 15901), timeout=5.0, total_timeout=45.0):
+    return Qualification(endpoint, timeout, total_timeout).run()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--port", type=int, default=15901)
+    parser.add_argument("--timeout", type=float, default=5.0, help="Whole-step deadline, 0.1–10 seconds")
+    parser.add_argument("--total-timeout", type=float, default=45.0, help="Whole-run deadline, 1–120 seconds")
+    parser.add_argument("--report", type=Path, help="New JSON report path; existing files are never overwritten")
+    args = parser.parse_args()
+    if (not 1 <= args.port <= 65535 or not math.isfinite(args.timeout) or not 0.1 <= args.timeout <= 10
+            or not math.isfinite(args.total_timeout) or not 1 <= args.total_timeout <= 120):
+        parser.error("Invalid port or bounded timeout")
+    if args.report and args.report.exists():
+        parser.error("Report path already exists")
+    report = qualify(("127.0.0.1", args.port), args.timeout, args.total_timeout)
+    text = json.dumps(report, indent=2) + "\n"
+    if args.report:
+        with args.report.open("x") as output:
+            output.write(text)
+    print(text)
+    return 0 if report["status"] == "complete" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

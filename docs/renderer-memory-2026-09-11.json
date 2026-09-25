@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-11",
+  "status": "visible_22_minute_webkit_memory_qualified_other_gates_incomplete",
+  "scope": "Existing c501 direct-image renderer on the recorded C phone workload; bounded WebKit footprint only, not full candidate or FPS qualification.",
+  "identity": {
+    "viewer_patch_sha256": "c501684eef3529357b2483e6df7538550c6c4e1a9737242a25a96e1bfada5c2a",
+    "novnc_commit": "63107bd06d9e1f6136ff21aeda8cd62cbf0d433e",
+    "app_binary_sha256": "4af2db0974fb279d27cf5689905bef51e410f08eeb30268eb1546deaecfcbbef",
+    "phone_candidate_sha256": "d03d4c280f4bb5938e1570d696f4f5e5af636ce5491a01e5ef59bc79c5d1f8e3",
+    "restored_canonical_phone_sha256": "3487cfad710fc41ddaf01b8e48ce976dc5c21e53d0b9df8cbf22eb818b69569e",
+    "renderer_source_sha256": {
+      "core/display.js": "df88067c9a4bfbee13c9e10494d410592f38fa62c64d87295d63e81bb72d4ad7",
+      "core/image-context.js": "d5bc4a9b0b5b41d67fd1f4464ae3f9a7778cafc6c53a9147661272ef7b374d60",
+      "core/image-resource.js": "a83cf210a4b2f561ae67664d2100cb8b9b3bbfb377fbffb5949001ad5e94eade",
+      "core/rfb.js": "bb2e752c8724752a99a71ed8eb7aec5ed2614ff1eb48ba16e53f3aefc63c0039"
+    },
+    "source_identity_verified": true,
+    "decoder_scope": "Direct HTMLImageElement decode/draw; document admission bound 4096 jobs; RFB/viewer session retained."
+  },
+  "provenance": {
+    "local_raw_directory": "work/renderer-memory-20260909/jpeg-fbu-native-window-preflight-d03d/visible-soak",
+    "raw_sha256": {
+      "footprint-00.json": "e64441e685a4689bd2552572b54588ce954ffe50bffe7e488e36900913d43db8",
+      "footprint-01.json": "f64f5acc901fce282da661cbb29370df30d52db75ef4a46591136161ea38bd1b",
+      "footprint-02.json": "011df29424b180877a36e56e373df4627f5920c19408fbf1e30f310409ed3853",
+      "footprint-03.json": "355d375bba2597b57825ad6ded85862698e23b9f65b857012c2f87819a785b82",
+      "footprint-04.json": "fef9d5410640cd55552560a87ae5e74c211127d8e9da82eb0f91ad3aa0deb1e0",
+      "footprint-05.json": "e4cc2ad8e7d39edb47b763d7243e009740f75503991d99269002b57c8995f598",
+      "footprint-06.json": "0467c6e8d98103dee2a72ff137a41fca1a4529f5d76c4c6f7d7dc91db9814ee5",
+      "footprint-07.json": "e01ab7c92b499224e4fc79d233014b3d6001c271df74c3ebfdb0c9e811d9ab24",
+      "footprint-08.json": "129ca94fade0a5eaf596d3f6a54b6c24ef3b570917001a5fed336e4db03a5dc1",
+      "footprint-09.json": "4d975f109511ea7d76089baca29924764d336c6f1c2e4c9812f6383508345ac2",
+      "footprint-10.json": "ba24a9bf52bd7078ea419f0f2903219b97cddd354d672b19e79e5b37b2dfcd5f",
+      "footprint-11.json": "d408e462763b174fc2b6558feec41c32221a5eef3a06e8dd58cf6ed4bf7d77df",
+      "footprint-12.json": "c34f3fe81df97b258ab87546f764d2886775700995f6b06d1067de6a5b54e955",
+      "footprint-13.json": "87258e352aa645a251208e456c4d34231ddc5666a01fa772f4721d4255430f70",
+      "footprint-14.json": "f6bfd898ec6b366007f6c4cf9046df005c63c4a5897013a3fdf79f7ea94741c5",
+      "footprint-15.json": "0e5042576a157b97786b1f1992b1bc43f8cf3b8bc3038ef9982e933ee875fa4d",
+      "footprint-16.json": "06abafd613c988e8ee95b0bea0e529f97f933e9199916354660f322b9d9bab24",
+      "footprint-17.json": "5764eb93fb0aec37807761560a2f9f6b6ec0b7ccf096c28ca30968dfb7687980",
+      "footprint-18.json": "1c141d29bf411561d994895d7e0897d8cd83b987c9bc4e69af61fe80a19f419f",
+      "footprint-19.json": "63dbb7b2acbec6fcbc7c8efaecba566fb551601b011af2af32e2d19bb4a804e9",
+      "footprint-20.json": "aa6ff7771c311479036dbb3dd2d5f67630eb922569b504d0af4db17852134a0a",
+      "footprint-21.json": "8b084558ca4a62440452c32731d07fa1a23a0a10a6b5efad493a3e85ea078e39",
+      "footprint-22.json": "27798d0a9fd69728ae69ed9d5c0ff833b583ff7beeedda6af490365380c9116d",
+      "footprint-23.json": "92ed3ff291e700c5b93e5b315b85b3ba29bbcc03e6cae97674c5939163157a45",
+      "footprint-24.json": "dbc1565df8af56603bf873e129ac6e39d97dc20075a88935b67e6b40330c7ad4",
+      "footprint-25.json": "2e20f55ed74682a4ce52d667c04eb48bb049429ef612b4a268207d0cf5b91a9e",
+      "footprint-26.json": "11f57b6db297a600f643d2eb23fb444c5bd2fc175484afd2ecd0b7884037d048",
+      "footprint-27.json": "e1797bc2735d72b92249b14e66ca0a033890e850119e6fb916a6e86c37badcd6",
+      "footprint-28.json": "d0280278a879bf5d7a45d85e53b9698de9cb56e1459bc9472fcaf4d67c033f72",
+      "footprint-29.json": "850871eecb4e42934d30378032d29082f70461b9639cb68ad21ea17aa1763230",
+      "footprint-30.json": "7c1f305fca0029cd514bb549e0fbe0fe69bdbe4780b87cd485b180186fe1eea5",
+      "footprint-31.json": "9ef6991cd14c2e52c23a48a59408e55684ba0cabf96fcbca695b959371c471b0",
+      "footprint-32.json": "566b15067019e511746273fd97cf7bb95d5f69148fb746dc9f9b7fba4b323d9a",
+      "footprint-33.json": "c2c4fac9af4236e1126ff27e03e95d39a4ef1b0c93d397f80b6a382fc4e0c3c5",
+      "footprint-34.json": "b6c1f9f74327354559835541401054e3d495e97186dd6b43cda9fd490cbbd35f",
+      "footprint-35.json": "f0f6759aa7d39df415ff8515d0d7bda46f90c31508791c0b8023addfd99f25e3",
+      "footprint-36.json": "9f2861b81d8fb93c6703fff6b43830da10906d21fb41e8bde5762e0073750c18",
+      "footprint-37.json": "4ad37a9b89c652f8783261db954a0e986d578caa0bd69103486c739cce5a68ad",
+      "footprint-38.json": "568bfdece56bfb366c31652ae259c8b4b54ccf7346b33fcdee5a5f1cf1afc1c0",
+      "footprint-39.json": "dab2d8bb37ba58ce9c65ca66ba6f7776af7d352717bd2a3a9079f5a31a9d1c58",
+      "motion-at-0s.json": "d00ac33d121b2919b292bf944fe4c7b18e9112223e04f14ffbd0782d7bccb69d",
+      "motion-at-1290s.json": "f3dd114230cb7c34ae77ebc417c49cf7c038bb704e1c114acfd8daf164eab51b",
+      "motion-at-300s.json": "464562de837b26e9fb2972aa223e1c8219c6c5ccc6e3b3f3f1421f1be73a8e6b",
+      "motion-at-600s.json": "5eb26087cf4dd7a5e1615f5ae9c4b156c8cf7f332145674e4f428cbf5fbb237e",
+      "motion-at-900s.json": "bc22d6c413ce537204c57f3a589242074adc68a3635c6b40496cd41293d3c4a9",
+      "progress.ndjson": "9ae48f52a91543f8a7fb14c2b2af82652a1c0c445002b168ed64d85cb6458f52",
+      "renderer-health.ndjson": "fbfabccea4c1f50caece29e790b854172290626a241059bf5ea99f77896a357e",
+      "run.json": "ed865a35dc52ab003a6d32bae594524b74f87efe894b7e1a4ab2a7d7599e0ce2",
+      "window-geometry.ndjson": "69a78fba0587c7a1b7dcaefa5be2ffa3ba860c4b993342e3ecb108e5a1f72760"
+    },
+    "local_support_directory": "work/renderer-memory-20260909/jpeg-fbu-native-window-preflight-d03d",
+    "support_sha256": {
+      "memory-review.json": "87cd5daa4aaf22021211f11711e7c800233cf931abebedbb5df4e13bd900bb51",
+      "visible-memory-context.json": "a71a765cbd7cd164956dc1216ef37c3619cfb1f7b610d56f20837e06ac7badac",
+      "window-after-collection.json": "cf8104131a176590107c3d99566b3e634be60c5896f7fc66780ebeeb8411a52a",
+      "owned-process-exit-proof.json": "c50044acd0e34efc0baa7291ba5cfd6c49f1fa2029d45354b7fe1942d3ce1bf5",
+      "image-quality-before.json": "c97f033de951edf2ac8128ca808b15d219d1f783e2f236b3f9c3b285ed1ac7ae",
+      "image-quality-after.json": "c188e4e0ee9f8a5a33450bfcba9270518d6bd38cd48b09d7e04e394ed0299a7d",
+      "input-after.json": "bc02b6f8ebb171403612424864e8595727b8a9f16aa96d517cb27dd764285154",
+      "post-collection-input-note.json": "3a871131f05c6641a85b785037116ff12995dd9ea034dc39e8e06e62894b5f20",
+      "run.json": "f04816422b1efe48f96a3212c8a200b7a64f705c9a19e6027fc239fa7fdc050d",
+      "session/session.json": "f1ee1a1b91cefb09c848719fd69ff0ce28681a25d57ea2b26f162d557201a202"
+    },
+    "canonical_control_image_sha256": {
+      "outputs/screenshots/20260911T133800.560105Z-121239c6-screenshot.png": "2c4621c1191dd441e29dffd18fab54f81c05ef173d45c3dc144090c45fc0481d",
+      "outputs/screenshots/20260911T133817.865375Z-fbe58b37-tap.png": "ec317a1c55fc2ce70a71327e62706fab9bdd4c9d442ccf032ebbed9327f2caaa"
+    },
+    "raw_evidence_untouched": true,
+    "local_files_not_embedded": "Raw evidence contains local runtime details; this record retains sanitized outcomes and hashes only."
+  },
+  "collection": {
+    "started_utc": "2026-09-11T13:08:51.503634+00:00",
+    "finished_utc": "2026-09-11T13:30:52.000600+00:00",
+    "duration_seconds": 1320.498578916,
+    "footprint_samples": 40,
+    "health_rows": 264,
+    "barcode_windows": 5,
+    "geometry_samples": 40,
+    "first_footprint_end_seconds": 30.700491905212402,
+    "last_footprint_end_seconds": 1320.4881281852722,
+    "geometry_after_collection_matches": true,
+    "profile": {
+      "framebuffer": [1172, 2536],
+      "quality": 6,
+      "compression": 2,
+      "display": "Built-in Retina Display",
+      "refresh_hz": 120
+    }
+  },
+  "continuity": {
+    "viewer_connection_continuous": true,
+    "renderer_generations": 1,
+    "renderer_id_changed": false,
+    "decoder_iframes_range": [1, 1],
+    "render_queue_range": [0, 14],
+    "hidden_ms_during_samples": 0,
+    "lifetime_hidden_ms_first_last": [3, 3],
+    "lifetime_hidden_note": "The 3 ms hidden history predates collection; every sampled interval has zero new hidden time.",
+    "health_gap_ms_range": [5002, 5007],
+    "same_onscreen_opaque_floating_window": true,
+    "fully_contained_in_selected_display": true,
+    "window_bounds_xywh": [0, 112, 380, 863],
+    "limits": "Geometry is sampled; DOM visibility and five barcode windows do not measure physical monitor scanout or enumerate retained detached documents."
+  },
+  "memory_bytes": {
+    "field": "raw processes[].footprint; not RSS or lifetime peak",
+    "columns": ["minimum", "maximum", "first", "last", "early_median", "late_median", "late_minus_early_median", "last_minus_first"],
+    "process_rows": {
+      "app": [37324000, 40617184, 37324000, 40617184, 37438688, 40436960, 2998272, 3293184],
+      "renderer": [111068168, 129106976, 129106976, 124060704, 114607112, 116204552, 1597440, -5046272],
+      "gpu": [201196552, 201294880, 201294880, 201212960, 201278496, 201196552, -81944, -81920],
+      "network": [6767216, 6947440, 6799984, 6767216, 6799984, 6767216, -32768, -32768],
+      "combined_webkit": [319097472, 337201840, 337201840, 332040880, 322685592, 324168320, 1482728, -5160960],
+      "combined_app_and_webkit": [358338400, 375771024, 374525840, 372658064, 360222584, 364605280, 4382696, -1867776]
+    },
+    "combined_definition": "combined_webkit = WebContent + GPU + Networking; combined_app_and_webkit adds app. These are process sums, not deduplicated machine totals.",
+    "process_sum_minus_tool_total_range": [262144, 327680],
+    "early_sample_end_window_seconds": [0, 120],
+    "early_sample_indices": [0, 1, 2],
+    "late_sample_end_window_seconds": [1200.498578916, 1320.498578916],
+    "late_sample_indices": [36, 37, 38, 39],
+    "final_sample_correction": {
+      "rounded_elapsed_seconds": 1320.5,
+      "unrounded_duration_seconds": 1320.498578916,
+      "raw_footprint_end_seconds": 1320.4881281852722,
+      "rounding_tolerance_seconds": 0.005,
+      "note": "Built-in late summary omitted sample 39. Raw end timestamp is inside the run; half the 0.01 s rounding unit restores correct membership without extending the run."
+    },
+    "webkit_range_mib": [304.3150634765625, 321.5807342529297],
+    "webkit_early_late_median_mib": [307.7369613647461, 309.1510009765625],
+    "native_app_drift_bytes": 3293184,
+    "native_app_drift_mib": 3.140625,
+    "native_app_steps": {
+      "increases": 38,
+      "unchanged": 1,
+      "decreases": 0
+    },
+    "interpretation": "Bounded sampled WebKit footprint supports the memory repair over 22 minutes. Native app drift is monotonic nondecreasing and unexplained; no flat app plateau or universal leak-free claim."
+  },
+  "observed_work": {
+    "endpoint_span_seconds": 1315.946,
+    "counter_columns": ["first", "last", "delta"],
+    "frames": [17474, 62913, 45439],
+    "image_rect_submissions": [751553, 2705445, 1953892],
+    "flips": [17474, 62913, 45439],
+    "semantics": "Frames count complete _framebufferUpdate calls; images count imageRect submissions before processing, not completed decodes; flips are display calls, not scanout.",
+    "interval_limit": "First health interval starts slightly before collection; endpoint deltas exclude pre-existing totals and cover 1315.946 s, not the entire 1320.4986 s."
+  },
+  "cadence": {
+    "early_weighted_fbu_per_second": 39.462727333288925,
+    "late_weighted_fbu_per_second": 31.386101511429406,
+    "telemetry_window_seconds": 120,
+    "barcode_columns": ["planned_start_s", "observed_sequences", "source_skipped", "received_fps", "inferred_source_sequence_fps", "p50_gap_ms", "p95_gap_ms"],
+    "barcode_rows": [
+      [0, 1116, 683, 37.21256215999733, 60.00734238894637, 33, 35],
+      [300, 1020, 779, 34.00634073085266, 60.00333722676456, 33, 35],
+      [600, 1007, 793, 33.55570380253502, 60.00667111407605, 33, 35],
+      [900, 1102, 698, 36.72570799559692, 60.00867273758298, 33, 35],
+      [1290, 901, 899, 30.03604325190228, 60.03871312241356, 33, 36]
+    ],
+    "interpretation": "Delivery decline remains. Source rates infer sequence advances over the same first-to-last observed span; missing sequences cannot localize capture/send/decode/observation loss. No FPS fix or thermally matched comparison."
+  },
+  "native_image_checks": {
+    "comparison": "Same encoded bytes, exact native RGBA decode/draw comparison",
+    "cases": ["full-resolution PNG", "full-resolution JPEG", "translucent PNG", "translucent PNG composited over solid background"],
+    "before": {
+      "completed_cases": 4,
+      "different_pixels": 0,
+      "different_channels": 0,
+      "max_channel_difference": 0
+    },
+    "after": {
+      "completed_cases": 4,
+      "different_pixels": 0,
+      "different_channels": 0,
+      "max_channel_difference": 0
+    },
+    "limit": "Pixel equivalence does not establish phone final-frame delivery, input latency or sustained speed."
+  },
+  "input": {
+    "before_collection": "not performed",
+    "after_benchmark": {
+      "requested_trials": 30,
+      "completed_trials": 0,
+      "input_sent": false,
+      "failure": "Animation fixture detected; no input sent"
+    },
+    "hot_c_mode_switch": "One bridge tap and two native-viewer clicks did not visibly switch the animation fixture; cause undetermined.",
+    "restored_canonical_control": {
+      "result": "Motion-to-input switch observed after one MCP tap at raw 586,1284",
+      "evidence": "Parent-reported single tap; before/after images independently inspected and hashed",
+      "benchmark_performed": false
+    },
+    "interpretation": "Canonical control worked after C restoration; conditions and session state differed. No causal explanation or input repair is established."
+  },
+  "cleanup": {
+    "owned_app_and_three_webkit_processes_exited": true,
+    "canonical_phone_restored": true,
+    "owned_remote_candidate_removed": true,
+    "usb_viewer_and_fixture_services_preserved": true
+  },
+  "remaining_qualification": [
+    "Sustained native FPS without the observed decline.",
+    "Matched input latency before/after sustained load and explanation of hot C nonresponse.",
+    "Independent USB quiet/final-frame verification.",
+    "Physical rotation and reconnect/disconnect lifecycle checks.",
+    "Explain native app memory drift; no leak-free claim."
+  ],
+  "limits": [
+    "No matched unrepaired baseline in this collection.",
+    "No retained-object heap census or exact decoder rotation count.",
+    "Collection begins several minutes after app launch; first footprint at about 30.7 s excludes earlier transients.",
+    "Ordinary interactive Mac use and other local work; not an isolated Mac throughput experiment.",
+    "The 22-minute sampled WebKit memory gate is complete; full candidate qualification and promotion remain incomplete."
+  ]
+}

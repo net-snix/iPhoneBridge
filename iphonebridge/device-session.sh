@@ -22,8 +22,8 @@ stop)
             [ "$current" = "$(cat "$active/identity")" ] || exit 43
             kill -TERM "$child"
             n=0
-            while [ -d "$active" ] && [ "$n" -lt 8 ]; do
-                sleep 1
+            while [ -d "$active" ] && [ "$n" -lt 40 ]; do
+                sleep 0.2
                 n=$((n + 1))
             done
             [ ! -d "$active" ] || exit 44
@@ -57,8 +57,8 @@ run)
         if own_child; then
             kill -TERM "$child" 2>/dev/null || true
             n=0
-            while own_child && [ "$n" -lt 5 ]; do
-                sleep 1
+            while own_child && [ "$n" -lt 25 ]; do
+                sleep 0.2
                 n=$((n + 1))
             done
             # Preserve metadata for diagnosis if graceful termination failed.
@@ -77,20 +77,18 @@ run)
     }
     trap cleanup EXIT
     trap 'exit 0' HUP INT TERM
-    # Full resolution; precise dirty regions with no coalescing delay. Keep
-    # blocking swaps and the upstream two-encode limit to preserve final frames.
-    DISABLE_TWEAKS=1 "$binary" -b 127.0.0.1 -p 15901 -n iPhoneBridge \
-        -B off -H 0 -C off -T off -i off -I off \
-        -O on -U off -s 1 -F 60 -P 60 -d 0 &
+    # Native portrait capture, hardware HEVC, input and lossless stills share
+    # one loopback protocol endpoint. The SSH parent owns the entire session.
+    DISABLE_TWEAKS=1 "$binary" -b 127.0.0.1 -p 15901 -F 60 &
     child=$!
     printf '%s\n' "$child" > "$active/pid"
     # Wait for exec before recording a PID identity; no input is sent here.
     n=0
-    while [ "$n" -lt 10 ]; do
+    while [ "$n" -lt 50 ]; do
         current=$(identity "$child")
         case "$current" in *"$binary -b "*) break;; esac
         kill -0 "$child" 2>/dev/null || exit 48
-        sleep 1
+        sleep 0.2
         n=$((n + 1))
     done
     case "$current" in *"$binary -b "*) ;; *) exit 49;; esac

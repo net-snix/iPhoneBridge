@@ -1,0 +1,266 @@
+{
+  "date": "2026-09-10",
+  "status": "diagnosis_only_cadence_failure_reproduced_normal_daemon_restored",
+  "diagnostic_binary_sha256": "bcebccf77168ad7384c5e1d569358e12059525b5637130b3453bd9bee5817e77",
+  "source_delta_sha256": "bfd29fdb2cf3fbf99cae723e476784717ea236d58e63df66834048722cfb90cf",
+  "source_sha256": {
+    "src/FrameUpdateRetry.h": "7b1098669fe9361c2274b20e93d501428f14d0ad98b69929fdda45b7b5c5a7bc",
+    "src/ThreadTiming.h": "fe94b92479719d3216c0b2a22b3b568b9dc3af39f12c8a05ea8ede4fedafb3b3",
+    "src/CaptureSchedule.h": "c37cc1b5f0fcc50fd066a7656c605b127ed5d7e02e855159e0ec9a41b0df9e47",
+    "src/ScreenCapturer.mm": "0b0c5c0f4ba5a86d566c9d5a7ebb9cb85454fb4639b05aafd41937542b440d48",
+    "src/CaptureTiming.h": "6d47cc4a0bfc3cd01719f53b468f0192ccdc51874d53eaf0780a57844c2b85ae",
+    "src/ClientSendLocks.h": "d999101e5f087e7f8b3a32fd757386b6c2b6e18d18164ef3adfee71e481df0f2",
+    "src/trollvncserver.mm": "21fb8ccafadfd931e2cee36ee357d50398cf311934ea6cbd680b0fc5ad033fcd",
+    "src/ScreenCapturer.h": "93c842854176a95fd65a7830116d51dc13e13f51f9f55e14438e55d54e0b83b2"
+  },
+  "static_libraries_sha256": {
+    "libpng16.a": "47c913a83284fa60b491c9bab11ceaca9f1c0cba128e9f3c4a0083cab2928c9b",
+    "libturbojpeg.a": "d4967c44b7dff2b9556767e705b72fc6f093c356a3b86b15ec24122bfc1177a9",
+    "libvncserver.a": "77340f0d7c6c0ee172d6584110c1ee7b8f59b2161748a9a192d42bb072d656fa",
+    "liblzo2.a": "08c7a833bad0300129735444e5a0738665660d38e201792dbe7d2dc98f45c0f0",
+    "libjpeg.a": "031dcf5703827840eb7da733ac7652046a31ca7dacd994b742d6fa8d0b7449ae"
+  },
+  "duration_seconds": 300,
+  "sink_elapsed_seconds": 310.0002947500325,
+  "sink_data_updates": 14575,
+  "sink_data_update_fps": 47.01608432905683,
+  "origin_unix_ns": 1789070880273077000,
+  "profile": {
+    "bits_per_pixel": 32,
+    "depth": 24,
+    "big_endian": 0,
+    "true_colour": 255,
+    "red_max": 255,
+    "green_max": 255,
+    "blue_max": 255,
+    "red_shift": 0,
+    "green_shift": 8,
+    "blue_shift": 16,
+    "preferred_encoding": 7,
+    "tight_quality_level": 6,
+    "tight_compress_level": 2,
+    "turbo_quality_level": 79,
+    "turbo_subsampling": 0,
+    "width": 1172,
+    "height": 2536,
+    "copy_rect": -1,
+    "last_rect": -1,
+    "new_fb_size": -1,
+    "extended_desktop_size": 0,
+    "cursor_shape": 0,
+    "cursor_position": 0,
+    "extended_clipboard": 0
+  },
+  "validity": {
+    "valid_single_client": true,
+    "profile_changed": false,
+    "connections": 1,
+    "disconnections": 0,
+    "capture_sessions": 1,
+    "peak_clients": 1,
+    "socket_write_hook_observed": true
+  },
+  "cpu_validity": {
+    "all_windows_pair_counts_complete": true,
+    "failure_counters": {
+      "send_cpu_read_failures": 0,
+      "send_cpu_invalid_pairs": 0,
+      "send_cpu_thread_mismatch": 0,
+      "send_cpu_clock_backwards": 0,
+      "send_cpu_exceeds_wall": 0,
+      "send_cpu_overlapping_starts": 0
+    },
+    "output_thread_changed": false
+  },
+  "output_thread_policy_every_window": {
+    "pthread_qos_result": 0,
+    "pthread_requested_qos": 21,
+    "pthread_relative_priority": 0,
+    "mach_result": 0,
+    "mach_info_count": 28,
+    "mach_pth_curpri": 31,
+    "mach_pth_priority": 31,
+    "mach_pth_maxpriority": 63,
+    "mach_pth_policy": 1
+  },
+  "requested_qos_label": "QOS_CLASS_DEFAULT (21), per pinned iOS16.5 sys/qos.h",
+  "minutes": [
+    {
+      "start_seconds": 0,
+      "thermal_states": [
+        1
+      ],
+      "rates_per_second": {
+        "cad_ticks": 59.96666666666667,
+        "capture_starts": 59.78333333333333,
+        "display_changed": 59.583333333333336,
+        "display_unchanged": 0.21666666666666667,
+        "prepare_success": 59.56666666666667,
+        "publications": 59.483333333333334,
+        "send_finishes": 59.483333333333334,
+        "source_dirty_counter_advances": 60.0
+      },
+      "cpu_share_of_paired_send_wall": 0.9980366303646093,
+      "mean_ms": {
+        "capture_callback_ms": 9.539159018404908,
+        "prepare_ms": 1.7848732876329043,
+        "encode_send_ms": 7.540628217988233,
+        "send_thread_cpu_ms": 7.525823297842533,
+        "send_wall_minus_thread_cpu_ms": 0.014805040711683945,
+        "update_socket_write_ms": 0.2061674272905576,
+        "finish_to_send_ms": 9.271873186659192,
+        "finish_to_request_ms": 3.7354755561782014,
+        "request_to_send_ms": 5.534597130848978,
+        "publication_queue_ms": 7.348950081278027
+      }
+    },
+    {
+      "start_seconds": 60,
+      "thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.833333333333336,
+        "display_changed": 59.55,
+        "display_unchanged": 0.2833333333333333,
+        "prepare_success": 59.56666666666667,
+        "publications": 59.55,
+        "send_finishes": 59.516666666666666,
+        "source_dirty_counter_advances": 59.983333333333334
+      },
+      "cpu_share_of_paired_send_wall": 0.9706770196324748,
+      "mean_ms": {
+        "capture_callback_ms": 9.659244422166529,
+        "prepare_ms": 1.8451859904868495,
+        "encode_send_ms": 10.478773816858023,
+        "send_thread_cpu_ms": 10.17152642957155,
+        "send_wall_minus_thread_cpu_ms": 0.3072695281433772,
+        "update_socket_write_ms": 0.22226867992159058,
+        "finish_to_send_ms": 6.320974434490482,
+        "finish_to_request_ms": 1.485751257350882,
+        "request_to_send_ms": 4.8353015145576705,
+        "publication_queue_ms": 4.9758259462486
+      }
+    },
+    {
+      "start_seconds": 120,
+      "thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.8,
+        "display_changed": 59.55,
+        "display_unchanged": 0.23333333333333334,
+        "prepare_success": 59.55,
+        "publications": 55.416666666666664,
+        "send_finishes": 55.36666666666667,
+        "source_dirty_counter_advances": 60.0
+      },
+      "cpu_share_of_paired_send_wall": 0.9734401925741337,
+      "mean_ms": {
+        "capture_callback_ms": 10.774057078338444,
+        "prepare_ms": 2.115424900643717,
+        "encode_send_ms": 13.300621763997592,
+        "send_thread_cpu_ms": 12.94737733293197,
+        "send_wall_minus_thread_cpu_ms": 0.3532624307645996,
+        "update_socket_write_ms": 0.30563040788681517,
+        "finish_to_send_ms": 4.761429701986755,
+        "finish_to_request_ms": 1.1617204605659242,
+        "request_to_send_ms": 3.5997070319084887,
+        "publication_queue_ms": 3.123379566526189
+      }
+    },
+    {
+      "start_seconds": 180,
+      "thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 59.983333333333334,
+        "capture_starts": 59.666666666666664,
+        "display_changed": 59.483333333333334,
+        "display_unchanged": 0.18333333333333332,
+        "prepare_success": 59.483333333333334,
+        "publications": 33.38333333333333,
+        "send_finishes": 33.36666666666667,
+        "source_dirty_counter_advances": 60.0
+      },
+      "cpu_share_of_paired_send_wall": 0.9647654145369738,
+      "mean_ms": {
+        "capture_callback_ms": 12.502182458100558,
+        "prepare_ms": 2.520565460913421,
+        "encode_send_ms": 20.525912037962037,
+        "send_thread_cpu_ms": 19.802692007992007,
+        "send_wall_minus_thread_cpu_ms": 0.723222073926074,
+        "update_socket_write_ms": 0.5333168286713286,
+        "finish_to_send_ms": 9.442659570429571,
+        "finish_to_request_ms": 1.0398764700299699,
+        "request_to_send_ms": 8.402782267732269,
+        "publication_queue_ms": 7.956334435564435
+      }
+    },
+    {
+      "start_seconds": 240,
+      "thermal_states": [
+        2
+      ],
+      "rates_per_second": {
+        "cad_ticks": 60.0,
+        "capture_starts": 59.666666666666664,
+        "display_changed": 59.6,
+        "display_unchanged": 0.06666666666666667,
+        "prepare_success": 59.6,
+        "publications": 30.15,
+        "send_finishes": 30.15,
+        "source_dirty_counter_advances": 59.983333333333334
+      },
+      "cpu_share_of_paired_send_wall": 0.9422818941579518,
+      "mean_ms": {
+        "capture_callback_ms": 12.862303938547486,
+        "prepare_ms": 2.8753593176733783,
+        "encode_send_ms": 22.331501216141515,
+        "send_thread_cpu_ms": 21.042558264234383,
+        "send_wall_minus_thread_cpu_ms": 1.2889312769485903,
+        "update_socket_write_ms": 0.6497807628524047,
+        "finish_to_send_ms": 10.832400386954118,
+        "finish_to_request_ms": 0.960461725262576,
+        "request_to_send_ms": 9.8719507960199,
+        "publication_queue_ms": 9.576430873410724
+      }
+    }
+  ],
+  "interpretation": [
+    "The rising send duration is primarily rising on-CPU time, not socket blocking or runnable starvation. Final-minute paired CPU is 94.23 percent of send wall.",
+    "The sender remains one synchronous output pthread. With unchanged final-minute send cost, removing all between-send idle time cannot sustain 60 fps.",
+    "The coarse thermal state rises from fair to serious and CPU work slows; this does not identify frequency, core choice, temperature, or establish thermal causality.",
+    "The requested QoS remains default. Point-in-time priority fields do not identify effective QoS, donation, CPU core, or frequency.",
+    "CPU timing covers classification, codec, protocol, socket and instrumentation work between hooks; JPEG-only CPU attribution is not measured."
+  ],
+  "limits": [
+    "Only send_thread_cpu_ms measures CPU time; it covers the whole sending thread between hooks, not just JPEG.",
+    "send_wall_minus_thread_cpu_ms includes waiting/descheduling and small endpoint overhead; it does not distinguish their causes.",
+    "Requested pthread QoS excludes overrides; raw Mach priority fields identify neither effective QoS nor CPU core or frequency.",
+    "Nested stage durations overlap; do not add update/callback/preparation totals to their components.",
+    "Source dirty count is the CARenderServer display counter, not the Safari animation sequence.",
+    "Thermal state is categorical and sampled once per ten-second window, not a temperature measurement.",
+    "Weighted means combine the rounded means in the source report; percentiles are not averaged.",
+    "This diagnostic is not a native-viewer or normal-release qualification. The compiled timing delta must not enter the release payload."
+  ],
+  "restoration": {
+    "status": "collected",
+    "diagnostic_sha256": "bcebccf77168ad7384c5e1d569358e12059525b5637130b3453bd9bee5817e77",
+    "restored": true,
+    "sink_duration_seconds": 310,
+    "valid_single_client": true,
+    "profile_changed": false,
+    "timing_windows": 30
+  },
+  "raw_evidence_sha256": {
+    "work/renderer-memory-20260909/overlap-cpu-sink-bceb/timing.json": "932e3dc26cb190c4725a62b29a602880315c8503a8f024603be8935b90c16aea",
+    "work/renderer-memory-20260909/overlap-cpu-sink-bceb/sink.json": "0262d29d3b122d580d84e235fa06e20e6a3445000bb7629637bdd3e3dadf595f",
+    "work/renderer-memory-20260909/overlap-cpu-sink-bceb/run.json": "7215c2eb054b07eb311df76da997d80e9dc28416d66e62f965a27f5667ea5e50",
+    "work/renderer-memory-20260909/overlap-cpu-sink-bceb/stage-summary.json": "fe8766d4261a5b32d71959696b14fd2e93d876e24ec07e92d2635d283e269f79"
+  }
+}

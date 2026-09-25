@@ -1,84 +1,105 @@
-# Validation — 2026-09-07
+# Native HEVC validation — 2026-09-13
 
-Test hardware: USB-connected iPhone 13 Pro (`iPhone14,2`), jailbroken iOS 15.1.1,
-and an Apple silicon Mac. Device identifiers and private screenshots are omitted.
-Build toolchain: Xcode 26.3 and Swift 6.2 language mode.
+## Codex integration update — 2026-09-17
 
-## Development-session evidence
+GPT-6 Astra at `xhigh` successfully used the native source MCP adapter for health,
+lossless screenshots, taps, dragging, typing, Backspace and scrolling. Seven
+fixture checks passed in eight executed input calls; an independent USB capture
+confirmed the final physical screen. All 139 Python tests pass, including
+generation-bound input and same-size rotation rejection. See
+[Astra MCP verification](docs/astra-mcp-2026-09-17.md) for exact identities,
+checks, a preflight daemon interruption and qualification limits. This update
+does not extend the native video or release qualifications recorded below.
 
-The following checks preceded the standalone release's dependency rebuild:
+## Original native qualification
 
-- The native window displayed the actual phone in portrait and landscape, changed
-  aspect ratio after rotation, resized, and entered full screen. An independent
-  USB screenshot matched the mirror.
-- A human click on the fixture's **Right target** changed its label in the native
-  mirror. Some synthetic computer-use clicks/drags did not affect WebKit, so those
-  attempts were not counted as proof of human input.
-- Real MCP calls changed a counter with a tap, moved a slider from 0 to 98, and
-  typed exact mixed-case ASCII and punctuation. After rotation, old dimensions
-  were rejected and a fresh landscape tap changed the expected label.
-- Portrait framebuffer dimensions were 1172×2536; one landscape capture was
-  2532×1170. The server can align buffers: nominal hardware dimensions must never
-  replace the dimensions returned by a fresh screenshot.
-- Toolbar Home/App Switcher actions worked on the phone. App-local ⌘1/⌘2 handling
-  before WebKit dispatch was verified by visible Home/Switcher transitions.
-- A CLI upward drag closed a disposable Calculator card while other app cards
-  remained. No unrelated app was terminated for cleanup or deployment.
-- Stop/restart removed owned phone and Mac processes and released bridge ports.
-  Pre-existing USB forwards kept their original process identities.
+The native replacement is being qualified in an isolated development branch.
+It is not yet a signed or published release. The detailed trial record, including
+failed candidates and mismatched baseline conditions, is
+[Native HEVC qualification](docs/native-hevc-2026-09-13.md).
 
-The native navigation path uses the current RFB connection. CLI navigation waits
-for a screenshot; the toolbar does not launch Python or capture a new image for
-each press. Historical navigation daemon SHA-256:
-`a631bf9c1492114f819d15e6d4e897c1976c233257350ef39bb3e839ad0ceb43`.
-Performance measurements and their exact scope are in [PERFORMANCE.md](PERFORMANCE.md).
+Test environment: Apple silicon Mac, macOS 26+, USB-connected iPhone 13 Pro
+(`iPhone14,2`) with jailbroken iOS 15.1.1. No iOS update, jailbreak change, pairing
+reset or persistent phone service installation was performed. Bridge ownership
+records govern teardown; unrelated services and the original checkout are preserved.
 
-## Standalone release evidence
+## Implementation checks
 
-The app was copied into `/Applications`, launched from there, and ran entirely
-from its bundled runtime with an Apple-only PATH. The final source-built daemon
-SHA-256 is `7d8fac46d4844bbfe5e25105bce786e2cb7b023d001b15babafd69d414240fb2`.
+- All 56 Swift tests pass: native framing, geometry, barcode, keyboard, ownership cleanup, bounded
+  decoder/mailbox and generation-recovery tests pass.
+- All 133 Python tests pass, including the eight compiled phone harness tests.
+  Control/protocol tests exercise partial framing, command deadlines,
+  stale dimensions, lossless orientation transforms, input cleanup and bounded
+  payload parsing. Existing CLI/MCP names and required size parameters remain.
+- Host-compiled phone harnesses exercise framing, geometry, surface ownership,
+  leases, queue backpressure and five-second write-progress expiry.
+- Source build and staging checks verify exact native source inventories, retained
+  upstream bytes, lock/recipe/helper hashes, Theos/SDK identity and final binaries.
+  The final committed source staged and rebuilt offline successfully. Whole-file
+  daemon hashes differ because of UUID/signature metadata; executable sections
+  and initialized data match the endurance-tested binary. Mac corresponding-source
+  validation passes against the actual Python and USB build inputs, including
+  the retained Tcl/Tk components. This is provenance proof,
+  not a claim of byte-identical output across toolchains.
+- The release-mode native VideoToolbox decoder decoded all 600 frames from the
+  first real heavy-motion stream with zero errors and hardware decode required.
 
-- The installed app displayed the actual animated phone screen. Toolbar Home
-  and App Switcher, plus ⌘1/⌘2, produced visible phone transitions and returned
-  to the active app without terminating it.
-- Native Settings discovered the USB phone, saved its selection, and reconnected
-  successfully. The saved SSH-key field remained empty and default keys worked.
-- A real MCP client launched the installed helper, listed all six tools, and
-  decoded its screenshot PNG at the reported 1172×2536 dimensions.
-- Installed CLI navigation passed size probe, actual input, and post-action
-  capture in sequence, visibly opening App Switcher and returning to the app.
-- The viewer served real HTTP responses and WebSocket traffic. Health checks
-  now test an actual viewer page rather than just a listening port.
-- A temporary SSH probe to the phone's IPv6 RFB endpoint returned **Connection
-  refused**. The device source explicitly disables that listener for loopback
-  mode; native navigation mappings are verified in the compiled source.
-- Native Quit completed cleanup; all three owned services stopped. Existing
-  shared USB forwards retained their exact process/start identities.
+## Live status
 
-Live testing found and fixed the bundled Python multiprocessing entrypoint,
-a skipped source patch, and Darwin endian detection. Regression checks cover
-the failure modes rather than relying on a successful build alone.
+The current phone candidate (`f54af…`) removes an intermediate capture transfer
+and preserves HEVC references through ordinary idle gaps. It delivered **59.13
+and 59.10 fps** in consecutive five-minute heavy-motion runs, thermal state **0**
+throughout both, without increases in encoder, colour-error or submission-skip
+counters. Both entire streams decoded without errors. Earlier failed and
+mismatched candidates remain in the trial record with their exact identities.
 
-## Automated and distribution checks
+The Mac candidate (`595bc…`) decodes directly to NV12. A matched 30-second profile
+found **19.16% fewer app-process running timer samples**, with **22.15% fewer on
+the main thread**. This is one sampled comparison, not measured CPU milliseconds
+or total system CPU use. Four decoded surface mappings fell **61.31%**; mapped
+storage is distinct from RSS. Separate visible-motion checks stayed near
+**59.1 fps**. Source-relative image comparisons and a live colour-chart inspection
+found no visible regression, with different chroma interpolation at narrow edges.
 
-- 48 Python tests cover coordinate bounds, stale orientation, serialization,
-  release on failure, typing, useful MCP errors, process ownership, cleanup,
-  native navigation, CLI validation, device selection, runtime portability,
-  spawned HTTP/WebSocket requests, source patching, and byte-order checks.
-- 17 viewer/benchmark tests cover live-session navigation, connection handling,
-  orientation reporting, and measurement validation.
-- Swift release compilation passes with concurrency checking.
-- An independent fresh offline rebuild verifies the device source package.
-- Locked source and notice inventories are verified before packaging: 128
-  retained notice entries and all 55 locked Python source distributions.
-- A relocated runtime passes imports, device-payload hash verification, USB
-  utility execution, and an MCP initialize/list-tools handshake with six tools.
+Static capture, MCP tool discovery and screenshot output, and nine
+protocol/ownership checks passed on the earlier native candidate. Tool discovery
+does not prove every tool's live input action. Stills preserve captured sRGB pixels, but do not
+match the wider-gamut Display P3 system USB screenshots exactly; isolated probes
+located that limit in the retained screen-rendering API.
 
-## Limits
+The final 30 input trials completed with **93.71 ms median / 135.77 ms p95**
+decoded response, above the 60 ms target. Exact frame joins preserve the three
+slower initial keyframe responses; none are excluded. The old canvas benchmark
+reported a 100 ms median with coarser observation timing. These separate runs
+are not a matched comparison. Two older visible endurance attempts remain
+unqualified: the first exposed a barcode detector issue; the second had one
+54.27 fps window and was interrupted. Barcode handling and bounded decoder
+recovery are now corrected. The current candidate passed **all 44 windows of a
+22-minute visible run**, at **58.33–59.30 fps**, with **118.52 MiB peak RSS** and
+no median memory growth. All 273 health reports passed renderer continuity;
+no barcode misses, ingress drops or recovery requests occurred.
 
-Single-finger input and ASCII/US hardware-keyboard mapping are qualified.
-Arbitrary Unicode, multitouch, all special keys, other iOS versions, and every
-phone model are not. Human input when launching directly into landscape has not
-been separately qualified. There is no audio forwarding. Tests are not a claim
-of notarization or independent security review.
+Visible tap, slider drag, ASCII typing, backspace/left-arrow/forward-delete input,
+drag-to-scroll, wheel scrolling, Home/App Switcher shortcuts and fullscreen were
+exercised on native previews. A physical trackpad has not been tested.
+All nine protocol/session checks passed again on the final f54 phone daemon,
+as did six-tool MCP discovery and its native lossless PNG. The final Mac preview
+also visibly reconnected after a normal process restart.
+
+Remaining live checks include the 60 ms input-latency target. Physical cable pull,
+rotation, lock/unlock and genuine VideoToolbox invalidation require direct device
+evidence; unit tests and synthetic disconnects do not prove them.
+The phone's default VideoToolbox encoder selection also lacks positive hardware
+metadata on this iOS runtime; high throughput does not formally prove its hardware
+identity. The Mac explicitly requires hardware decoding.
+
+## Release boundary
+
+Local source builds and daemon deployment do not prove the relocated app bundle.
+macOS signing, a clean-PATH packaged-app run, combined release archive assembly,
+hosted CI and publication remain separate release checks in
+[RELEASING.md](docs/RELEASING.md). The existing explicit signing/push/merge
+permissions remain in force.
+
+Older RFB/WebKit validation and failures remain in the Git history and dated
+investigation documents. They do not describe the native implementation.

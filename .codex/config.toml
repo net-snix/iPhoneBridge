@@ -1,0 +1,4 @@
+# Keep this project's agent baseline reproducible; MCP is registered per host.
+model = "gpt-6-astra"
+model_reasoning_effort = "xhigh"
+service_tier = "default"

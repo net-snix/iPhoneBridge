@@ -1,0 +1,338 @@
+#!/usr/bin/env python3
+"""Measure an already visible native mirror; never launch or stop the app/phone.
+
+Launch iPhoneBridge with --attach --benchmark --benchmark-visible, independently
+verify its visible window and motion fixture, then supply that process's PID.
+The default run requests 44 consecutive 30-second animation windows. Reports
+separate decoded pixels from display submission; neither measures monitor scanout.
+"""
+from __future__ import annotations
+
+import argparse
+import fcntl
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import signal
+import statistics
+import subprocess
+import sys
+import time
+import uuid
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from iphonebridge.runtime import PATHS  # noqa: E402
+
+
+def atomic_json(path, value):
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
+    temporary.chmod(0o600)
+    temporary.replace(path)
+
+
+def process_sample(pid, expected=None):
+    result = subprocess.run(
+        ["/bin/ps", "-ww", "-p", str(pid), "-o", "lstart=,rss=,%cpu=,command="],
+        capture_output=True, text=True, timeout=3, env={**os.environ, "LC_ALL": "C"})
+    fields = result.stdout.strip().split(None, 7)
+    if result.returncode or len(fields) != 8:
+        raise RuntimeError(f"Native mirror PID {pid} exited or cannot be inspected")
+    identity = " ".join(fields[:5]) + " " + fields[7]
+    if expected is not None and identity != expected:
+        raise RuntimeError(f"PID {pid} no longer belongs to the supplied native mirror")
+    if "--benchmark" not in fields[7].split() or "--benchmark-visible" not in fields[7].split():
+        raise RuntimeError("The supplied app must run with --benchmark --benchmark-visible")
+    return {"recordedAt": time.time(), "monotonic": time.monotonic(), "identity": identity,
+            "command": fields[7], "rssMiB": int(fields[5]) / 1024, "cpuPercent": float(fields[6])}
+
+
+def executable_info(pid):
+    result = subprocess.run(["/bin/ps", "-ww", "-p", str(pid), "-o", "comm="],
+                            capture_output=True, text=True, timeout=3)
+    executable = Path(result.stdout.strip())
+    if result.returncode or executable.name != "iPhoneBridge" or not executable.is_file():
+        raise RuntimeError("The supplied PID is not an inspectable iPhoneBridge executable")
+    digest = hashlib.sha256()
+    with executable.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return {"path": str(executable.resolve()), "sha256": digest.hexdigest()}
+
+
+class ReportTail:
+    """Read only new complete NDJSON records, including partial concurrent writes."""
+    def __init__(self, path):
+        self.path = path
+        self.offset = path.stat().st_size if path.exists() else 0
+        self.partial = b""
+
+    def read(self):
+        if not self.path.exists():
+            return []
+        if self.path.stat().st_size < self.offset:
+            raise RuntimeError("Benchmark report log was truncated during the run")
+        with self.path.open("rb") as stream:
+            stream.seek(self.offset)
+            data = stream.read(2 * 1024 * 1024)
+            self.offset += len(data)
+        records = (self.partial + data).split(b"\n")
+        self.partial = records.pop()
+        if len(self.partial) > 1_048_576:
+            raise RuntimeError("Benchmark report exceeded its 1 MiB limit")
+        return [json.loads(record) for record in records if record.strip()]
+
+
+def numeric(value):
+    return type(value) in (int, float) and math.isfinite(value)
+
+
+def qualify_window(report, pid, duration_ms, minimum_fps):
+    failures = []
+    if report.get("renderer") != "native-hevc" or report.get("mode") != "animation":
+        failures.append("Expected a native HEVC animation report")
+    if report.get("processID") != pid:
+        failures.append("Benchmark processID does not match the owned app PID")
+    if report.get("failure"):
+        failures.append(str(report["failure"]))
+    visibility = report.get("visibility", {})
+    if (report.get("visibleQualification") is not True or visibility.get("available") is not True
+            or visibility.get("hidden") is not False or visibility.get("hadHidden") is not False):
+        failures.append("The mirror was hidden or visibility was unobserved")
+    if report.get("requestedDurationMs") != duration_ms:
+        failures.append("The requested observation duration does not match")
+    decoded = report.get("events", [])
+    displayed = report.get("displaySubmittedEvents", [])
+    if not isinstance(decoded, list) or not isinstance(displayed, list):
+        decoded, displayed = [], []
+        failures.append("Missing barcode event arrays")
+    rates = {}
+    for name, events, key, reported in [("decoded", decoded, "decodedAt", "receivedFps"),
+                                        ("displaySubmitted", displayed, "submittedAt", "displaySubmittedFps")]:
+        times = [event.get(key) for event in events if isinstance(event, dict)]
+        sequences = [event.get("sequence") for event in events if isinstance(event, dict)]
+        valid = (len(events) >= 2 and len(times) == len(events) and all(numeric(value) for value in times)
+                 and all(type(value) is int and 0x80000000 <= value <= 0xFFFFFFFF for value in sequences))
+        if valid:
+            valid = (all(b > a for a, b in zip(times, times[1:]))
+                     and all(0 < ((b - a) & 0xFFFFFFFF) < 0x80000000 for a, b in zip(sequences, sequences[1:])))
+        if not valid:
+            failures.append(f"Invalid or missing {name} motion barcode observations")
+        # Whole-window rate catches a freeze after a short burst of fast frames;
+        # the app's first-to-last observation rate alone cannot catch that case.
+        effective = max(0, len(events) - 1) * 1000 / duration_ms
+        value = report.get(reported)
+        rates[name + "Fps"] = value if numeric(value) else None
+        rates[name + "WholeWindowFps"] = effective
+        if not numeric(value) or value < minimum_fps or effective < minimum_fps:
+            failures.append(f"{name} frame rate fell below {minimum_fps:g} fps")
+    return {"id": report.get("id"), "label": report.get("label"), "processID": report.get("processID"),
+            "requestedDurationMs": duration_ms, "startedAt": report.get("startedAt"),
+            "finishedAt": report.get("finishedAt"), "receivedAt": report.get("received_at"),
+            "decodedSequences": len(decoded), "displaySubmittedSequences": len(displayed),
+            "sourceFramesSkipped": report.get("sourceFramesSkipped"), "visibility": visibility,
+            **rates, "passed": not failures, "failures": failures}
+
+
+def memory_summary(samples, maximum_mib, growth_limit_mib):
+    if len(samples) < 3:
+        return {"passed": False, "failure": "Too few owned-process memory samples"}
+    duration = samples[-1]["elapsedSeconds"]
+    baseline_start = min(60, duration / 4)
+    interval = min(60, max(1, duration / 4))
+    baseline = [s["rssMiB"] for s in samples if baseline_start <= s["elapsedSeconds"] <= baseline_start + interval]
+    tail = [s["rssMiB"] for s in samples if s["elapsedSeconds"] >= duration - interval]
+    if not baseline or not tail:
+        return {"passed": False, "failure": "Memory baseline or final interval is unavailable"}
+    first, last = statistics.median(baseline), statistics.median(tail)
+    peak = max(s["rssMiB"] for s in samples)
+    return {"passed": peak <= maximum_mib and last - first <= growth_limit_mib,
+            "maximumRssMiB": peak, "baselineMedianRssMiB": first, "finalMedianRssMiB": last,
+            "medianGrowthMiB": last - first, "sampleCount": len(samples),
+            "baselineStartSeconds": baseline_start, "medianIntervalSeconds": interval,
+            "maximumAllowedRssMiB": maximum_mib, "maximumAllowedMedianGrowthMiB": growth_limit_mib}
+
+
+def qualify_health(records, pid, started_at=None, finished_at=None):
+    matching = [r for r in records if r.get("mode") == "renderer-health" and r.get("processID") == pid]
+    failures = []
+    if not matching:
+        failures.append("No renderer-health reports from the owned PID")
+    times = [r.get("received_at") for r in matching]
+    if times and all(numeric(value) for value in times):
+        coverage = ([started_at] if started_at is not None else []) + times + (
+            [finished_at] if finished_at is not None else [])
+        if any(b - a > 15 or b < a for a, b in zip(coverage, coverage[1:])):
+            failures.append("Renderer-health coverage has a gap longer than 15 seconds or moved backwards")
+    elif matching:
+        failures.append("Renderer-health timestamps are unavailable")
+    previous = None
+    for report in matching:
+        if report.get("connected") is not True or report.get("visibility", {}).get("hidden") is not False:
+            failures.append("Renderer reported a disconnection or hidden window between tests")
+        counters = [report.get("decodedFrames"), report.get("displaySubmittedFrames")]
+        if any(type(value) is not int or value < 0 for value in counters):
+            failures.append("Invalid renderer counters")
+        elif previous and any(value < old for value, old in zip(counters, previous)):
+            failures.append("Renderer counters reset during endurance measurement")
+        previous = counters
+    return {"passed": not failures, "sampleCount": len(matching), "failures": sorted(set(failures))}
+
+
+def cleanup_child(child):
+    """Only the task-owned measure-mirror helper is signaled; never the app PID."""
+    if child.poll() is None:
+        child.send_signal(signal.SIGINT)
+        try:
+            child.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            child.terminate()
+            try:
+                child.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                child.kill()
+                child.wait(timeout=2)
+
+
+def run_window(args, index, duration_ms, output, sample, collect):
+    label = f"{args.label}-{args.run_id}-{index:03d}"
+    raw_path = output / f"window-{index:03d}.json"
+    error_path = output / f"window-{index:03d}.stderr"
+    print(f"window {index}: starting {duration_ms / 1000:g}s animation observation", file=sys.stderr, flush=True)
+    with raw_path.open("wb") as stdout, error_path.open("wb") as stderr:
+        child = subprocess.Popen([sys.executable, str(ROOT / "scripts/measure-mirror"), label,
+            "--mode", "animation", "--duration-ms", str(duration_ms)], cwd=ROOT,
+            stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
+            env={**os.environ, "IPHONEBRIDGE_DATA_DIR": str(args.data_dir)})
+        deadline = time.monotonic() + duration_ms / 1000 + 20
+        try:
+            while child.poll() is None:
+                sample(); collect()
+                if time.monotonic() >= deadline:
+                    raise RuntimeError(f"Window {index} did not report within its bounded deadline")
+                time.sleep(0.5)
+        finally:
+            cleanup_child(child)
+            request_path = args.data_dir / "benchmark-request.json"
+            if request_path.exists():
+                pending = json.loads(request_path.read_text())
+                if pending.get("label") == label:
+                    atomic_json(request_path, {})
+    collect(); sample(force=True)
+    try:
+        report = json.loads(raw_path.read_text())
+    except (ValueError, OSError) as error:
+        raise RuntimeError(f"Window {index} produced no JSON report; see {error_path}") from error
+    summary = qualify_window(report, args.pid, duration_ms, args.min_fps)
+    summary["rawReport"] = str(raw_path)
+    if report.get("label") != label:
+        summary["failures"].append("The report belongs to a different benchmark request")
+        summary["passed"] = False
+    print(f"window {index}: {'PASS' if summary['passed'] else 'FAIL'}; "
+          f"decoded {summary['decodedWholeWindowFps']:.2f}, display submitted "
+          f"{summary['displaySubmittedWholeWindowFps']:.2f} fps", file=sys.stderr, flush=True)
+    return summary
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--pid", required=True, type=int, help="Already running native mirror PID")
+    parser.add_argument("--duration", type=float, default=1320, help="Total requested observation seconds (default: 1320)")
+    parser.add_argument("--label", default="native-endurance")
+    parser.add_argument("--data-dir", type=Path, default=PATHS.data)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--min-fps", type=float, default=55)
+    parser.add_argument("--sample-interval", type=float, default=5)
+    parser.add_argument("--max-rss-mib", type=float, default=512)
+    parser.add_argument("--max-growth-mib", type=float, default=64,
+                        help="Maximum final-vs-baseline median RSS growth (default: 64 MiB)")
+    args = parser.parse_args(argv)
+    for name in ("duration", "min_fps", "sample_interval", "max_rss_mib", "max_growth_mib"):
+        if not numeric(getattr(args, name)) or getattr(args, name) <= 0:
+            parser.error(f"--{name.replace('_', '-')} must be a positive finite number")
+    if args.pid <= 1 or args.duration < 0.1 or args.duration > 86400 or args.sample_interval > 30:
+        parser.error("Use PID >1, duration 0.1–86400 seconds, and sample interval <=30 seconds")
+    args.data_dir = args.data_dir.expanduser().resolve()
+    if not args.data_dir.is_dir():
+        parser.error("The existing benchmark data directory is unavailable")
+    args.run_id = uuid.uuid4().hex[:12]
+    args.output = (args.output or args.data_dir / f"native-endurance-{args.run_id}.json").expanduser().resolve()
+    windows_path = args.output.with_suffix(".windows")
+    if args.output.exists() or windows_path.exists():
+        parser.error("Output already exists; choose a new run path")
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    windows_path.mkdir(mode=0o700)
+    report = {"schema": "native-endurance/1", "runID": args.run_id, "processID": args.pid,
+              "requestedObservationSeconds": args.duration, "minimumWindowFps": args.min_fps,
+              "startedAt": time.time(), "status": "running", "windows": [], "memorySamples": [],
+              "rendererHealthReports": [], "limitations": [
+                  "Visibility is reported by the supplied native app; independently verify the actual window before starting.",
+                  "Decoded barcode and display-submission rates do not measure physical monitor scanout.",
+                  "Consecutive requests have short coordination gaps; renderer-health samples cover those gaps.",
+                  "RSS bounds are explicit configurable test thresholds, not proof that future memory cannot grow."]}
+    started = time.monotonic()
+    lock = (args.data_dir / "native-endurance.lock").open("a+")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        request = args.data_dir / "benchmark-request.json"
+        if request.exists() and json.loads(request.read_text()).get("id"):
+            raise RuntimeError("Another benchmark request is active; wait for it to finish")
+        original = process_sample(args.pid)
+        report["processIdentity"] = original["identity"]
+        report["executable"] = executable_info(args.pid)
+        tail = ReportTail(args.data_dir / "latency-results.ndjson")
+        last_sample = -math.inf
+
+        def sample(force=False):
+            nonlocal last_sample
+            if not force and time.monotonic() - last_sample < args.sample_interval:
+                return
+            value = process_sample(args.pid, original["identity"])
+            value["elapsedSeconds"] = value.pop("monotonic") - started
+            value.pop("identity"); value.pop("command")
+            report["memorySamples"].append(value)
+            last_sample = time.monotonic()
+
+        def collect():
+            for value in tail.read():
+                if value.get("mode") == "renderer-health" and value.get("processID") == args.pid:
+                    report["rendererHealthReports"].append(value)
+
+        sample(force=True)
+        remaining = round(args.duration * 1000)
+        while remaining:
+            duration_ms = min(30_000, remaining)
+            if duration_ms < 100:  # Keep the existing fixture's minimum request size.
+                raise RuntimeError("Remaining window is below the fixture's 100 ms minimum")
+            index = len(report["windows"]) + 1
+            report["windows"].append(run_window(args, index, duration_ms, windows_path, sample, collect))
+            remaining -= duration_ms
+            atomic_json(args.output, report)
+        report["status"] = "complete"
+    except (RuntimeError, OSError, ValueError, subprocess.SubprocessError, KeyboardInterrupt) as error:
+        report["status"] = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
+        report["failure"] = str(error) or "Interrupted by operator"
+    finally:
+        lock.close()
+        report["finishedAt"] = time.time()
+        report["wallDurationSeconds"] = time.monotonic() - started
+        report["observedSeconds"] = sum(w["requestedDurationMs"] for w in report["windows"]) / 1000
+        report["memory"] = memory_summary(report["memorySamples"], args.max_rss_mib, args.max_growth_mib)
+        report["rendererContinuity"] = qualify_health(report["rendererHealthReports"], args.pid,
+                                                      report["startedAt"], report["finishedAt"])
+        report["passed"] = (report["status"] == "complete" and all(w["passed"] for w in report["windows"])
+                            and report["memory"]["passed"] and report["rendererContinuity"]["passed"])
+        report["qualifies22MinuteGate"] = report["passed"] and report["observedSeconds"] >= 1320
+        atomic_json(args.output, report)
+    print(json.dumps({"output": str(args.output), "passed": report["passed"],
+                      "qualifies22MinuteGate": report["qualifies22MinuteGate"],
+                      "windows": len(report["windows"]), "observedSeconds": report["observedSeconds"],
+                      "memory": report["memory"], "failure": report.get("failure")}, indent=2))
+    return 0 if report["passed"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>iPhoneBridge colour reference</title>
+<style>
+* { box-sizing: border-box }
+body { margin: 0; padding: 18px; background: white; color: #182027; font: 16px -apple-system,sans-serif }
+h1 { font-size: 22px; margin: 0 0 12px }
+p { line-height: 1.4 }
+.row { display: grid; grid-template-columns: repeat(3,1fr); height: 100px; margin-bottom: 14px }
+.grey { height: 90px; background: linear-gradient(to right,black,white) }
+.edges { height: 80px; background: repeating-linear-gradient(90deg,black 0 1px,white 1px 2px) }
+</style>
+<h1>Lossless colour reference</h1>
+<p>Static USB-only capture fixture. No animation, input, storage or network submission.</p>
+<p>Display P3 primaries</p>
+<div class="row"><div style="background:color(display-p3 1 0 0)"></div><div style="background:color(display-p3 0 1 0)"></div><div style="background:color(display-p3 0 0 1)"></div></div>
+<p>sRGB primaries</p>
+<div class="row"><div style="background:rgb(255 0 0)"></div><div style="background:rgb(0 255 0)"></div><div style="background:rgb(0 0 255)"></div></div>
+<p>sRGB grey ramp and one-CSS-pixel edges</p>
+<div class="grey"></div><div class="edges"></div>
+<p>Exact text: Aa Bb 0123456789 !? #&amp; — iPhoneBridge</p>
+</html>

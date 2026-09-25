@@ -1,0 +1,626 @@
+{
+  "date": "2026-09-12",
+  "probe": "hardware_encode_feasibility",
+  "status": "diagnostic_evidence_only_not_a_transport",
+  "question": "Can a jailbroken root daemon obtain a hardware video encoder, and does the 60 fps capture->encode pipeline sustain its rate without the thermal collapse the JPEG path shows?",
+  "answer": "Yes to both. A hardware HEVC session was created and driven from the daemon, and 300 seconds at full rate left the phone at thermal state 0 throughout.",
+  "device": {
+    "model": "iPhone14,2",
+    "ios": "15.1.1",
+    "capture_size": [
+      1170,
+      2532
+    ]
+  },
+  "source_sha256": {
+    "HardwareEncodeProbe.mm": "271578d26d91ba2354dc665a496f0043c080b010b9e538dc726becf3ee57d36f",
+    "probe_binary": "c01e16e1f8297ac31bb206f537fa5d2f2910d19ade2852b59df4245a70353a26"
+  },
+  "method": {
+    "fixture": "unchanged heavy-motion Safari fixture (fixtures/latency.html mode=motion, background=heavy)",
+    "capture": "production ScreenCapturer at -F 60, unchanged -s 1 -P 60 -d 0 -Q 1 launch profile",
+    "encoder": "VTCompressionSessionCreate, HEVC, RealTime=true, AllowFrameReordering=false, MaxKeyFrameInterval=120, ExpectedFrameRate=60, AverageBitRate=40 Mbps",
+    "bridge": "bridge stopped for each run; a private USB forward carried SSH only; the canonical daemon was restarted afterward and verified"
+  },
+  "sustained_run": {
+    "duration_seconds": 300,
+    "codec": "hevc",
+    "hardware": true,
+    "encode_failures_total": 0,
+    "thermal_states_observed": [
+      0
+    ],
+    "minute_means_encoded_per_second": [
+      59.18,
+      59.25,
+      59.15,
+      59.32,
+      59.1
+    ],
+    "minute_means_megabytes_per_second": [
+      4.78,
+      4.78,
+      4.78,
+      4.78,
+      4.76
+    ],
+    "submit_cpu_ms_per_frame_range": [
+      0.0697,
+      0.0768
+    ],
+    "windows": [
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 0,
+        "megabytes_per_second": 4.749891471862793,
+        "submit_wall_ms_per_frame": 0.5352810840480274,
+        "submitted_per_second": 58.3,
+        "capture_callback_ms_per_frame": 0.5477835300171526,
+        "captured_per_second": 58.3,
+        "submit_cpu_ms_per_frame": 0.07332590051457975,
+        "encoded_per_second": 58.2
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 10.006044166977517,
+        "megabytes_per_second": 4.798090934753418,
+        "submit_wall_ms_per_frame": 0.5377200738255034,
+        "submitted_per_second": 59.6,
+        "capture_callback_ms_per_frame": 0.5500453959731544,
+        "captured_per_second": 59.6,
+        "submit_cpu_ms_per_frame": 0.07340771812080536,
+        "encoded_per_second": 59.6
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 20.00953425001353,
+        "megabytes_per_second": 4.769723796844483,
+        "submit_wall_ms_per_frame": 0.5531904704890387,
+        "submitted_per_second": 59.3,
+        "capture_callback_ms_per_frame": 0.5655508145025295,
+        "captured_per_second": 59.3,
+        "submit_cpu_ms_per_frame": 0.07459021922428331,
+        "encoded_per_second": 59.3
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 30.014907584059983,
+        "megabytes_per_second": 4.764685726165771,
+        "submit_wall_ms_per_frame": 0.5533118033613444,
+        "submitted_per_second": 59.5,
+        "capture_callback_ms_per_frame": 0.5657149512605042,
+        "captured_per_second": 59.5,
+        "submit_cpu_ms_per_frame": 0.07505042016806723,
+        "encoded_per_second": 59.5
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 40.01816483400762,
+        "megabytes_per_second": 4.806809329986573,
+        "submit_wall_ms_per_frame": 0.5252225226890757,
+        "submitted_per_second": 59.5,
+        "capture_callback_ms_per_frame": 0.5367538823529412,
+        "captured_per_second": 59.5,
+        "submit_cpu_ms_per_frame": 0.06969243697478991,
+        "encoded_per_second": 59.5
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 50.033450999995694,
+        "megabytes_per_second": 4.77895040512085,
+        "submit_wall_ms_per_frame": 0.5310399203389831,
+        "submitted_per_second": 59,
+        "capture_callback_ms_per_frame": 0.5430342169491525,
+        "captured_per_second": 59,
+        "submit_cpu_ms_per_frame": 0.07002033898305085,
+        "encoded_per_second": 59
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 60.049416959052905,
+        "megabytes_per_second": 4.756442546844482,
+        "submit_wall_ms_per_frame": 0.5393654806070826,
+        "submitted_per_second": 59.3,
+        "capture_callback_ms_per_frame": 0.5513038667790893,
+        "captured_per_second": 59.3,
+        "submit_cpu_ms_per_frame": 0.07223946037099495,
+        "encoded_per_second": 59.3
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 70.05145083402749,
+        "megabytes_per_second": 4.807959747314453,
+        "submit_wall_ms_per_frame": 0.5509669092436975,
+        "submitted_per_second": 59.5,
+        "capture_callback_ms_per_frame": 0.5633505495798319,
+        "captured_per_second": 59.5,
+        "submit_cpu_ms_per_frame": 0.07352268907563024,
+        "encoded_per_second": 59.5
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 80.06553612498101,
+        "megabytes_per_second": 4.77912712097168,
+        "submit_wall_ms_per_frame": 0.5623862719594594,
+        "submitted_per_second": 59.2,
+        "capture_callback_ms_per_frame": 0.5753412466216217,
+        "captured_per_second": 59.2,
+        "submit_cpu_ms_per_frame": 0.07479391891891891,
+        "encoded_per_second": 59.2
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 90.07818045897875,
+        "megabytes_per_second": 4.763187980651855,
+        "submit_wall_ms_per_frame": 0.544931760539629,
+        "submitted_per_second": 59.3,
+        "capture_callback_ms_per_frame": 0.5570335733558178,
+        "captured_per_second": 59.3,
+        "submit_cpu_ms_per_frame": 0.07347217537942664,
+        "encoded_per_second": 59.3
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 100.09466970898211,
+        "megabytes_per_second": 4.802333354949951,
+        "submit_wall_ms_per_frame": 0.5401050387858348,
+        "submitted_per_second": 59.3,
+        "capture_callback_ms_per_frame": 0.5522458549747049,
+        "captured_per_second": 59.3,
+        "submit_cpu_ms_per_frame": 0.07359527824620574,
+        "encoded_per_second": 59.3
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 110.09573462500703,
+        "megabytes_per_second": 4.78382453918457,
+        "submit_wall_ms_per_frame": 0.540478611205433,
+        "submitted_per_second": 58.9,
+        "capture_callback_ms_per_frame": 0.5527461324278438,
+        "captured_per_second": 58.9,
+        "submit_cpu_ms_per_frame": 0.07338539898132428,
+        "encoded_per_second": 58.9
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 120.1110456250608,
+        "megabytes_per_second": 4.7663373947143555,
+        "submit_wall_ms_per_frame": 0.5430215553662692,
+        "submitted_per_second": 58.7,
+        "capture_callback_ms_per_frame": 0.5552385877342418,
+        "captured_per_second": 58.7,
+        "submit_cpu_ms_per_frame": 0.07308688245315162,
+        "encoded_per_second": 58.7
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 130.11330412502866,
+        "megabytes_per_second": 4.822189044952393,
+        "submit_wall_ms_per_frame": 0.5479858084745762,
+        "submitted_per_second": 59,
+        "capture_callback_ms_per_frame": 0.5605242288135592,
+        "captured_per_second": 59,
+        "submit_cpu_ms_per_frame": 0.07444745762711864,
+        "encoded_per_second": 59
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 140.12754479201976,
+        "megabytes_per_second": 4.734388828277588,
+        "submit_wall_ms_per_frame": 0.5316855847457628,
+        "submitted_per_second": 59,
+        "capture_callback_ms_per_frame": 0.5437936152542373,
+        "captured_per_second": 59,
+        "submit_cpu_ms_per_frame": 0.07156440677966101,
+        "encoded_per_second": 59
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 150.12898254208267,
+        "megabytes_per_second": 4.759806060791016,
+        "submit_wall_ms_per_frame": 0.5352577671691793,
+        "submitted_per_second": 59.7,
+        "capture_callback_ms_per_frame": 0.5471729748743719,
+        "captured_per_second": 59.7,
+        "submit_cpu_ms_per_frame": 0.07190619765494137,
+        "encoded_per_second": 59.7
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 160.14373675000388,
+        "megabytes_per_second": 4.811264610290527,
+        "submit_wall_ms_per_frame": 0.5467213648648649,
+        "submitted_per_second": 59.2,
+        "capture_callback_ms_per_frame": 0.5588151773648649,
+        "captured_per_second": 59.2,
+        "submit_cpu_ms_per_frame": 0.07340371621621622,
+        "encoded_per_second": 59.2
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 170.15754608402494,
+        "megabytes_per_second": 4.778245449066162,
+        "submit_wall_ms_per_frame": 0.5603896374367622,
+        "submitted_per_second": 59.3,
+        "capture_callback_ms_per_frame": 0.5732386661045531,
+        "captured_per_second": 59.3,
+        "submit_cpu_ms_per_frame": 0.07677908937605396,
+        "encoded_per_second": 59.3
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 180.1646138749784,
+        "megabytes_per_second": 4.757693672180176,
+        "submit_wall_ms_per_frame": 0.5554393350168351,
+        "submitted_per_second": 59.4,
+        "capture_callback_ms_per_frame": 0.5677730824915825,
+        "captured_per_second": 59.4,
+        "submit_cpu_ms_per_frame": 0.07427272727272728,
+        "encoded_per_second": 59.4
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 190.1773372089956,
+        "megabytes_per_second": 4.803049850463867,
+        "submit_wall_ms_per_frame": 0.5428141081081082,
+        "submitted_per_second": 59.2,
+        "capture_callback_ms_per_frame": 0.5552941131756757,
+        "captured_per_second": 59.2,
+        "submit_cpu_ms_per_frame": 0.07372972972972973,
+        "encoded_per_second": 59.2
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 200.17887399997562,
+        "megabytes_per_second": 4.780611896514893,
+        "submit_wall_ms_per_frame": 0.5335614300168634,
+        "submitted_per_second": 59.3,
+        "capture_callback_ms_per_frame": 0.5451317436762226,
+        "captured_per_second": 59.3,
+        "submit_cpu_ms_per_frame": 0.07018549747048904,
+        "encoded_per_second": 59.3
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 210.19524479203392,
+        "megabytes_per_second": 4.758538150787354,
+        "submit_wall_ms_per_frame": 0.5355411627516778,
+        "submitted_per_second": 59.6,
+        "capture_callback_ms_per_frame": 0.5477083137583892,
+        "captured_per_second": 59.6,
+        "submit_cpu_ms_per_frame": 0.07248993288590604,
+        "encoded_per_second": 59.6
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 220.2116390420124,
+        "megabytes_per_second": 4.805325698852539,
+        "submit_wall_ms_per_frame": 0.5333620761421319,
+        "submitted_per_second": 59.1,
+        "capture_callback_ms_per_frame": 0.5454162605752961,
+        "captured_per_second": 59.1,
+        "submit_cpu_ms_per_frame": 0.07189001692047378,
+        "encoded_per_second": 59.1
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 230.21210529201198,
+        "megabytes_per_second": 4.777871036529541,
+        "submit_wall_ms_per_frame": 0.5389399898819561,
+        "submitted_per_second": 59.3,
+        "capture_callback_ms_per_frame": 0.5513163827993255,
+        "captured_per_second": 59.3,
+        "submit_cpu_ms_per_frame": 0.07211298482293423,
+        "encoded_per_second": 59.3
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 240.21215941698756,
+        "megabytes_per_second": 4.753312587738037,
+        "submit_wall_ms_per_frame": 0.5378161804384486,
+        "submitted_per_second": 59.3,
+        "capture_callback_ms_per_frame": 0.5503523811129849,
+        "captured_per_second": 59.3,
+        "submit_cpu_ms_per_frame": 0.07181112984822935,
+        "encoded_per_second": 59.3
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 250.21280658408068,
+        "megabytes_per_second": 4.801429653167725,
+        "submit_wall_ms_per_frame": 0.5521636134453781,
+        "submitted_per_second": 59.5,
+        "capture_callback_ms_per_frame": 0.5646414201680672,
+        "captured_per_second": 59.5,
+        "submit_cpu_ms_per_frame": 0.07459663865546219,
+        "encoded_per_second": 59.5
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 260.2140595000237,
+        "megabytes_per_second": 4.784739780426025,
+        "submit_wall_ms_per_frame": 0.5506081224832214,
+        "submitted_per_second": 59.6,
+        "capture_callback_ms_per_frame": 0.5627506040268456,
+        "captured_per_second": 59.6,
+        "submit_cpu_ms_per_frame": 0.07233221476510067,
+        "encoded_per_second": 59.6
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 270.2304620840587,
+        "megabytes_per_second": 4.762371253967285,
+        "submit_wall_ms_per_frame": 0.5355666105442176,
+        "submitted_per_second": 58.8,
+        "capture_callback_ms_per_frame": 0.5477067908163266,
+        "captured_per_second": 58.8,
+        "submit_cpu_ms_per_frame": 0.07164965986394557,
+        "encoded_per_second": 58.8
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 280.2470350000076,
+        "megabytes_per_second": 4.82094087600708,
+        "submit_wall_ms_per_frame": 0.5591432558922559,
+        "submitted_per_second": 59.4,
+        "capture_callback_ms_per_frame": 0.5717142070707071,
+        "captured_per_second": 59.4,
+        "submit_cpu_ms_per_frame": 0.07362794612794613,
+        "encoded_per_second": 59.4
+      },
+      {
+        "encode_failures": 0,
+        "thermal_state": 0,
+        "started_at": 290.2609719170723,
+        "megabytes_per_second": 4.635452079772949,
+        "submit_wall_ms_per_frame": 0.557703378238342,
+        "submitted_per_second": 57.9,
+        "capture_callback_ms_per_frame": 0.5701470069084629,
+        "captured_per_second": 57.9,
+        "submit_cpu_ms_per_frame": 0.07404835924006908,
+        "encoded_per_second": 58
+      }
+    ]
+  },
+  "latency_run": {
+    "duration_seconds": 90,
+    "encode_latency_mean_ms_range": [
+      18.05,
+      20.64
+    ],
+    "encode_latency_max_ms": 24.59,
+    "note": "submit-to-callback inside the encoder only; excludes transport, decode and display",
+    "windows": [
+      {
+        "thermal_state": 0,
+        "encode_latency_mean_ms": 18.054089878787877,
+        "encoded_per_second": 59.4,
+        "capture_callback_ms_per_frame": 0.5374833596638655,
+        "encode_latency_max_ms": 24.323376,
+        "submit_wall_ms_per_frame": 0.525881850420168,
+        "encode_failures": 0,
+        "started_at": 0,
+        "captured_per_second": 59.5,
+        "submit_cpu_ms_per_frame": 0.07158991596638656,
+        "submitted_per_second": 59.5,
+        "megabytes_per_second": 4.7734246253967285
+      },
+      {
+        "thermal_state": 0,
+        "encode_latency_mean_ms": 20.415076254208756,
+        "encoded_per_second": 59.4,
+        "capture_callback_ms_per_frame": 0.532941265993266,
+        "encode_latency_max_ms": 23.364292,
+        "submit_wall_ms_per_frame": 0.5212005134680135,
+        "encode_failures": 0,
+        "started_at": 10.014594250009395,
+        "captured_per_second": 59.4,
+        "submit_cpu_ms_per_frame": 0.06854377104377105,
+        "submitted_per_second": 59.4,
+        "megabytes_per_second": 4.777002334594727
+      },
+      {
+        "thermal_state": 0,
+        "encode_latency_mean_ms": 20.46059492385787,
+        "encoded_per_second": 59.1,
+        "capture_callback_ms_per_frame": 0.5443868595600676,
+        "encode_latency_max_ms": 23.206125,
+        "submit_wall_ms_per_frame": 0.5328212639593908,
+        "encode_failures": 0,
+        "started_at": 20.029442584025674,
+        "captured_per_second": 59.1,
+        "submit_cpu_ms_per_frame": 0.07074619289340102,
+        "submitted_per_second": 59.1,
+        "megabytes_per_second": 4.786313247680664
+      },
+      {
+        "thermal_state": 0,
+        "encode_latency_mean_ms": 20.534194474747476,
+        "encoded_per_second": 59.4,
+        "capture_callback_ms_per_frame": 0.5708414831649832,
+        "encode_latency_max_ms": 24.485334,
+        "submit_wall_ms_per_frame": 0.5585712356902357,
+        "encode_failures": 0,
+        "started_at": 30.031421500025317,
+        "captured_per_second": 59.4,
+        "submit_cpu_ms_per_frame": 0.07469360269360269,
+        "submitted_per_second": 59.4,
+        "megabytes_per_second": 4.775075435638428
+      },
+      {
+        "thermal_state": 0,
+        "encode_latency_mean_ms": 20.636253111298483,
+        "encoded_per_second": 59.3,
+        "capture_callback_ms_per_frame": 0.5595743541315346,
+        "encode_latency_max_ms": 24.59,
+        "submit_wall_ms_per_frame": 0.547723089376054,
+        "encode_failures": 0,
+        "started_at": 40.046551333973184,
+        "captured_per_second": 59.3,
+        "submit_cpu_ms_per_frame": 0.07446543001686341,
+        "submitted_per_second": 59.3,
+        "megabytes_per_second": 4.778889942169189
+      },
+      {
+        "thermal_state": 0,
+        "encode_latency_mean_ms": 20.444317152284263,
+        "encoded_per_second": 59.1,
+        "capture_callback_ms_per_frame": 0.5563772318104907,
+        "encode_latency_max_ms": 23.443793,
+        "submit_wall_ms_per_frame": 0.5443600710659899,
+        "encode_failures": 0,
+        "started_at": 50.06127129192464,
+        "captured_per_second": 59.1,
+        "submit_cpu_ms_per_frame": 0.07264636209813875,
+        "submitted_per_second": 59.1,
+        "megabytes_per_second": 4.793494033813476
+      },
+      {
+        "thermal_state": 0,
+        "encode_latency_mean_ms": 20.43323179327731,
+        "encoded_per_second": 59.5,
+        "capture_callback_ms_per_frame": 0.5387593563025209,
+        "encode_latency_max_ms": 23.012833,
+        "submit_wall_ms_per_frame": 0.5272370537815126,
+        "encode_failures": 0,
+        "started_at": 60.07603379199281,
+        "captured_per_second": 59.5,
+        "submit_cpu_ms_per_frame": 0.0717126050420168,
+        "submitted_per_second": 59.5,
+        "megabytes_per_second": 4.773524284362793
+      },
+      {
+        "thermal_state": 0,
+        "encode_latency_mean_ms": 20.48329854974705,
+        "encoded_per_second": 59.3,
+        "capture_callback_ms_per_frame": 0.5453137841483979,
+        "encode_latency_max_ms": 23.60575,
+        "submit_wall_ms_per_frame": 0.5339062411467116,
+        "encode_failures": 0,
+        "started_at": 70.08723433397245,
+        "captured_per_second": 59.3,
+        "submit_cpu_ms_per_frame": 0.07032883642495784,
+        "submitted_per_second": 59.3,
+        "megabytes_per_second": 4.786126518249512
+      },
+      {
+        "thermal_state": 0,
+        "encode_latency_mean_ms": 20.490795993243243,
+        "encoded_per_second": 59.2,
+        "capture_callback_ms_per_frame": 0.5326859221658206,
+        "encode_latency_max_ms": 23.759834,
+        "submit_wall_ms_per_frame": 0.5216699932318105,
+        "encode_failures": 0,
+        "started_at": 80.09061233396642,
+        "captured_per_second": 59.1,
+        "submit_cpu_ms_per_frame": 0.06846362098138747,
+        "submitted_per_second": 59.1,
+        "megabytes_per_second": 4.7500794410705565
+      }
+    ]
+  },
+  "matched_jpeg_comparison": {
+    "source": "docs/jpeg-worker-diagnostics-2026-09-11.json, run \"first\" (cold start, same fixture and rate)",
+    "jpeg_thermal_by_minute": [
+      [
+        0
+      ],
+      [
+        0
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        1,
+        2
+      ],
+      [
+        2
+      ]
+    ],
+    "jpeg_worker_cpu_ms_per_update_by_minute": [
+      7.94,
+      7.9,
+      7.88,
+      8.04,
+      8.82
+    ],
+    "hardware_thermal_by_minute": [
+      [
+        0
+      ],
+      [
+        0
+      ],
+      [
+        0
+      ],
+      [
+        0
+      ],
+      [
+        0
+      ]
+    ],
+    "hardware_submit_cpu_ms_per_frame": 0.073,
+    "interpretation": "Both runs start at thermal state 0 with the same fixture and capture rate. The JPEG path reaches state 2 (serious) by minute 4; the hardware path stays at state 0 for all five minutes."
+  },
+  "limits": [
+    "Decoding was verified off-device with ffmpeg. No VideoToolbox decode path, AVSampleBufferDisplayLayer display, or end-to-end pixel comparison against a reference screenshot was performed.",
+    "No transport: encoded frames were not framed, sent over SSH/USB, decoded or displayed. A real path adds those costs, though 4.8 MB/s is about a tenth of the JPEG path bytes.",
+    "The probe measures only the submit handler, not the render/transfer/prepare work that the JPEG capture_callback figures include. The two are not directly comparable.",
+    "No input latency, pixel quality or image comparison was performed.",
+    "VNC sends only changed regions; a video encoder submits every frame. A static screen costs nothing on the current path and would still cost encoder submissions here unless skipped.",
+    "Capture size 1170x2532 (native) differs from the VNC path aligned 1172x2536.",
+    "Runs began from a cool phone. No warm-start hardware run was performed."
+  ],
+  "decode_validation": {
+    "method": "An 8-second Annex B HEVC elementary stream was captured on the phone, transferred, and decoded on the Mac with ffmpeg/ffprobe.",
+    "stream_bytes": 39931074,
+    "stream_sha256": "de16ffc2f1014cebec42e84a1de7a0d7f2ac2fda46c64a3944c598d21b5a7ab9",
+    "ffprobe": {
+      "codec_name": "hevc",
+      "profile": "Main",
+      "width": 1170,
+      "height": 2532,
+      "pix_fmt": "yuv420p",
+      "level": 153
+    },
+    "frames_decoded": 475,
+    "implied_frame_rate": 59.38,
+    "decode_errors": 0,
+    "visual_check": "A decoded frame was rendered to PNG and matches the phone screen: sharp text, correct colours, the heavy-motion fixture reproduced faithfully.",
+    "result": "The encoded bytes are valid, decodable, visually correct video at full capture rate. This removes the earlier limit that bytes were counted but never decoded."
+  }
+}

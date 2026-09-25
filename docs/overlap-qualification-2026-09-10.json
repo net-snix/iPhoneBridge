@@ -1,0 +1,280 @@
+{
+  "schema_version": 1,
+  "status": "overlap_candidate_native_and_warmed_phone_sink_frame_rate_failed",
+  "candidate": {
+    "daemon_sha256": "ae83019cbec6f4e1e8974fdf93d7f9f3d84cb27ccc715ecbec256e0ddab52f0f",
+    "trollvnc_patch_sha256": "9b945a0391c385bea8641761c416b54d5b64d040ea04e6021849ab6d9d427504",
+    "libvncserver_patch_sha256": "4224799dc07ab2da30e245d53d84b61e9a33be0ffbe77a60d02a0e0e00e62bb6",
+    "static_libraries": {
+      "libjpeg.a": "031dcf5703827840eb7da733ac7652046a31ca7dacd994b742d6fa8d0b7449ae",
+      "liblzo2.a": "08c7a833bad0300129735444e5a0738665660d38e201792dbe7d2dc98f45c0f0",
+      "libpng16.a": "47c913a83284fa60b491c9bab11ceaca9f1c0cba128e9f3c4a0083cab2928c9b",
+      "libturbojpeg.a": "d4967c44b7dff2b9556767e705b72fc6f093c356a3b86b15ec24122bfc1177a9",
+      "libvncserver.a": "480513bfbebbbc58124f7f14761ef0e706cbe0d68f8eee7ba2ec0a44966c3dd5"
+    },
+    "viewer_patch_sha256": "c501684eef3529357b2483e6df7538550c6c4e1a9737242a25a96e1bfada5c2a",
+    "profile": {
+      "capture_fps": 60,
+      "precise_threshold": 60,
+      "defer_seconds": 0,
+      "max_inflight": 1,
+      "scale": 1,
+      "quality": 6,
+      "compression": 2
+    }
+  },
+  "host_checks": {
+    "python_test_methods": 77,
+    "daemon_behavior_cases": 35,
+    "libvncserver_behavior_cases": 11,
+    "viewer_test_cases": 74,
+    "swift_release_build": "passed",
+    "source_provenance": "verified exact compiled sources and all patch pins",
+    "ub_sanitizer": "14 production preparation/publication cases and 11 library cases passed",
+    "address_sanitizer": "not qualified: host runtime stalled before main in earlier harness launch"
+  },
+  "phone_sink": {
+    "started_utc": "2026-09-10T18:53:03Z",
+    "elapsed_seconds": 300.00041562499246,
+    "initial_framebuffer": [
+      1172,
+      2536
+    ],
+    "final_framebuffer": [
+      1172,
+      2536
+    ],
+    "data_updates": 17862,
+    "empty_or_metadata_updates": 0,
+    "data_update_fps": 59.53991751240744,
+    "data_update_gaps_ms": {
+      "50": 16.70954196015373,
+      "95": 18.05583300301805,
+      "99": 19.2654662067071,
+      "100": 106.97533295024186
+    },
+    "payload_bytes": 7904446858,
+    "encoding_counts": {
+      "7": 785926,
+      "-224": 17862
+    },
+    "tight_modes": {
+      "palette-2": 1,
+      "fill": 15,
+      "palette-3": 1,
+      "jpeg": 768041,
+      "palette-94": 1,
+      "palette-37": 2222,
+      "palette-63": 12119,
+      "palette-56": 2214,
+      "palette-62": 1186,
+      "palette-27": 17,
+      "palette-50": 18,
+      "palette-46": 16,
+      "palette-52": 20,
+      "palette-53": 37,
+      "palette-43": 11,
+      "palette-11": 1,
+      "palette-40": 2,
+      "palette-22": 1,
+      "palette-60": 1,
+      "palette-21": 1
+    },
+    "partial_update_at_stop": true,
+    "minute_means": [
+      59.583333333333336,
+      59.56666666666667,
+      59.4,
+      59.55,
+      59.6
+    ],
+    "first30_seconds_mean": 59.6,
+    "last30_seconds_mean": 59.666666666666664,
+    "previous_daemon_restored": true,
+    "preserved_services": {
+      "usb": true,
+      "viewer": true,
+      "fixture_ssh": true,
+      "fixture_server": true
+    }
+  },
+  "native_qualification": {
+    "status": "failed_visible_frame_rate_decline",
+    "collection_started_utc": "2026-09-10T19:07:15.913208+00:00",
+    "collection_elapsed_seconds": 199.81259370897897,
+    "initial_barcode_fps": 55.27185340943226,
+    "late_barcode_fps": 33.89265103245822,
+    "continuous_frame_fps": [
+      53.9568345323741,
+      39.368505195843326,
+      35.37170263788969,
+      34.379372376574054,
+      32.17426059152678,
+      32.18069158504897
+    ],
+    "renderer_footprints_bytes": [
+      145704016,
+      136168504,
+      130483256,
+      133579832,
+      136266808,
+      135021624
+    ],
+    "combined_webkit_footprints_bytes": [
+      353028688,
+      342821456,
+      337136208,
+      342592080,
+      342919760,
+      339348048
+    ],
+    "same_connection_generation": 1,
+    "visibility": "observed continuously; no hidden intervals",
+    "window": {
+      "number": 9132,
+      "bounds": {
+        "Height": 863,
+        "Width": 380,
+        "X": 566,
+        "Y": 93
+      }
+    },
+    "display_id": 1,
+    "image_quality": {
+      "exact_matches": 4,
+      "different_pixels": 0
+    },
+    "input_before": {
+      "completedTrials": 30,
+      "requestedTrials": 30,
+      "p50": 82,
+      "p95": 107.69999999999996,
+      "visibleQualification": true
+    },
+    "stopped_before_22_minutes": true,
+    "previous_daemon_restored_after_profiling": true,
+    "initial_source_sequence": {
+      "first_to_last_sequence_span": 1798,
+      "first_to_last_observation_ms": 29961,
+      "sequence_fps": 60.01134808584493,
+      "uniqueSequences": 1657,
+      "sourceFramesSkipped": 142,
+      "meaning": "Disposable phone fixture increments seq once per requestAnimationFrame. Barcode span tracks source frame iterations; viewer receivedFps counts distinct presented observations."
+    },
+    "slow_source_sequence": {
+      "first_to_last_sequence_span": 1799,
+      "first_to_last_observation_ms": 29977,
+      "sequence_fps": 60.01267638522867,
+      "uniqueSequences": 1017,
+      "sourceFramesSkipped": 783,
+      "meaning": "Disposable phone fixture increments seq once per requestAnimationFrame. Barcode span tracks source frame iterations; viewer receivedFps counts distinct presented observations."
+    }
+  },
+  "limits": [
+    "Sink counts complete RFB payloads while discarding encoded bytes; it does not measure native display speed, pixel quality or input latency.",
+    "Each minute covers 60 seconds of the 300-second collection.",
+    "Thermal state was not instrumented in this normal candidate. Older runs occurred at different times; this is not a thermally matched A/B.",
+    "Temporary phone candidate was restored to prior canonical 3487 after collection; preserved USB, viewer, fixture SSH and fixture server were verified."
+  ],
+  "local_raw_evidence": {
+    "sink_sha256": "031e039e6f65d281e90350dd4361da49511f2a4843946c5e4505e3a293e6089a",
+    "run_sha256": "b74d1a01b9b5572c76bfd872138607e0fcd79289826f259a84afd3dece3c99c3"
+  },
+  "native_slow_profile": {
+    "tool": "Xcode Instruments Time Profiler",
+    "process": "com.apple.WebKit.WebContent",
+    "process_pid": 52559,
+    "started_utc": "2026-09-10T19:12:10.556Z",
+    "elapsed_seconds": 15.632,
+    "sampled_running_ms": 9743.0,
+    "running_rows": 9744,
+    "missing_backtrace_rows": 1,
+    "main_thread_sampled_ms": 7694,
+    "canvas_draw_sampled_ms": 3220,
+    "shareable_bitmap_sampled_ms": 2955,
+    "jpeg_stack_sampled_ms": 2833,
+    "image_loading_stack_sampled_ms": 5771,
+    "gc_stack_sampled_ms": 1119,
+    "interpretation": "Image-load event dispatch includes synchronous canvas drawing, shared bitmap creation and JPEG decoding. Stack categories overlap and are not asynchronous wait durations. This single slow-state profile does not establish the cause of the decline.",
+    "raw_xml_sha256": "abef3db989c93fabbe3a8101ebd401a8e91beee97bcbd4a61b198f5c002cdec4",
+    "hotspots_sha256": "71a585a5d69ddb0f5251af223df7e30a94816e6ad6df6c4b32e6ab80b1815a23"
+  },
+  "phone_hot_sink": {
+    "started_utc": "2026-09-10T19:20:55Z",
+    "elapsed_seconds": 300.0006754579954,
+    "initial_framebuffer": [
+      1172,
+      2536
+    ],
+    "final_framebuffer": [
+      1172,
+      2536
+    ],
+    "data_updates": 9161,
+    "empty_or_metadata_updates": 0,
+    "data_update_fps": 30.536597912702625,
+    "data_update_gaps_ms": {
+      "50": 33.501645462820306,
+      "95": 37.20863513008226,
+      "99": 42.661040556267814,
+      "100": 85.92300000600517
+    },
+    "payload_bytes": 4060186126,
+    "encoding_counts": {
+      "7": 403223,
+      "-224": 9161
+    },
+    "tight_modes": {
+      "palette-2": 1,
+      "fill": 19,
+      "palette-3": 2,
+      "jpeg": 394030,
+      "palette-94": 2,
+      "palette-63": 6231,
+      "palette-37": 1127,
+      "palette-56": 1135,
+      "palette-62": 619,
+      "palette-27": 8,
+      "palette-12": 4,
+      "palette-11": 3,
+      "palette-53": 16,
+      "palette-52": 3,
+      "palette-50": 8,
+      "palette-43": 6,
+      "palette-46": 6,
+      "palette-42": 1,
+      "palette-22": 1
+    },
+    "partial_update_at_stop": true,
+    "minute_means": [
+      34.38333333333333,
+      29.7,
+      29.55,
+      29.533333333333335,
+      29.516666666666666
+    ],
+    "first30_seconds_mean": 38.9,
+    "last30_seconds_mean": 29.566666666666666,
+    "first15_seconds": [
+      58,
+      59,
+      59,
+      60,
+      60,
+      60,
+      59,
+      59,
+      55,
+      40,
+      31,
+      30,
+      30,
+      30,
+      30
+    ],
+    "previous_daemon_restored": true,
+    "sink_sha256": "0d0d37ab2d940b1982a644bfb49c7660ecdf6bdce6f01c3f02857e408012fe69",
+    "run_sha256": "b74d1a01b9b5572c76bfd872138607e0fcd79289826f259a84afd3dece3c99c3",
+    "interpretation": "After the slow native session, the same source-built daemon was restarted through the owned candidate runner with no native viewer. Source fixture remained in heavy motion. Initial delivery near60fps collapsed to29\u201330fps by the11th second. Native rendering is not necessary to reproduce the slowdown; source overlap alone does not sustain60fps under these later conditions. Thermal state was not instrumented."
+  }
+}
