@@ -7,9 +7,11 @@ version=$(cat VERSION)
 app="$root/iPhoneBridge.app"
 mkdir -p work
 stage=$(mktemp -d "$root/work/app-build.XXXXXX")/iPhoneBridge.app
-swift build -c release --arch arm64 -Xswiftc -file-prefix-map -Xswiftc "$root=." -Xswiftc -no-toolchain-stdlib-rpath
+flags=(-c release --arch arm64 -Xswiftc -file-prefix-map -Xswiftc "$root=." -Xswiftc -no-toolchain-stdlib-rpath)
+swift build "${flags[@]}"
+# The product directory depends on SwiftPM's build engine (Swift Build since Xcode 27).
 mkdir -p "$stage/Contents/MacOS" "$stage/Contents/Resources"
-cp .build/arm64-apple-macosx/release/iPhoneBridge "$stage/Contents/MacOS/iPhoneBridge"
+cp "$(swift build "${flags[@]}" --show-bin-path)/iPhoneBridge" "$stage/Contents/MacOS/iPhoneBridge"
 # SwiftPM can add its build toolchain's Swift search path even when the compiler
 # uses the OS runtime. macOS 26 supplies Swift; remove only that build-host path.
 /usr/bin/python3 - "$stage/Contents/MacOS/iPhoneBridge" <<'PY'
