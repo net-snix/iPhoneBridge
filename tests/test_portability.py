@@ -1,10 +1,11 @@
 import json
+import socket
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from iphonebridge import deployment, lifecycle, settings, transport
+from iphonebridge import deployment, lifecycle, processes, settings, transport
 from iphonebridge.runtime import Paths
 
 
@@ -38,7 +39,7 @@ class PortabilityTests(unittest.TestCase):
         source = self.root / "source"
         source.mkdir()
         (source / "dependency-lock.json").write_text(json.dumps({"novnc": {"path": "work/vendor/noVNC"}}))
-        paths = Paths.discover(source, environ={})
+        paths = Paths.discover(source, home=self.root / "Different User", environ={})
         with patch.dict("os.environ", {"IPHONEBRIDGE_NOVNC_SOURCE": "custom/noVNC"}):
             self.assertEqual(paths.novnc, source.resolve() / "custom/noVNC")
             self.assertEqual(self.paths.novnc, self.paths.root / "novnc")
@@ -66,13 +67,72 @@ class PortabilityTests(unittest.TestCase):
         self.assertEqual(args[args.index("-F") + 1], "/dev/null")
 
     def test_unknown_usb_listener_is_never_reused_or_stopped(self):
-        with patch.object(lifecycle, "usb_owned", return_value=False), \
-             patch.object(lifecycle, "usb_listeners", return_value={123: {"127.0.0.1:15422"}}), \
-             patch.object(lifecycle, "spawn") as spawn, patch.object(lifecycle.os, "kill") as kill:
-            with self.assertRaisesRegex(RuntimeError, "unverified process"):
-                lifecycle.ensure_usb({"connection": {"udid": "a" * 24}})
-            spawn.assert_not_called()
-            kill.assert_not_called()
+        for identity in ("", "Sun Oct 18 00:10:21 2026     /usr/bin/nc -l 15422"):
+            with self.subTest(identity=identity), \
+                 patch.object(lifecycle, "usb_owned", return_value=False), \
+                 patch.object(lifecycle, "usb_listeners", return_value={123: {"127.0.0.1:15422"}}), \
+                 patch.object(processes, "process_identity", return_value=identity), \
+                 patch.object(processes, "process_cwd", return_value="/tmp"), \
+                 patch.object(lifecycle, "spawn") as spawn, patch.object(lifecycle.os, "kill") as kill:
+                with self.assertRaisesRegex(RuntimeError, "unverified process"):
+                    lifecycle.ensure_usb({"connection": {"udid": "a" * 24}})
+                spawn.assert_not_called()
+                kill.assert_not_called()
+
+    def test_foreign_bridge_forward_is_named_but_never_stopped(self):
+        identity = ("Sun Oct 18 00:10:21 2026     /opt/homebrew/bin/iproxy -l -s 127.0.0.1 -u "
+                    + "a" * 24 + " 15422:22")
+        cases = (("/tmp/checkout", "the bridge checkout at /tmp/checkout; run ./bridge stop in that checkout"),
+                 ("/Applications/iPhoneBridge.app/Contents/Resources/bridge",
+                  "the iPhoneBridge app at /Applications/iPhoneBridge.app; quit that app or use its Reconnect"))
+        for cwd, expected in cases:
+            with self.subTest(cwd=cwd), \
+                 patch.object(lifecycle, "usb_owned", return_value=False), \
+                 patch.object(lifecycle, "usb_listeners", return_value={41125: {"127.0.0.1:15422"}}), \
+                 patch.object(processes, "process_identity", return_value=identity), \
+                 patch.object(processes, "process_cwd", return_value=cwd), \
+                 patch.object(lifecycle, "spawn") as spawn, patch.object(lifecycle.os, "kill") as kill:
+                with self.assertRaises(RuntimeError) as caught:
+                    lifecycle.ensure_usb({"connection": {"udid": "a" * 24}})
+                message = str(caught.exception)
+                for fragment in ("USB port 15422", "USB forward", "pid 41125", "started Sun Oct 18 00:10:21 2026",
+                                 expected, "nothing was stopped"):
+                    self.assertIn(fragment, message)
+                spawn.assert_not_called()
+                kill.assert_not_called()
+
+    def test_occupied_viewer_port_names_the_bridge_that_holds_it(self):
+        identity = ("Sun Oct 18 00:10:30 2026     /x/.venv/bin/python -m websockify --web /w "
+                    "127.0.0.1:15801 127.0.0.1:15901")
+        with socket.socket() as held:
+            held.bind(("127.0.0.1", 0))
+            held.listen(1)
+            port = held.getsockname()[1]
+            with patch.object(lifecycle, "listeners", return_value={777: {f"127.0.0.1:{port}"}}), \
+                 patch.object(processes, "process_identity", return_value=identity), \
+                 patch.object(processes, "process_cwd", return_value="/x"), \
+                 patch.object(lifecycle.os, "kill") as kill:
+                with self.assertRaisesRegex(RuntimeError, "iPhoneBridge viewer .*checkout at /x.*nothing was stopped"):
+                    lifecycle.available(port)
+                kill.assert_not_called()
+
+    def test_source_runs_share_the_user_data_directory(self):
+        source = self.root / "source"
+        source.mkdir()
+        home = self.root / "Different User"
+        paths = Paths.discover(source, home=home, environ={})
+        self.assertEqual(paths.data, home / "Library/Application Support/iPhoneBridge")
+        self.assertEqual(paths.instance, source.resolve())
+        self.assertEqual(paths.legacy_data, source.resolve() / "work")
+        self.assertEqual(paths.screenshots, source.resolve() / "outputs/screenshots")
+        for private in (source / "work", self.root / "private"):
+            sandbox = Paths.discover(source, home=home, environ={"IPHONEBRIDGE_DATA_DIR": str(private)})
+            self.assertEqual(sandbox.data, private)
+            self.assertIsNone(sandbox.legacy_data)  # A sandbox never adopts the checkout's records.
+        explicit = Paths.discover(source, home=home, environ={"IPHONEBRIDGE_DATA_DIR": str(paths.data)})
+        self.assertEqual(explicit.legacy_data, source.resolve() / "work")
+        self.assertEqual(self.paths.instance, (self.root / "Relocated App.app").resolve())
+        self.assertIsNone(self.paths.legacy_data)
 
     def test_device_artifact_tamper_fails_before_deployment(self):
         self.paths.device.mkdir(parents=True)

@@ -10,9 +10,12 @@ from . import lifecycle
 def main():
     parser = argparse.ArgumentParser(prog="iphonebridge", description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("setup", "deploy", "connect", "start", "stop", "status", "devices", "health",
+    for name in ("setup", "deploy", "connect", "start", "status", "devices", "health",
                  "screenshot", "mcp", "mirror", "viewer", "test-surface", "self-test"):
         commands.add_parser(name)
+    stop = commands.add_parser("stop", help="End the recorded bridge session")
+    stop.add_argument("--own", action="store_true",
+                      help="Only a session this app or checkout started; others are left running")
     configure = commands.add_parser("configure", help="Select a USB device and optional existing SSH key")
     device_options = configure.add_mutually_exclusive_group()
     device_options.add_argument("--udid")
@@ -65,7 +68,9 @@ def main():
     if args.command == "configure":
         result = lifecycle.configure(udid=args.udid, identity=args.identity,
                                      clear_udid=args.clear_udid, clear_identity=args.clear_identity)
-    elif args.command in ("deploy", "connect", "start", "stop", "status", "devices", "health"):
+    elif args.command == "stop":
+        result = lifecycle.stop(own_only=args.own)
+    elif args.command in ("deploy", "connect", "start", "status", "devices", "health"):
         result = getattr(lifecycle, args.command)()
     else:
         from . import control

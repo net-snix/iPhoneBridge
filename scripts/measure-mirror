@@ -11,8 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from iphonebridge.runtime import PATHS  # noqa: E402
 
-# Source checkouts exchange requests and reports in work/. To drive the packaged
-# app's benchmark instead, point IPHONEBRIDGE_DATA_DIR at its data folder.
+# Source checkouts and the app share the bridge data directory for requests and
+# reports. Point IPHONEBRIDGE_DATA_DIR at a sandbox to drive a private instance.
 WORK = PATHS.data
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('label')

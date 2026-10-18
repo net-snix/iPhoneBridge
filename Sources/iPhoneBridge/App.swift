@@ -385,10 +385,11 @@ final class MirrorApp: NSObject, NSApplicationDelegate, NSWindowDelegate, NSTool
         if quitting { return .terminateLater }
         quitting = true
         updateNavigationControls()
-        // Finish an in-progress start/stop before issuing the final owned cleanup.
+        // Finish an in-progress start/stop, then end only a session this app started;
+        // a session a checkout or agent started through the shared record stays up.
         Task { @MainActor in
             while command != nil { try? await Task.sleep(for: .milliseconds(100)) }
-            runBridge(["stop"]) { _, _ in NSApp.reply(toApplicationShouldTerminate: true) }
+            runBridge(["stop", "--own"]) { _, _ in NSApp.reply(toApplicationShouldTerminate: true) }
         }
         return .terminateLater
     }

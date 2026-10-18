@@ -186,7 +186,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("probe", "png", "usb", "capture", "mcp"))
     parser.add_argument("--data-dir", type=Path, default=control.WORK,
-                        help="Saved USB state; other modes use IPHONEBRIDGE_DATA_DIR")
+                        help="Directory holding the saved USB state (default: the shared bridge data directory)")
     parser.add_argument("--command", default=str(ROOT / "bridge"), help="MCP launcher to measure")
     parser.add_argument("--cipher", choices=("aes128-gcm@openssh.com", "chacha20-poly1305@openssh.com"),
                         help="USB probe only; affects these diagnostic SSH sessions")

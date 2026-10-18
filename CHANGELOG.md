@@ -2,6 +2,14 @@
 
 ## 0.2.2 — Unreleased candidate
 
+- Share one data directory between the app and source checkouts, so a session
+  started from any checkout or agent is seen, attributed, and recovered by every
+  other instance instead of blocking it with "USB port 15422 belongs to an
+  unverified process". `connect` finishes the cleanup of a session whose device
+  link ended and refuses, naming the owner, while it is live. Quitting the app
+  runs `stop --own` and leaves sessions it did not start running. Port collisions
+  name the checkout or app whose forward holds the port, and a record left in a
+  checkout's `work/` by older bridge code is adopted on first use.
 - Pace screen capture to the rate the phone's encoder actually sustains, ending the
   over-drive loop that discarded about a third of all captured frames and turned a
   60 fps mirror into an erratic 17-19 fps one after a few minutes of use.
