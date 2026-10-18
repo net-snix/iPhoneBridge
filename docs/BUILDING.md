@@ -33,15 +33,20 @@ unrelated checkout. Binary reproducibility across toolchains is not promised.
 
 ```sh
 swift build -c release
-IPHONEBRIDGE_HELPER="$PWD/bridge" IPHONEBRIDGE_DATA_DIR="$PWD/work" \
-  .build/release/iPhoneBridge
+IPHONEBRIDGE_HELPER="$PWD/bridge" .build/release/iPhoneBridge
 ```
 
 The standalone SwiftPM executable supports source development without assembling
-or signing a Mac app bundle. `--attach` connects to an already-running native
-endpoint and leaves its service lifecycle to the caller. It is useful when
-comparing or qualifying a candidate through `./bridge start` / `./bridge stop`.
-Normal app launches own their connection and stop it on quit.
+or signing a Mac app bundle. It shares `~/Library/Application Support/iPhoneBridge/`
+with the installed app and every source checkout, so `status` anywhere shows the
+session it starts and names this checkout as the owner; one bridge session exists
+per Mac. Set `IPHONEBRIDGE_DATA_DIR` to an absolute private directory only for a
+sandboxed run that must neither see nor recover other sessions. `--attach` connects
+to an already-running native endpoint and leaves its service lifecycle to the
+caller. It is useful when comparing or qualifying a candidate through
+`./bridge start` / `./bridge stop`. Normal app launches own their connection and
+end it on quit (`stop --own`); a session another checkout or agent started is
+left running.
 
 `./scripts/build-app` assembles the self-contained app, including Python, USB
 utilities, original notices and the verified phone payload, and ad-hoc signs the

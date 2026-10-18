@@ -2,6 +2,14 @@
 
 ## Native HEVC — Unreleased development branch
 
+- Share one data directory between the app and source checkouts, so a session
+  started from any checkout or agent is seen, attributed, and recovered by every
+  other instance instead of blocking it with "USB port 15422 belongs to an
+  unverified process". `connect` finishes the cleanup of a session whose device
+  link ended and refuses, naming the owner, while it is live. Quitting the app
+  runs `stop --own` and leaves sessions it did not start running. Port collisions
+  name the checkout or app whose forward holds the port, and a record left in a
+  checkout's `work/` by older bridge code is adopted on first use.
 - Pin the project's Codex baseline to GPT-6 Astra and document native MCP setup.
 - Require screenshot generation on CLI/MCP input, rejecting stale coordinates
   even when a rotation keeps the same framebuffer dimensions.

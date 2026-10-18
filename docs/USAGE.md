@@ -105,8 +105,13 @@ and [MCP configuration](https://learn.chatgpt.com/docs/extend/mcp).
 
 ## Recovery and diagnostics
 
-The app writes to `~/Library/Application Support/iPhoneBridge/`. Source runs use
-ignored `work/` and `outputs/screenshots/`. Use `status`, `health`, and logs under
+The app and every source checkout share `~/Library/Application Support/iPhoneBridge/`
+for settings, logs, the cleanup record (`state.json`) and its locks, so one bridge
+session exists per Mac and `status` names the checkout or app that started it.
+Source runs keep build inputs in ignored `work/` and screenshots in
+`outputs/screenshots/`. `IPHONEBRIDGE_DATA_DIR` selects a private data directory for
+tests and benchmarks; it isolates the cleanup record too, so a sandboxed run can
+neither see nor recover other sessions. Use `status`, `health`, and logs under
 `logs/` to diagnose a connection. The standalone `self-test` checks bundled imports
 and payload integrity without contacting the phone.
 
@@ -115,6 +120,28 @@ cleanup cannot be confirmed remotely, ownership records remain for safe recovery
 Do not delete `state.json` to bypass a cleanup failure. The bridge owns USB SSH
 port 15422, native mirror port 15901, and optional fixture port 15802.
 An occupied unrelated port is an error, not permission to terminate its owner.
+
+`connect` finishes the cleanup of a recorded session whose device link has ended
+before starting a new one. While the recorded session is still live, `connect`
+refuses and names who started it; `stop` (or Reconnect in the app) replaces it
+deliberately. Quitting the app runs `stop --own`, which ends only a session the app
+itself started, so an agent's session from a checkout survives. Messages and what
+to do:
+
+- "… is still running; run stop (Reconnect in the app) to replace it": another
+  checkout or the app is using the phone; take it over only if that is intended.
+- "… held by an iPhoneBridge USB forward … run from the bridge checkout at …": that
+  checkout runs older bridge code with its own `work/state.json`; run `./bridge stop`
+  there. Nothing was stopped for you.
+- "A bridge command from older code is still running in …; wait and retry": wait for it.
+- "run stop again to clean the record left by older bridge code": a checkout was
+  upgraded with a session still recorded in `work/`; the second `stop` adopts it.
+
+The record is a schema 2 JSON object. Values shaped `{"pid", "identity"}` are
+processes the bridge started and stops in reverse start order, the USB forward
+last; `owner` names the instance
+and start time and is absent in records written by older code. On the phone,
+`device-session.sh stop <token>` is the cleanup interface every instance relies on.
 
 `test-surface` serves a disposable HTML fixture through an optional USB reverse
 forward. Open `http://127.0.0.1:15802/test.html` in phone Safari as a separate action.

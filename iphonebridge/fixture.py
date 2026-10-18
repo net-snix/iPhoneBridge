@@ -5,6 +5,7 @@ from . import lifecycle as life
 def start():
     with life.locked():
         info = life.state()
+        life.refuse_unadopted_legacy(info)
         if not life.owned_process(info.get("ssh")):
             raise RuntimeError("Start the bridge before starting its test surface")
         if info.get("fixture_server") or info.get("fixture_ssh"):

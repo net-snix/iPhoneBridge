@@ -1,4 +1,9 @@
-"""Own the USB tunnel and native device session; never shared forwards."""
+"""Own the USB tunnel and native device session; never shared forwards.
+
+Every instance (the app and each source checkout) keeps its records in the shared
+data directory, so a session started anywhere is seen, attributed and recovered by
+every other instance. Only recorded processes are ever signalled.
+"""
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -6,6 +11,7 @@ import fcntl
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import socket
 import subprocess
@@ -14,6 +20,7 @@ import uuid
 
 from . import deployment, settings, transport
 from .mirror_protocol import Client
+from .processes import describe_instance, listeners, port_held_message, process_identity
 from .runtime import PATHS
 
 ROOT = PATHS.root
@@ -23,13 +30,14 @@ REMOTE = deployment.REMOTE
 MIRROR_PORT = 15901
 DEVICE_PORT = 15901
 PEER = transport.PEER
-run = transport.run
+TOKEN = re.compile(r"[0-9a-f]{32}")
 
 
 @contextmanager
 def locked():
     WORK.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with (WORK / "lifecycle.lock").open("a+") as lock:
+    fd = os.open(WORK / "lifecycle.lock", os.O_CREAT | os.O_RDWR, 0o600)
+    with os.fdopen(fd, "r+") as lock:
         deadline = time.monotonic() + 40
         while True:
             try:
@@ -40,27 +48,51 @@ def locked():
                     raise RuntimeError("Another bridge lifecycle command is still running") from None
                 time.sleep(0.05)
         try:
+            _adopt_legacy_record()
             yield
         finally:
             fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 def state():
-    return json.loads(STATE.read_text()) if STATE.exists() else {}
-
-
-def process_identity(pid):
-    if type(pid) is not int or pid <= 1:
-        return ""
     try:
-        return run(["/bin/ps", "-p", str(pid), "-o", "lstart=,command="])
-    except subprocess.CalledProcessError:
-        return ""
+        return json.loads(STATE.read_text())
+    except FileNotFoundError:
+        return {}
 
 
 def owned_process(entry):
     return bool(isinstance(entry, dict) and entry.get("identity")
                 and process_identity(entry.get("pid")) == entry["identity"])
+
+
+def recorded_processes(info):
+    """Every entry shaped like a spawned process, in reverse start order: the USB forward goes last."""
+    order = {"fixture_ssh": -2, "fixture_server": -1, "viewer": 1, "ssh": 2, "usb": 3}
+    names = [name for name, entry in info.items()
+             if isinstance(entry, dict) and type(entry.get("pid")) is int and entry.get("identity")]
+    return sorted(names, key=lambda name: (order.get(name, 0), name))
+
+
+def instance_root():
+    """The path people know this instance by: the app bundle or the source checkout."""
+    return str(PATHS.instance)
+
+
+def describe_session(info):
+    owner = info.get("owner") if isinstance(info.get("owner"), dict) else {}
+    if owner.get("root"):
+        return f"the bridge session started {owner.get('started')} from {describe_instance(owner['root'])}"
+    try:
+        written = time.strftime(" (record written %Y-%m-%d %H:%M:%S)", time.localtime(STATE.stat().st_mtime))
+    except OSError:
+        written = ""
+    return "the bridge session recorded by an older bridge instance" + written
+
+
+def started_here(info):
+    owner = info.get("owner")
+    return isinstance(owner, dict) and owner.get("root") == instance_root()
 
 
 def save_state(info):
@@ -69,6 +101,52 @@ def save_state(info):
     temporary.write_text(json.dumps(info, indent=2) + "\n")
     temporary.chmod(0o600)
     temporary.replace(STATE)
+
+
+def legacy_record():
+    """A record that bridge code before 0.2.2 left in this checkout's work/, if one remains."""
+    legacy = PATHS.legacy_data
+    path = legacy / "state.json" if legacy else None
+    return path if path is not None and path.exists() else None
+
+
+def refuse_unadopted_legacy(info):
+    path = legacy_record()
+    if path:
+        raise RuntimeError(f"{describe_session(info)} is recorded in {STATE}, and {path} still holds a "
+                           "record left by older bridge code in this checkout; run stop twice first")
+
+
+def _adopt_legacy_record():
+    """Move an older checkout record into the shared directory, never while old code may be using it."""
+    path = legacy_record()
+    if not path:
+        return
+    with path.with_name("lifecycle.lock").open("a+") as held:
+        try:
+            fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RuntimeError(f"A bridge command from older code is still running in {PATHS.root}; "
+                               "wait and retry") from None
+        try:
+            if STATE.exists():
+                return  # Clearing the shared record (stop) comes first; the next command adopts this one.
+            try:
+                written = path.stat().st_mtime
+                info = json.loads(path.read_text())
+            except FileNotFoundError:
+                return  # Older code finished its stop while this command waited for its lock.
+            except (OSError, ValueError):
+                info = None
+            if not (isinstance(info, dict) and info.get("schema_version") == 2
+                    and isinstance(info.get("token"), str) and TOKEN.fullmatch(info["token"])):
+                raise RuntimeError(f"Unrecognized bridge record at {path}; stop it with the bridge code that wrote it")
+            info["owner"] = {"root": instance_root(), "adopted": True,
+                             "started": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(written))}
+            save_state(info)
+            path.unlink()
+        finally:
+            fcntl.flock(held, fcntl.LOCK_UN)
 
 
 def spawn(args, name, info, field):
@@ -95,24 +173,16 @@ def available(port):
         try:
             sock.bind(("127.0.0.1", port))
         except OSError:
-            raise RuntimeError(f"Local port {port} is already in use; no existing process was changed") from None
+            try:
+                held = listeners(port)
+            except (RuntimeError, subprocess.SubprocessError):
+                held = {}
+            raise RuntimeError(port_held_message(
+                port, held, f"Local port {port} is already in use; no existing process was changed")) from None
 
 
 def usb_listeners():
-    result = subprocess.run(["/usr/sbin/lsof", "-nP", "-iTCP:" + str(transport.SSH_PORT),
-                             "-sTCP:LISTEN", "-Fpn"], capture_output=True, text=True, timeout=5)
-    if result.returncode == 1 and not result.stdout.strip():
-        return {}
-    if result.returncode != 0:
-        raise RuntimeError("Cannot inspect ownership of the local USB port")
-    listeners = {}
-    pid = None
-    for line in result.stdout.splitlines():
-        if line.startswith("p"):
-            pid = int(line[1:])
-        elif line.startswith("n") and pid:
-            listeners.setdefault(pid, set()).add(line[1:])
-    return listeners
+    return listeners(transport.SSH_PORT)
 
 
 def usb_owned(info):
@@ -124,8 +194,11 @@ def usb_owned(info):
 def ensure_usb(info):
     if usb_owned(info):
         return
-    if usb_listeners():
-        raise RuntimeError("USB port 15422 belongs to an unverified process; nothing was stopped")
+    held = usb_listeners()
+    if held:
+        raise RuntimeError(port_held_message(
+            transport.SSH_PORT, held,
+            f"USB port {transport.SSH_PORT} belongs to an unverified process; nothing was stopped", "USB port"))
     connection = info["connection"]
     settings.select_device(transport.identifiers(PATHS), connection["udid"])
     available(transport.SSH_PORT)
@@ -159,6 +232,7 @@ def _new_session():
     config = settings.load(PATHS)
     udid = settings.select_device(transport.identifiers(PATHS), config["udid"])
     info = {"schema_version": 2, "token": uuid.uuid4().hex, "remote_started": False,
+            "owner": {"root": instance_root(), "started": time.strftime("%Y-%m-%d %H:%M:%S")},
             "connection": transport.connection_snapshot(config, udid, PATHS)}
     save_state(info)
     ensure_usb(info)
@@ -188,8 +262,8 @@ def _stop_services():
         except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
             error = exc
     local_errors = []
-    for name in ("fixture_ssh", "fixture_server", "viewer", "ssh", "usb"):
-        entry = info.get(name)
+    for name in recorded_processes(info):
+        entry = info[name]
         if not owned_process(entry):
             continue
         try:
@@ -205,14 +279,35 @@ def _stop_services():
     if local_errors:
         raise RuntimeError(f"Owned processes did not exit: {', '.join(local_errors)}; state preserved")
     if error:
-        raise RuntimeError("Local services stopped; reconnect USB and run stop to finish remote cleanup") from error
+        detail = f": {error}" if isinstance(error, RuntimeError) else ""  # Bridge-authored text only.
+        raise RuntimeError("Local services stopped; remote cleanup is pending" + detail
+                           + "; reconnect USB and run stop to finish it") from error
     STATE.unlink()
     return {"stopped": True, "shared_tunnels_touched": False}
 
 
-def stop():
+def stop(own_only=False):
+    """End the recorded session; with own_only, only one this app or checkout started."""
     with locked():
-        return stop_unlocked()
+        info = state()
+        if own_only and info and not started_here(info):
+            return {"stopped": False, "shared_tunnels_touched": False,
+                    "kept": f"{describe_session(info)} was not started by {describe_instance(instance_root())}"}
+        result = stop_unlocked()
+        remaining = legacy_record()
+        if remaining:
+            result["remaining_record"] = str(remaining)
+            result["next"] = "run stop again to clean the record left by older bridge code in this checkout"
+        return result
+
+
+def _recover(existing):
+    """The recorded device session has ended; finish its cleanup before starting a new one."""
+    try:
+        stop_unlocked()
+    except (OSError, subprocess.SubprocessError, RuntimeError) as error:
+        raise RuntimeError(f"Recovering {describe_session(existing)} failed: {error}; its record was kept, "
+                           "so run stop and connect again") from error
 
 
 def _cleanup_failed_start():
@@ -225,8 +320,9 @@ def _cleanup_failed_start():
 def deploy():
     """Deploy verified artifacts with a temporary, bridge-owned USB connection."""
     with locked():
-        if state():
-            raise RuntimeError("Stop the bridge before deploying")
+        existing = state()
+        if existing:
+            raise RuntimeError(f"Stop the bridge before deploying; {describe_session(existing)} is recorded")
         deployment.artifacts(PATHS)
         try:
             info = _new_session()
@@ -246,7 +342,11 @@ def connect():
             result = status()
             if result["connected"]:
                 return result
-            raise RuntimeError("Previous bridge ownership is still recorded; run stop before connecting again")
+            refuse_unadopted_legacy(existing)
+            if owned_process(existing.get("ssh")):
+                raise RuntimeError(f"{describe_session(existing)} is still running; "
+                                   "run stop (Reconnect in the app) to replace it")
+            _recover(existing)
         deployment.artifacts(PATHS)
         available(MIRROR_PORT)
         try:
@@ -292,11 +392,14 @@ def status():
             connected = usb_owned(info) and bool(handshake())
         except (OSError, RuntimeError, subprocess.SubprocessError):
             pass
+    remaining = legacy_record()
     return {"running": running, "connected": connected, "viewer": "native",
             "endpoint": "127.0.0.1:15901", "protocol": "IPBM/1" if connected else None,
+            "owner": info.get("owner"),
             "selected_udid": info.get("connection", {}).get("udid") or config["udid"],
             "services": services, "settings": config, "data_directory": str(WORK),
-            "config_path": str(WORK / "config.json")}
+            "config_path": str(WORK / "config.json"),
+            **({"legacy_record": str(remaining)} if remaining else {})}
 
 
 def devices():
@@ -317,9 +420,10 @@ def health():
         result["checks"]["usb"] = {"ok": bool(discovered["devices"])}
     except (OSError, subprocess.SubprocessError, RuntimeError) as error:
         result["checks"]["usb"] = {"ok": False, "detail": str(error)}
-    if state().get("connection") and result["services"]["usb"]:
+    connection = state().get("connection")
+    if connection and result["services"]["usb"]:
         try:
-            version = transport.verify_phone(state()["connection"], PATHS)
+            version = transport.verify_phone(connection, PATHS)
             result["checks"]["phone"] = {"ok": True, "ios": version}
         except (OSError, subprocess.SubprocessError, RuntimeError) as error:
             result["checks"]["phone"] = {"ok": False, "detail": str(error)}

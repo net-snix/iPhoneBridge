@@ -161,7 +161,7 @@ For video cadence, open the same phone page with `mode=motion` or `mode=sparse`,
 ./scripts/measure-mirror my-motion-run --mode animation --duration-ms 10000
 ```
 
-The fixture and metrics server bind to Mac loopback; the phone reaches the fixture through the existing bridge-owned USB reverse forward. Requests and reports stay in `work/`. The input runner requires a recognized barcode, rejects the animation flag, waits up to two seconds for a stable input fixture, releases each key after 20 ms, and aborts on an unexpected/missing response. It never retries an uncertain input. Animation measurement sends no input.
+The fixture and metrics server bind to Mac loopback; the phone reaches the fixture through the existing bridge-owned USB reverse forward. Requests and reports stay in the bridge data directory (`~/Library/Application Support/iPhoneBridge/` unless `IPHONEBRIDGE_DATA_DIR` is set). The input runner requires a recognized barcode, rejects the animation flag, waits up to two seconds for a stable input fixture, releases each key after 20 ms, and aborts on an unexpected/missing response. It never retries an uncertain input. Animation measurement sends no input.
 
 Keep the app window visible during speed checks. When explicitly wanted,
 `--benchmark-visible` keeps the test window on top and

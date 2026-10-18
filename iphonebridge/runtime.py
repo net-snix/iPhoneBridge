@@ -1,4 +1,10 @@
-"""Resolve immutable resources and user-owned state for source and bundled runs."""
+"""Resolve immutable resources and user-owned state for source and bundled runs.
+
+Resources are read from the checkout or the app bundle. Runtime state lives in one
+per-user data directory shared by the app and every source checkout, so a bridge
+session started anywhere is visible to every other instance. IPHONEBRIDGE_DATA_DIR
+selects a private directory for tests and benchmarks and isolates its records too.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,6 +21,9 @@ class Paths:
     root: Path
     contents: Path | None
     data: Path
+    # Where bridge code before 0.2.2 kept this checkout's records; only a source run on
+    # the shared data directory may adopt them, so a sandbox never moves a live record.
+    legacy_data: Path | None = None
 
     @classmethod
     def discover(cls, root=None, home=None, environ=None):
@@ -24,15 +33,21 @@ class Paths:
         contents = root.parent.parent if (root.name == "bridge" and root.parent.name == "Resources"
                                           and root.parent.parent.name == "Contents") else None
         override = environ.get("IPHONEBRIDGE_DATA_DIR")
-        data = Path(override).expanduser() if override else (
-            home / "Library/Application Support/iPhoneBridge" if contents else root / "work")
+        shared = home / "Library/Application Support/iPhoneBridge"
+        data = Path(override).expanduser() if override else shared
         if not data.is_absolute():
             raise RuntimeError("IPHONEBRIDGE_DATA_DIR must be an absolute directory")
-        return cls(root, contents, data)
+        legacy = root / "work" if contents is None and data == shared else None
+        return cls(root, contents, data, legacy)
 
     @property
     def logs(self):
         return self.data / "logs"
+
+    @property
+    def instance(self):
+        """The path people know this instance by: the app bundle or the source checkout."""
+        return self.contents.parent if self.contents else self.root
 
     @property
     def screenshots(self):

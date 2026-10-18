@@ -44,7 +44,7 @@ The initial release is **ad-hoc signed, without Apple notarization**. macOS may 
 
 Keep the phone awake and unlocked. Use **View → Reconnect** after reconnecting a cable. To close a phone app, open App Switcher, find its card, and drag it upward off the screen. Home follows the phone's native behavior: from the switcher, it may first return to the selected app.
 
-Quitting stops this bridge's recorded processes, including an agent session using the same connection. Unrelated tunnels are preserved. The app deploys its own daemon under `/var/mobile/Media/iPhoneBridge`; it does not install a jailbreak, update iOS, or add a persistent service.
+Quitting stops the session the app started; a session an agent started from a source checkout keeps running, and Reconnect replaces it deliberately. Unrelated tunnels are preserved. The app deploys its own daemon under `/var/mobile/Media/iPhoneBridge`; it does not install a jailbreak, update iOS, or add a persistent service.
 
 **Current limits:** single-finger input; ASCII typing with a US hardware keyboard mapping; SDR sRGB capture; no pinch/multitouch, audio forwarding, notifications, or locked-phone continuity. Display P3 and HDR preservation are unsupported by the retained capture API. Rotation changes the declared framebuffer dimensions. Human and agent connections use an exclusive input lease; competing input receives a busy error.
 
@@ -83,7 +83,7 @@ flowchart LR
 
 All listeners bind to loopback. SSH authenticates and protects the USB hop; the local protocol has no separate password, so local processes on either device can reach its endpoint. The daemon has no clipboard sharing, file transfer, Bonjour, or HTTP server. One connection receives video; separate control connections request lossless stills and input ownership. [Protocol details](docs/mirror-protocol.md) describe framing, bounded queues, recovery and coordinates.
 
-Settings, logs, screenshots, and cleanup records live in `~/Library/Application Support/iPhoneBridge/`. SSH host keys are kept in a separate known-hosts file. Device selection never resets USB pairing. See [validation](VALIDATION.md) for what was actually tested.
+Settings, logs, and cleanup records live in `~/Library/Application Support/iPhoneBridge/` for the app and for source checkouts alike, so one bridge session exists per Mac and any instance can see, attribute, and recover it. The app keeps screenshots there too; source runs keep theirs in `outputs/screenshots/`. SSH host keys are kept in a separate known-hosts file. Device selection never resets USB pairing. See [validation](VALIDATION.md) for what was actually tested.
 
 ## Built on open source
 

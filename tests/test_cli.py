@@ -51,6 +51,13 @@ class NavigationCLITests(unittest.TestCase):
                     cli.main()
                 action.assert_called_once_with(*expected, generation=7)
 
+    def test_stop_passes_the_own_only_flag_through(self):
+        for arguments, own in ((["stop"], False), (["stop", "--own"], True)):
+            with self.subTest(arguments=arguments), patch("sys.argv", ["bridge", *arguments]), \
+                 patch.object(cli.lifecycle, "stop", return_value={"stopped": True}) as stop, \
+                 redirect_stdout(io.StringIO()):
+                cli.main()
+            stop.assert_called_once_with(own_only=own)
 
 if __name__ == "__main__":
     unittest.main()
