@@ -71,6 +71,50 @@ class PortabilityTests(unittest.TestCase):
         self.assertIn(f'UserKnownHostsFile="{self.paths.data / "known_hosts"}"', args)
         self.assertEqual(args[args.index("-p") + 1], "15422")
         self.assertEqual(args[args.index("-F") + 1], "/dev/null")
+        moved = transport.connection_snapshot({"udid": "a" * 24, "identity": None, "ssh_port": 15423},
+                                              "a" * 24, self.paths)
+        self.assertEqual(moved["ssh_port"], 15423)
+        args = transport.ssh_args(moved)
+        self.assertEqual(args[args.index("-p") + 1], "15423")
+        for bad in (None, "15422", 80, 15901):
+            with self.subTest(port=bad), self.assertRaisesRegex(RuntimeError, "USB SSH port"):
+                transport.ssh_args({**saved, "ssh_port": bad})
+
+    def test_usb_port_is_configurable_and_bounded(self):
+        self.assertEqual(settings.ssh_port(settings.load(self.paths)), 15422)
+        saved = settings.configure(ssh_port=15423, paths=self.paths)["settings"]
+        self.assertEqual(saved["ssh_port"], 15423)
+        self.assertEqual(settings.ssh_port(settings.load(self.paths)), 15423)
+        for port in (80, 65536, 15901, 15802, "15424"):
+            with self.subTest(port=port), self.assertRaisesRegex(RuntimeError, "USB SSH port"):
+                settings.configure(ssh_port=port, paths=self.paths)
+        self.assertEqual(settings.ssh_port(settings.load(self.paths)), 15423)
+        (self.paths.data / "state.json").write_text("{}")
+        with self.assertRaisesRegex(RuntimeError, "Stop the bridge"):
+            settings.configure(clear_ssh_port=True, paths=self.paths)
+        (self.paths.data / "state.json").unlink()
+        self.assertIsNone(settings.configure(clear_ssh_port=True, paths=self.paths)["settings"]["ssh_port"])
+        self.assertEqual(settings.ssh_port(settings.load(self.paths)), 15422)
+        # A config without a chosen port stays readable by builds that predate the setting.
+        self.assertNotIn("ssh_port", json.loads((self.paths.data / "config.json").read_text()))
+
+    def test_usb_forward_uses_the_recorded_port(self):
+        iproxy = self.paths.contents / "Helpers/usb/bin/iproxy"
+        iproxy.parent.mkdir(parents=True)
+        iproxy.write_text("#!/bin/sh\n")
+        iproxy.chmod(0o755)
+        info = {"connection": {"udid": "a" * 24, "ssh_port": 15423}}
+        with patch.object(lifecycle, "PATHS", self.paths), \
+             patch.object(transport, "identifiers", return_value=["a" * 24]), \
+             patch.object(lifecycle, "usb_owned", side_effect=[False, True]), \
+             patch.object(lifecycle, "usb_listeners", return_value={}) as listeners, \
+             patch.object(lifecycle, "available") as available, patch.object(lifecycle, "spawn") as spawn:
+            lifecycle.ensure_usb(info)
+        listeners.assert_called_once_with(15423)
+        available.assert_called_once_with(15423)
+        self.assertEqual(spawn.call_args.args[0],
+                         [str(iproxy), "-l", "-s", "127.0.0.1", "-u", "a" * 24, "15423:22"])
+        self.assertEqual(lifecycle.usb_port({}), 15422)
 
     def test_unknown_usb_listener_is_never_reused_or_stopped(self):
         for identity in ("", "Sun Oct 18 00:10:21 2026     /usr/bin/nc -l 15422"):
@@ -106,6 +150,20 @@ class PortabilityTests(unittest.TestCase):
                     self.assertIn(fragment, message)
                 spawn.assert_not_called()
                 kill.assert_not_called()
+
+    def test_foreign_forward_on_a_moved_port_is_still_named(self):
+        identity = "Tue Oct 27 09:45:02 2026     iproxy -u " + "a" * 24 + " -l -s 127.0.0.1 15423:22"
+        with patch.object(lifecycle, "usb_owned", return_value=False), \
+             patch.object(lifecycle, "usb_listeners", return_value={3476: {"127.0.0.1:15423"}}) as listeners, \
+             patch.object(processes, "process_identity", return_value=identity), \
+             patch.object(processes, "process_cwd", return_value="/Users/x/Code/Other"), \
+             patch.object(lifecycle, "spawn") as spawn, patch.object(lifecycle.os, "kill") as kill:
+            with self.assertRaisesRegex(RuntimeError, "USB port 15423 is held by an iPhoneBridge USB forward "
+                                                      r"\(pid 3476.*/Users/x/Code/Other.*nothing was stopped"):
+                lifecycle.ensure_usb({"connection": {"udid": "a" * 24, "ssh_port": 15423}})
+            listeners.assert_called_once_with(15423)
+            spawn.assert_not_called()
+            kill.assert_not_called()
 
     def test_occupied_mirror_port_names_the_bridge_that_holds_it(self):
         identity = ("Sun Oct 18 00:10:30 2026     /usr/bin/ssh -F /dev/null -p 15422 -o ExitOnForwardFailure=yes "

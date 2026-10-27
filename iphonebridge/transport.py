@@ -7,7 +7,7 @@ import subprocess
 from . import settings
 from .runtime import PATHS
 
-SSH_PORT = 15422
+SSH_PORT = settings.DEFAULT_SSH_PORT  # Each recorded connection carries the port it actually uses.
 PEER = "mobile@127.0.0.1"
 
 
@@ -44,7 +44,7 @@ def devices(paths=PATHS):
 def connection_snapshot(config, udid, paths=PATHS):
     values = settings.validate(config, check_identity=True)
     settings.select_device([udid], udid)
-    return {"udid": udid, "identity": values["identity"], "ssh_port": SSH_PORT,
+    return {"udid": udid, "identity": values["identity"], "ssh_port": settings.ssh_port(values),
             "known_hosts": str(paths.data / "known_hosts")}
 
 
@@ -54,8 +54,9 @@ def ssh_args(connection):
     udid = connection.get("udid")
     if not isinstance(udid, str) or not settings.UDID_PATTERN.fullmatch(udid):
         raise RuntimeError("Invalid saved device identity")
-    if connection.get("ssh_port") != SSH_PORT:
-        raise RuntimeError("Saved connection does not use the bridge-owned SSH port")
+    port = connection.get("ssh_port")
+    if not settings.valid_ssh_port(port):
+        raise RuntimeError("Saved connection does not record a valid bridge-owned USB SSH port")
     hosts = Path(connection.get("known_hosts", ""))
     if not hosts.is_absolute() or any(value in str(hosts) for value in ("\x00", "\n", "\r")):
         raise RuntimeError("Invalid saved host-key path")
@@ -64,7 +65,7 @@ def ssh_args(connection):
     args = ["/usr/bin/ssh", "-T", "-F", "/dev/null", "-o", "BatchMode=yes",
             "-o", "ConnectTimeout=5", "-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=2",
             "-o", "StrictHostKeyChecking=accept-new", "-o", f'UserKnownHostsFile="{hosts_option}"',
-            "-o", f"HostKeyAlias=iphonebridge-{udid}", "-p", str(SSH_PORT)]
+            "-o", f"HostKeyAlias=iphonebridge-{udid}", "-p", str(port)]
     identity = connection.get("identity")
     if identity:
         settings.validate({"identity": identity})

@@ -26,6 +26,12 @@ stills are read directly from the capture surface and never decoded from HEVC.
 and default SSH keys/agent. Stop before changing connection settings. No private
 key is included with the app or copied onto the phone.
 
+The bridge forwards the phone's SSH port to local port 15422. When another tool
+holds that port, `configure --ssh-port 15423` moves the bridge's forward to any
+port from 1024 to 65535 other than the mirror and fixture ports; `--clear-ssh-port`
+returns to the default. A running session keeps the port it started on, `status`
+reports it as `usb_port`, and the app's Settings keep it when saving a device or key.
+
 Use coordinates, dimensions and generation from a fresh screenshot. In these
 examples `2` stands for that screenshot's generation, not a fixed device value:
 
@@ -117,8 +123,9 @@ and payload integrity without contacting the phone.
 
 After a cable interruption, reconnect the same phone and choose Reconnect. If
 cleanup cannot be confirmed remotely, ownership records remain for safe recovery.
-Do not delete `state.json` to bypass a cleanup failure. The bridge owns USB SSH
-port 15422, native mirror port 15901, and optional fixture port 15802.
+Do not delete `state.json` to bypass a cleanup failure. The bridge owns its USB SSH
+port (15422 unless `configure --ssh-port` chose another), native mirror port 15901,
+and optional fixture port 15802.
 An occupied unrelated port is an error, not permission to terminate its owner.
 
 `connect` finishes the cleanup of a recorded session whose device link has ended

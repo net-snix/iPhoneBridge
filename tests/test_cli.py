@@ -51,6 +51,23 @@ class NavigationCLITests(unittest.TestCase):
                     cli.main()
                 action.assert_called_once_with(*expected, generation=7)
 
+    def test_configure_passes_port_flags_and_rejects_conflicting_ones(self):
+        cases = ((["configure", "--ssh-port", "15423"], {"ssh_port": 15423, "clear_ssh_port": False}),
+                 (["configure", "--clear-ssh-port"], {"ssh_port": None, "clear_ssh_port": True}))
+        for arguments, expected in cases:
+            with self.subTest(arguments=arguments), patch("sys.argv", ["bridge", *arguments]), \
+                 patch.object(cli.lifecycle, "configure", return_value={}) as configure, \
+                 redirect_stdout(io.StringIO()):
+                cli.main()
+            configure.assert_called_once_with(udid=None, identity=None, clear_udid=False, clear_identity=False,
+                                              **expected)
+        with patch("sys.argv", ["bridge", "configure", "--ssh-port", "15423", "--clear-ssh-port"]), \
+             patch.object(cli.lifecycle, "configure") as configure, redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as exited:
+                cli.main()
+            self.assertEqual(exited.exception.code, 2)
+            configure.assert_not_called()
+
     def test_stop_passes_the_own_only_flag_through(self):
         for arguments, own in ((["stop"], False), (["stop", "--own"], True)):
             with self.subTest(arguments=arguments), patch("sys.argv", ["bridge", *arguments]), \

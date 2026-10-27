@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 
 from . import transport
 
-BRIDGE_SHAPES = (("iproxy", f" {transport.SSH_PORT}:22", "USB forward"),
-                 ("ssh", "device-session.sh", "device session"))
+BRIDGE_SHAPES = ((re.compile(r"(^|/)iproxy .*\s\d+:22(\s|$)"), "USB forward"),
+                 (re.compile(r"(^|/)ssh .*device-session\.sh"), "device session"))
 
 
 def process_identity(pid):
@@ -64,8 +65,8 @@ def foreign_bridge_process(pid):
     """Name a listener another bridge instance spawned; the caller never signals it."""
     identity = process_identity(pid)
     command = identity[24:].strip()
-    for name, marker, role in BRIDGE_SHAPES:
-        if name in command and marker in command:
+    for shape, role in BRIDGE_SHAPES:
+        if shape.search(command):
             cwd = process_cwd(pid)
             hint = ("quit that app or use its Reconnect" if ".app/Contents/" in cwd
                     else "run ./bridge stop in that checkout")

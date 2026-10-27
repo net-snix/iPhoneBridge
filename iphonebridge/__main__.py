@@ -23,6 +23,10 @@ def main():
     key_options = configure.add_mutually_exclusive_group()
     key_options.add_argument("--identity", help="Absolute path to an existing SSH key; key contents are never copied")
     key_options.add_argument("--clear-identity", action="store_true")
+    port_options = configure.add_mutually_exclusive_group()
+    port_options.add_argument("--ssh-port", type=int,
+                              help="Local port for the bridge's USB SSH forward (default 15422)")
+    port_options.add_argument("--clear-ssh-port", action="store_true", help="Return to the default USB SSH port")
     tap = commands.add_parser("tap")
     tap.add_argument("x", type=int)
     tap.add_argument("y", type=int)
@@ -68,8 +72,9 @@ def main():
         print(json.dumps(fixture.start(), indent=2))
         return
     if args.command == "configure":
-        result = lifecycle.configure(udid=args.udid, identity=args.identity,
-                                     clear_udid=args.clear_udid, clear_identity=args.clear_identity)
+        result = lifecycle.configure(udid=args.udid, identity=args.identity, ssh_port=args.ssh_port,
+                                     clear_udid=args.clear_udid, clear_identity=args.clear_identity,
+                                     clear_ssh_port=args.clear_ssh_port)
     elif args.command == "stop":
         result = lifecycle.stop(own_only=args.own)
     elif args.command in ("deploy", "connect", "start", "status", "devices", "health"):

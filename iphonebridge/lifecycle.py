@@ -181,29 +181,34 @@ def available(port):
                 port, held, f"Local port {port} is already in use; no existing process was changed")) from None
 
 
-def usb_listeners():
-    return listeners(transport.SSH_PORT)
+def usb_port(info):
+    """The local port of the recorded session's USB forward; the configured default without one."""
+    return settings.ssh_port(info.get("connection") or {})
+
+
+def usb_listeners(port):
+    return listeners(port)
 
 
 def usb_owned(info):
     entry = info.get("usb")
-    return owned_process(entry) and usb_listeners() == {
-        entry["pid"]: {f"127.0.0.1:{transport.SSH_PORT}"}}
+    port = usb_port(info)
+    return owned_process(entry) and usb_listeners(port) == {entry["pid"]: {f"127.0.0.1:{port}"}}
 
 
 def ensure_usb(info):
     if usb_owned(info):
         return
-    held = usb_listeners()
+    port = usb_port(info)
+    held = usb_listeners(port)
     if held:
         raise RuntimeError(port_held_message(
-            transport.SSH_PORT, held,
-            f"USB port {transport.SSH_PORT} belongs to an unverified process; nothing was stopped", "USB port"))
+            port, held, f"USB port {port} belongs to an unverified process; nothing was stopped", "USB port"))
     connection = info["connection"]
     settings.select_device(transport.identifiers(PATHS), connection["udid"])
-    available(transport.SSH_PORT)
-    spawn([PATHS.tool("iproxy"), "-l", "-s", "127.0.0.1", "-u", connection["udid"],
-           f"{transport.SSH_PORT}:22"], "usb", info, "usb")
+    available(port)
+    spawn([PATHS.tool("iproxy"), "-l", "-s", "127.0.0.1", "-u", connection["udid"], f"{port}:22"],
+          "usb", info, "usb")
     for _ in range(30):
         if usb_owned(info):
             return
@@ -395,7 +400,7 @@ def status():
     remaining = legacy_record()
     return {"running": running, "connected": connected, "viewer": "native",
             "endpoint": "127.0.0.1:15901", "protocol": "IPBM/1" if connected else None,
-            "owner": info.get("owner"),
+            "owner": info.get("owner"), "usb_port": settings.ssh_port(info.get("connection") or config),
             "selected_udid": info.get("connection", {}).get("udid") or config["udid"],
             "services": services, "settings": config, "data_directory": str(WORK),
             "config_path": str(WORK / "config.json"),

@@ -266,6 +266,7 @@ class LifecycleTests(unittest.TestCase):
         with patch.object(lifecycle, "owned_process", return_value=False):
             result = lifecycle.status()
         self.assertEqual(result["owner"]["root"], "/tmp/other")
+        self.assertEqual(result["usb_port"], 15422)
         self.assertEqual(result["legacy_record"], str(path))
         self.assertEqual(result["data_directory"], str(self.work))
 

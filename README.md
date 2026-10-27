@@ -77,7 +77,7 @@ GPT-6 Astra setup with this adapter, follow [Codex setup](docs/USAGE.md#gpt-6-as
 flowchart LR
     App[AppKit · VideoToolbox decode] --> Protocol[IPBM/1 · loopback :15901]
     Agent[MCP / CLI · lossless PNG] --> Protocol
-    Protocol --> SSH[SSH over USB · owned :15422]
+    Protocol --> SSH[SSH over USB · owned :15422 by default]
     SSH --> Phone[Native daemon · HEVC + lossless stills]
 ```
 

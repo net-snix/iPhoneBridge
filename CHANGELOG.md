@@ -10,6 +10,9 @@
   runs `stop --own` and leaves sessions it did not start running. Port collisions
   name the checkout or app whose forward holds the port, and a record left in a
   checkout's `work/` by older bridge code is adopted on first use.
+- Add `configure --ssh-port` so the bridge's USB SSH forward can own another local
+  port when 15422 is taken by something else; `status` reports it as `usb_port`,
+  and a held port names a foreign bridge-shaped forward whatever port it uses.
 - Pin the project's Codex baseline to GPT-6 Astra and document native MCP setup.
 - Require screenshot generation on CLI/MCP input, rejecting stale coordinates
   even when a rotation keeps the same framebuffer dimensions.
